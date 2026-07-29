@@ -3,12 +3,74 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Canonical domain: always the apex (non-www) origin. See .claude/rules/09-seo.md -->
+    <link rel="canonical" href="https://afethub.com/" />
+
     <link rel="icon" type="image/png" href="/logo_icon.png" />
+    <link rel="apple-touch-icon" href="/logo_icon.png" />
+
     <title>AfetHUB — Afet yardım koordinasyonu</title>
-    <meta name="description" content="Gerçek zamanlı afet ihtiyaçlarını takip et, teslimatları bildir ve yardımın koordinasyonuna katkı sun. Hesap gerekmez." />
+    <meta
+      name="description"
+      content="Gerçek zamanlı afet ihtiyaçlarını takip et, teslimatları bildir ve yardımın koordinasyonuna katkı sun. Hesap gerekmez."
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#0B1E30" />
+
+    <!-- Open Graph (Facebook, WhatsApp, LinkedIn, Telegram) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="AfetHUB" />
+    <meta property="og:locale" content="tr_TR" />
+    <meta property="og:title" content="AfetHUB — Afet yardım koordinasyonu" />
+    <meta
+      property="og:description"
+      content="Gerçek zamanlı afet ihtiyaçlarını takip et, teslimatları bildir ve yardımın koordinasyonuna katkı sun. Hesap gerekmez."
+    />
+    <meta property="og:url" content="https://afethub.com/" />
+    <meta property="og:image" content="https://afethub.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="AfetHUB — Afet yardım koordinasyonu" />
+
+    <!-- Twitter / X Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="AfetHUB — Afet yardım koordinasyonu" />
+    <meta
+      name="twitter:description"
+      content="Gerçek zamanlı afet ihtiyaçlarını takip et, teslimatları bildir ve yardımın koordinasyonuna katkı sun. Hesap gerekmez."
+    />
+    <meta name="twitter:image" content="https://afethub.com/og-image.png" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- Structured data: Organization + WebSite (JSON-LD, Google's preferred format).
+         Kept truthful: no unverified official affiliation, no fake social profiles. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://afethub.com/#organization",
+            "name": "AfetHUB",
+            "url": "https://afethub.com/",
+            "logo": "https://afethub.com/logo_icon.png",
+            "description": "AfetHUB, afet dönemlerinde doğrulanmış ihtiyaçları, gelen fiziksel yardımı, gönüllüleri ve teslim noktalarını koordine eden bağımsız bir sivil koordinasyon platformudur."
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://afethub.com/#website",
+            "name": "AfetHUB",
+            "url": "https://afethub.com/",
+            "inLanguage": "tr-TR",
+            "publisher": { "@id": "https://afethub.com/#organization" }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

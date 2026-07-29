@@ -1,5 +1,6 @@
-import type { ReactElement } from 'react';
+import { useEffect, type ReactElement } from 'react';
 import { useApp } from './store';
+import { applyRouteMeta } from './seo';
 import { C } from './theme';
 import { Toolbar } from './components/Toolbar';
 import { Header } from './components/Header';
@@ -25,6 +26,16 @@ export function App() {
   const mob = a.device === 'mobile';
   const coord = a.role === 'coordinator';
   const frame = a.frame; // 412px phone mock-up wrapper (dev preview only)
+
+  // Keep title / description / robots / canonical / og:* in sync with the active
+  // path route as the user navigates. See src/seo.ts and .claude/rules/09-seo.md.
+  useEffect(() => {
+    applyRouteMeta(a.route, {
+      disasterName: a.snap?.disaster.name,
+      slug: a.currentSlug || a.snap?.disaster.slug,
+      tab: a.tab,
+    });
+  }, [a.route, a.tab, a.currentSlug, a.snap]);
 
   const screens: Record<string, () => ReactElement | null> = {
     home: Home, disaster: Disaster, report: Report, track: Track, needReq: NeedRequest,

@@ -1,0 +1,18 @@
+# AfetHUB — robots.txt
+# Canonical host: https://afethub.com  (www.afethub.com 308-redirects to the apex)
+
+# Search engines: full access. The app is a public disaster-coordination platform;
+# there is no private path to disallow (coordinator/system views are behind auth and
+# are not distinct crawlable URLs).
+User-agent: *
+Allow: /
+
+# AI crawlers: intentionally ALLOWED.
+# Being cited by AI assistants (ChatGPT, Perplexity, Gemini, Claude) helps a
+# public-good platform reach people who need it. Revisit this decision in
+# .claude/rules/09-seo.md if the strategy changes.
+# To block AI training crawlers later, add e.g.:
+#   User-agent: GPTBot
+#   Disallow: /
+
+Sitemap: https://afethub.com/sitemap.xml

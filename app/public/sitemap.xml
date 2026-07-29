@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AfetHUB sitemap.
+  Routing is now path-based (History API), so each screen is a real, crawlable URL.
+  List only PUBLIC, indexable paths here (coordinator/system/demo views are noindex).
+  Disaster paths are per active disaster — add/remove <url> entries as disasters
+  change, or generate this file at build time from the disaster list.
+  <priority>/<changefreq> are intentionally omitted — Google ignores them.
+  Keep <lastmod> truthful (real content-change date). See .claude/rules/09-seo.md.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://afethub.com/</loc>
+    <lastmod>2026-07-29</lastmod>
+  </url>
+  <url>
+    <loc>https://afethub.com/afet/seydikemer-orman-yangini</loc>
+    <lastmod>2026-07-29</lastmod>
+  </url>
+  <url>
+    <loc>https://afethub.com/bildir</loc>
+    <lastmod>2026-07-29</lastmod>
+  </url>
+  <url>
+    <loc>https://afethub.com/talep</loc>
+    <lastmod>2026-07-29</lastmod>
+  </url>
+  <url>
+    <loc>https://afethub.com/takip</loc>
+    <lastmod>2026-07-29</lastmod>
+  </url>
+</urlset>
