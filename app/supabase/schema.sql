@@ -175,7 +175,7 @@ create table if not exists audit_log (
 );
 -- Audit rows are append-only: block updates and deletes at the DB level.
 create or replace function audit_log_immutable()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = public as $$
 begin
   raise exception 'audit_log is immutable';
 end $$;
@@ -324,10 +324,10 @@ create policy profiles_self_update on profiles for update using (id = auth.uid()
 create or replace function track_submission(p_code text, p_email text)
 returns table (
   code text, qty integer, unit text, need_name text, location_name text,
-  submitted_at timestamptz, status submission_status, verified_qty integer, note text
+  submitted_at timestamptz, status submission_status, verified_qty integer, note text, photo_url text
 ) language sql security definer set search_path = public as $$
   select s.code, s.qty, s.unit, n.name, s.location_name,
-         s.submitted_at, s.status, s.verified_qty, s.note
+         s.submitted_at, s.status, s.verified_qty, s.note, s.photo_url
   from submissions s join needs n on n.id = s.need_id
   where upper(s.code) = upper(trim(p_code))
     and lower(s.contributor_email) = lower(trim(p_email));
@@ -344,3 +344,15 @@ end $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
   for each row execute function handle_new_user();
+
+-- =============================================================================
+-- Hardening: least privilege on SECURITY DEFINER functions
+-- =============================================================================
+-- handle_new_user is a trigger only — never a public RPC.
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+-- verify_submission is coordinator-only (also guarded internally by is_coordinator()).
+revoke execute on function public.verify_submission(uuid, text, integer, text) from public, anon;
+grant  execute on function public.verify_submission(uuid, text, integer, text) to authenticated;
+-- track_submission stays callable by anon/authenticated by design (public code+email
+-- lookup that returns non-PII fields); is_coordinator stays callable because RLS
+-- policies invoke it and it returns false for anon.

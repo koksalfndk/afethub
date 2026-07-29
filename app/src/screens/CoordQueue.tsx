@@ -57,6 +57,7 @@ export function CoordQueue() {
                     <td style={{ padding: '13px 14px', verticalAlign: 'top' }}>
                       <div style={{ fontSize: 14, fontWeight: 600, color: C.navy }}>{s.contributor}</div>
                       <div style={{ fontSize: 12.5, color: C.muted2 }}>{s.city} · {s.code}</div>
+                      {s.photoUrl && <a href={s.photoUrl} target="_blank" rel="noreferrer"><img src={s.photoUrl} alt="" style={{ marginTop: 6, width: 44, height: 44, objectFit: 'cover', borderRadius: 6, border: `1px solid ${C.borderSoft}`, display: 'block' }} /></a>}
                     </td>
                     <td style={{ padding: '13px 14px', verticalAlign: 'top' }}>
                       <div style={{ fontSize: 14, color: C.heading2 }}>{s.needName}</div>

@@ -70,7 +70,7 @@ export class SupabaseRepo implements Repo {
       city: String(r.city), needId: String(r.need_id), qty: Number(r.qty), unit: String(r.unit),
       loc: String(r.location_name), submitted: rel(String(r.submitted_at)),
       status: r.status as StatusKey, verifiedQty: r.verified_qty == null ? null : Number(r.verified_qty),
-      note: String(r.note),
+      note: String(r.note), photoUrl: r.photo_url ? String(r.photo_url) : null,
     }));
 
     const log: LogEntry[] = (lg.data ?? []).map((r: Record<string, unknown>) => ({
@@ -97,6 +97,7 @@ export class SupabaseRepo implements Repo {
       contributor_name: f.name, contributor_email: f.email, contributor_phone: f.phone, city: f.city,
       qty: f.qty, unit: f.unit || need?.unit || 'adet', location_name: f.loc,
       status: 'Pending verification', note: f.notes || 'Giriş kontrolü bekleniyor.',
+      photo_url: f.photoUrl ?? null,
     });
     await this.db.from('needs').update({ pending_qty: (need?.pending ?? 0) + f.qty }).eq('id', f.needId);
     return { snapshot: await this.getSnapshot(), code };
@@ -152,6 +153,7 @@ export class SupabaseRepo implements Repo {
       id: r.code, code: r.code, contributor: '', city: '', needId: '', qty: Number(r.qty), unit: r.unit,
       loc: r.location_name, submitted: rel(r.submitted_at), status: r.status as StatusKey,
       verifiedQty: r.verified_qty == null ? null : Number(r.verified_qty), note: r.note,
+      photoUrl: r.photo_url ?? null, needName: r.need_name ?? '',
     };
   }
 }

@@ -58,7 +58,7 @@ export class LocalRepo implements Repo {
       {
         id: code, code, contributor: f.name, city: f.city, needId: f.needId, qty: f.qty, unit,
         loc: f.loc, submitted: NOW, status: 'Pending verification', verifiedQty: null,
-        note: f.notes || 'Giriş kontrolü bekleniyor.',
+        note: f.notes || 'Giriş kontrolü bekleniyor.', photoUrl: f.photoUrl ?? null,
       },
       ...subs,
     ];

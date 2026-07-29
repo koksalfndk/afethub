@@ -45,7 +45,7 @@ export function Track() {
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, color: C.muted2 }}>{sub.code}</div>
-              <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>{sub.qty} {sub.unit} · {need?.name ?? ''}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>{sub.qty} {sub.unit} · {sub.needName || need?.name || ''}</div>
               <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{sub.loc} · {tr.track.lastUpdated(sub.submitted)}</div>
             </div>
             <span style={{ fontSize: 12.5, fontWeight: 700, color: st.fg, background: st.bg, border: `1px solid ${st.border}`, borderRadius: 20, padding: '6px 11px', whiteSpace: 'nowrap' }}>{statusLabel[sub.status]}</span>
@@ -64,6 +64,12 @@ export function Track() {
             <div style={{ fontSize: 12, color: C.muted2, fontWeight: 600 }}>{tr.track.coordNotes}</div>
             <div style={{ fontSize: 13.5, color: C.heading2, marginTop: 3 }}>{sub.note}</div>
           </div>
+          {sub.photoUrl && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 12, color: C.muted2, fontWeight: 600, marginBottom: 6 }}>{tr.report.photoLabel}</div>
+              <a href={sub.photoUrl} target="_blank" rel="noreferrer"><img src={sub.photoUrl} alt="" style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 10, border: `1px solid ${C.border}` }} /></a>
+            </div>
+          )}
           <div style={{ marginTop: 16 }}>
             {timeline.map((s, i) => (
               <div key={i} style={{ display: 'grid', gridTemplateColumns: '18px 1fr', gap: 12 }}>

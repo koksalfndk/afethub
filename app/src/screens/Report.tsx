@@ -3,6 +3,7 @@ import { tr } from '../i18n/strings';
 import { C } from '../theme';
 import { enrichSorted, cols } from '../select';
 import { Field, inputStyle, eyebrow, StatusBadge } from '../ui';
+import { PhotoUploader } from '../components/PhotoUploader';
 
 export function Report() {
   const a = useApp();
@@ -91,13 +92,7 @@ export function Report() {
             <Field label={tr.report.fields.notes} hint={tr.report.fields.optional} full>
               <textarea value={f.notes} onChange={(e) => a.setForm('notes', e.target.value)} rows={3} placeholder={tr.report.fields.notesPh} style={{ ...inputStyle, minHeight: undefined, resize: 'vertical' }} />
             </Field>
-            <div style={{ gridColumn: '1 / -1', border: `1px dashed ${C.borderSoft}`, borderRadius: 10, padding: 14, display: 'flex', alignItems: 'center', gap: 12, background: C.canvas }}>
-              <span style={{ width: 38, height: 38, borderRadius: 8, background: '#E4EBF1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, color: C.muted, fontWeight: 700 }}>+</span>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: C.heading2 }}>{tr.report.photoTitle}</div>
-                <div style={{ fontSize: 12.5, color: C.muted2 }}>{tr.report.photoBody}</div>
-              </div>
-            </div>
+            <PhotoUploader value={f.photoUrl} onChange={(url) => a.setForm('photoUrl', url)} />
           </div>
         </div>
 

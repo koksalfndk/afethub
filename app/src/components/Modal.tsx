@@ -45,6 +45,11 @@ export function Modal() {
             {statCard(tr.modal.remainingNow, `${remNow} ${need.unit}`)}
             {statCard(tr.modal.afterApproval, `${remAfter} ${need.unit}`, 'green')}
           </div>
+          {sub.photoUrl && (
+            <a href={sub.photoUrl} target="_blank" rel="noreferrer" style={{ display: 'block' }}>
+              <img src={sub.photoUrl} alt="" style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 10, border: `1px solid ${C.border}` }} />
+            </a>
+          )}
           {isApprove && (
             <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <span style={labelText}>{tr.modal.verifiedQty}</span>
