@@ -13,11 +13,11 @@ delete from locations;
 delete from disasters;
 
 -- Fixed UUIDs so relationships are stable and re-runnable.
-insert into disasters (id, name, region, status, situation, opened_at, updated_at) values
-('d0000000-0000-0000-0000-0000000000d1',
+insert into disasters (id, slug, name, region, status, situation, opened_at, volunteers, on_shift, updated_at) values
+('d0000000-0000-0000-0000-0000000000d1', 'seydikemer-orman-yangini',
  'Seydikemer Orman Yangını', 'Seydikemer, Muğla · Türkiye', 'Active',
  'Kuzey sırtındaki yangın cepheleri kontrol altında; dört mahalle hâlâ tahliye halinde. Sahada 168 gönüllü kayıtlı. Yardım girişi 08:00–22:00 arası kapalı pazar yerinden yapılıyor, bu akşam ikinci bir giriş noktası açılıyor.',
- date '2026-07-21', now() - interval '4 minutes');
+ date '2026-07-21', 168, 24, now() - interval '4 minutes');
 
 insert into locations (id, disaster_id, name, address, hours, accepts, contact_name, contact_phone, status, lat, lng) values
 ('10c00000-0000-0000-0000-000000000001','d0000000-0000-0000-0000-0000000000d1','Seydikemer Kapalı Pazar Yeri','Atatürk Cd. 14, Seydikemer / Muğla','Her gün 08:00 – 22:00','Tıbbi, hijyen, giyim, enerji','Elif Kaya','+90 555 210 44 18','Teslim alıyor',36.6321,29.3187),

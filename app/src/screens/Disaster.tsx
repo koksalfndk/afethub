@@ -3,6 +3,7 @@ import { tr } from '../i18n/strings';
 import { C } from '../theme';
 import { enrichSorted, cols } from '../select';
 import { PriorityBadge, ProgressBar, Chip } from '../ui';
+import { LocationMap } from '../components/LocationMap';
 import type { Filter, Tab } from '../store';
 
 const FILTERS: Filter[] = ['All', 'Critical', 'Urgent', 'Normal', 'Completed'];
@@ -166,11 +167,9 @@ export function Disaster() {
         <div style={{ display: 'grid', gap: 14, gridTemplateColumns: L.two }}>
           {a.snap.locations.map((l) => (
             <div key={l.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
-              <div style={{ height: 132, background: '#E4EBF1', position: 'relative', borderBottom: `1px solid ${C.border}` }}>
-                <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(#D5DFE8 1px, transparent 1px), linear-gradient(90deg, #D5DFE8 1px, transparent 1px)', backgroundSize: '26px 26px' }} />
-                <div style={{ position: 'absolute', left: 0, right: 0, top: '46%', height: 10, background: '#CBD6E0' }} />
-                <div style={{ position: 'absolute', left: '44%', top: '34%', width: 22, height: 22, borderRadius: '50%', background: C.emergency, border: '3px solid #fff', boxShadow: '0 2px 6px rgba(16,42,67,.25)' }} />
-                <span style={{ position: 'absolute', bottom: 8, left: 10, background: 'rgba(255,255,255,.92)', border: `1px solid ${C.borderSoft}`, borderRadius: 6, padding: '4px 8px', fontSize: 11.5, fontWeight: 600, color: C.heading2 }}>{l.coords}</span>
+              <div style={{ height: 132, position: 'relative', borderBottom: `1px solid ${C.border}` }}>
+                <LocationMap lat={l.lat} lng={l.lng} tone={l.statusTone} label={l.name} />
+                <span style={{ position: 'absolute', bottom: 8, left: 10, zIndex: 500, background: 'rgba(255,255,255,.92)', border: `1px solid ${C.borderSoft}`, borderRadius: 6, padding: '4px 8px', fontSize: 11.5, fontWeight: 600, color: C.heading2 }}>{l.coords}</span>
               </div>
               <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>

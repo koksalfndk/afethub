@@ -42,7 +42,7 @@ export function Home() {
           <h1 style={{ fontSize: L.h1, lineHeight: 1.08, letterSpacing: '-.025em', fontWeight: 700, margin: '16px 0 0', color: C.navy }}>{tr.home.heroTitle1}<br />{tr.home.heroTitle2}</h1>
           <p style={{ fontSize: 16, color: C.text, margin: '14px 0 0', maxWidth: '46ch' }}>{tr.home.heroBody}</p>
           <div style={{ display: 'flex', gap: 10, marginTop: 22, flexWrap: 'wrap' }}>
-            <Btn variant="emergency" className="hv-emergency" onClick={() => a.go('disaster', { tab: 'needs' })}>{tr.home.viewNeeds}</Btn>
+            <Btn variant="emergency" className="hv-emergency" onClick={() => a.openDisaster(a.snap!.disaster.slug, 'needs')}>{tr.home.viewNeeds}</Btn>
             <Btn variant="secondary" className="hv-navy" onClick={() => a.go('report')}>{tr.home.reportAid}</Btn>
           </div>
           <div style={{ display: 'flex', gap: 22, marginTop: 24, flexWrap: 'wrap' }}>
@@ -59,8 +59,13 @@ export function Home() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
             {topNeeds.map((n) => (
               <button key={n.id} onClick={() => a.prefillReport(n.id, n.unit, n.loc)} className="hv-navy" style={{ textAlign: 'left', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: '12px 13px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                  <span style={{ fontSize: 14.5, fontWeight: 600, color: C.navy }}>{n.name}</span>
+                <span style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                  <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ fontSize: 14.5, fontWeight: 600, color: C.navy }}>{n.name}</span>
+                    <span style={{ fontSize: 11.5, color: C.muted2, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.emergency, flex: '0 0 6px' }} />{n.disasterName}
+                    </span>
+                  </span>
                   <PriorityBadge p={n.priority} />
                 </span>
                 <ProgressBar pct={n.pctVal} color={n.barColor} height={6} />
@@ -77,29 +82,31 @@ export function Home() {
           <span style={{ fontSize: 13, color: C.muted }}>{tr.common.updated(a.snap.disaster.updatedLabel)}</span>
         </div>
         <div style={{ display: 'grid', gap: 14, gridTemplateColumns: L.card }}>
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 17, fontWeight: 700, color: C.navy }}>{a.snap.disaster.name}</div>
-                <div style={{ fontSize: 13.5, color: C.muted, marginTop: 3 }}>{a.snap.disaster.region}</div>
-              </div>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#FEF3F2', color: C.emergency, border: '1px solid #F6C9C9', borderRadius: 20, padding: '4px 10px', fontSize: 12, fontWeight: 700 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.emergency }} />{tr.home.active}
-              </span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 10, marginTop: 16 }}>
-              {disasterStats.map((s) => (
-                <div key={s.label} style={{ background: C.canvas, border: `1px solid ${C.border}`, borderRadius: 9, padding: '10px 12px' }}>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: s.color }}>{s.value}</div>
-                  <div style={{ fontSize: 12, color: C.muted, fontWeight: 500 }}>{s.label}</div>
+          {a.snap.disasters.filter((d) => d.status === 'Active').map((d) => (
+            <div key={d.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: C.navy }}>{d.name}</div>
+                  <div style={{ fontSize: 13.5, color: C.muted, marginTop: 3 }}>{d.region}</div>
                 </div>
-              ))}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#FEF3F2', color: C.emergency, border: '1px solid #F6C9C9', borderRadius: 20, padding: '4px 10px', fontSize: 12, fontWeight: 700 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.emergency }} />{tr.home.active}
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 10, marginTop: 16 }}>
+                {disasterStats.map((s) => (
+                  <div key={s.label} style={{ background: C.canvas, border: `1px solid ${C.border}`, borderRadius: 9, padding: '10px 12px' }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: s.color }}>{s.value}</div>
+                    <div style={{ fontSize: 12, color: C.muted, fontWeight: 500 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12.5, color: C.muted2 }}>{tr.common.updated(d.updatedLabel)}</span>
+                <button onClick={() => a.openDisaster(d.slug, 'overview')} style={{ background: C.navy, border: `1px solid ${C.navy}`, color: '#fff', borderRadius: 9, padding: '11px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>{tr.home.openCoordination}</button>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12.5, color: C.muted2 }}>{tr.common.updated(a.snap.disaster.updatedLabel)}</span>
-              <button onClick={() => a.go('disaster', { tab: 'overview' })} style={{ background: C.navy, border: `1px solid ${C.navy}`, color: '#fff', borderRadius: 9, padding: '11px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>{tr.home.openCoordination}</button>
-            </div>
-          </div>
+          ))}
           <div style={{ background: C.surface, border: `1px dashed ${C.borderSoft}`, borderRadius: 12, padding: 18, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.heading2 }}>{tr.home.noOtherTitle}</div>
             <div style={{ fontSize: 13.5, color: C.muted }}>{tr.home.noOtherBody}</div>

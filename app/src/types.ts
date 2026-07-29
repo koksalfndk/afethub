@@ -4,16 +4,20 @@ export type { PriorityKey, StatusKey };
 
 export interface Disaster {
   id: string;
+  slug: string;          // URL-safe, e.g. "seydikemer-orman-yangini"
   name: string;
   region: string;
   status: 'Active' | 'Resolved' | 'Archived';
   situation: string;
   openedAt: string;      // display string, e.g. "21 Temmuz"
   updatedLabel: string;  // display string, e.g. "4 dakika önce"
+  volunteers: number;    // registered on site
+  onShift: number;       // on shift now
 }
 
 export interface Location {
   id: string;
+  disasterId: string;
   name: string;
   address: string;
   hours: string;
@@ -22,11 +26,16 @@ export interface Location {
   phone: string;
   status: string;        // display copy
   statusTone: 'green' | 'yellow';
-  coords: string;
+  coords: string;        // display string, e.g. "36.6321° K, 29.3187° D"
+  lat: number;
+  lng: number;
 }
 
 export interface Need {
   id: string;
+  disasterId: string;
+  disasterName: string;  // denormalized for cross-disaster lists (home "en acil")
+  disasterSlug: string;
   name: string;
   cat: string;           // Turkish category display string
   priority: PriorityKey; // canonical

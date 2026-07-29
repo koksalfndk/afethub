@@ -7,10 +7,11 @@ import type {
 // a fresh snapshot so the store can re-render. This same interface is backed by
 // the in-memory LocalRepo now and by SupabaseRepo when env vars are present.
 export interface Snapshot {
-  disaster: Disaster;
-  locations: Location[];
-  needs: Need[];
-  subs: Submission[];
+  disaster: Disaster;        // the current disaster (by slug)
+  disasters: Disaster[];     // all disasters, for the home listing / navigation
+  locations: Location[];     // current disaster's delivery points
+  needs: Need[];             // current disaster's needs
+  subs: Submission[];        // current disaster's submissions
   log: LogEntry[];
   announcements: Announcement[];
   verifiedTotal: number;
@@ -23,7 +24,7 @@ export interface CreateDeliveryResult {
 
 export interface Repo {
   readonly kind: 'local' | 'supabase';
-  getSnapshot(): Promise<Snapshot>;
+  getSnapshot(slug?: string): Promise<Snapshot>;
   createDelivery(input: DeliveryInput): Promise<CreateDeliveryResult>;
   verifySubmission(subId: string, kind: VerifyKind, qty: number, reason: string): Promise<Snapshot>;
   publishNeed(draft: NeedDraft): Promise<Snapshot>;

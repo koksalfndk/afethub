@@ -25,9 +25,9 @@ export class SupabaseRepo implements Repo {
   private db: SupabaseClient;
   constructor(db: SupabaseClient) { this.db = db; }
 
-  async getSnapshot(): Promise<Snapshot> {
-    const [d, loc, ne, su, lg, an] = await Promise.all([
-      this.db.from('disasters').select('*').eq('status', 'Active').limit(1).maybeSingle(),
+  async getSnapshot(slug?: string): Promise<Snapshot> {
+    const [ds, loc, ne, su, lg, an] = await Promise.all([
+      this.db.from('disasters').select('*'),
       this.db.from('locations').select('*'),
       this.db.from('needs').select('*'),
       this.db.from('submissions').select('*').order('submitted_at', { ascending: false }),
@@ -35,26 +35,31 @@ export class SupabaseRepo implements Repo {
       this.db.from('announcements').select('*').order('created_at', { ascending: false }),
     ]);
 
-    const dd = d.data as Record<string, unknown> | null;
-    const disaster: Disaster = {
-      id: String(dd?.id ?? 'd1'),
-      name: String(dd?.name ?? ''),
-      region: String(dd?.region ?? ''),
-      status: (dd?.status as Disaster['status']) ?? 'Active',
-      situation: String(dd?.situation ?? ''),
-      openedAt: String(dd?.opened_at ?? ''),
-      updatedLabel: dd?.updated_at ? rel(String(dd.updated_at)) : '',
-    };
+    const mapDisaster = (r: Record<string, unknown>): Disaster => ({
+      id: String(r.id), slug: String(r.slug ?? ''), name: String(r.name), region: String(r.region ?? ''),
+      status: (r.status as Disaster['status']) ?? 'Active', situation: String(r.situation ?? ''),
+      openedAt: String(r.opened_at ?? ''), updatedLabel: r.updated_at ? rel(String(r.updated_at)) : '',
+      volunteers: Number(r.volunteers ?? 0), onShift: Number(r.on_shift ?? 0),
+    });
+    const disasters: Disaster[] = (ds.data ?? []).map(mapDisaster);
+    const disaster = disasters.find((x) => x.slug === slug)
+      ?? disasters.find((x) => x.status === 'Active') ?? disasters[0]
+      ?? { id: 'd1', slug: '', name: '', region: '', status: 'Active' as const, situation: '', openedAt: '', updatedLabel: '', volunteers: 0, onShift: 0 };
+    const byId = new Map(disasters.map((x) => [x.id, x] as const));
 
-    const locations: Location[] = (loc.data ?? []).map((r: Record<string, unknown>) => ({
-      id: String(r.id), name: String(r.name), address: String(r.address), hours: String(r.hours),
+    const locations: Location[] = (loc.data ?? []).filter((r: Record<string, unknown>) => String(r.disaster_id) === disaster.id).map((r: Record<string, unknown>) => ({
+      id: String(r.id), disasterId: String(r.disaster_id), name: String(r.name), address: String(r.address), hours: String(r.hours),
       accepts: String(r.accepts), contact: String(r.contact_name), phone: String(r.contact_phone),
       status: String(r.status), statusTone: String(r.status).match(/00/) ? 'yellow' : 'green',
       coords: r.lat != null && r.lng != null ? `${r.lat}° K, ${r.lng}° D` : '',
+      lat: Number(r.lat ?? 0), lng: Number(r.lng ?? 0),
     }));
 
-    const needs: Need[] = (ne.data ?? []).map((r: Record<string, unknown>) => ({
-      id: String(r.id), name: String(r.name), cat: String(r.category),
+    const needs: Need[] = (ne.data ?? []).filter((r: Record<string, unknown>) => String(r.disaster_id) === disaster.id).map((r: Record<string, unknown>) => ({
+      id: String(r.id), disasterId: String(r.disaster_id),
+      disasterName: byId.get(String(r.disaster_id))?.name ?? disaster.name,
+      disasterSlug: byId.get(String(r.disaster_id))?.slug ?? disaster.slug,
+      name: String(r.name), cat: String(r.category),
       priority: r.priority as PriorityKey, required: Number(r.required_qty),
       verified: Number(r.verified_qty), pending: Number(r.pending_qty), unit: String(r.unit),
       updated: rel(String(r.updated_at)), loc: String(r.location_name),
@@ -80,7 +85,7 @@ export class SupabaseRepo implements Repo {
     }));
 
     const verifiedTotal = subs.filter((s) => s.status === 'Verified' || s.status === 'Partially verified').length;
-    return { disaster, locations, needs, subs, log, announcements, verifiedTotal };
+    return { disaster, disasters, locations, needs, subs, log, announcements, verifiedTotal };
   }
 
   async createDelivery(f: DeliveryInput): Promise<CreateDeliveryResult> {

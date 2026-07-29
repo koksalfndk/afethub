@@ -55,14 +55,23 @@ $$;
 -- ---------- Disasters --------------------------------------------------------
 create table if not exists disasters (
   id           uuid primary key default gen_random_uuid(),
+  slug         text not null unique,
   name         text not null,
   region       text not null default '',
   status       disaster_status not null default 'Active',
   situation    text not null default '',
   opened_at    date,
+  volunteers   integer not null default 0,
+  on_shift     integer not null default 0,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
+-- Self-healing: if an older disasters table already existed, add the new columns.
+alter table disasters add column if not exists slug       text;
+alter table disasters add column if not exists volunteers integer not null default 0;
+alter table disasters add column if not exists on_shift   integer not null default 0;
+update disasters set slug = 'afet-' || left(id::text, 8) where slug is null or slug = '';
+create unique index if not exists disasters_slug_key on disasters (slug);
 
 -- ---------- Delivery locations ----------------------------------------------
 create table if not exists locations (

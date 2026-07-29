@@ -2,9 +2,12 @@ import type { Disaster, Location, Need, Submission, LogEntry, Announcement } fro
 
 // Seydikemer Wildfire seed — Turkish content. Canonical priority/status keys are
 // English (stable, match DB enums); everything the user sees is Turkish.
+// The model is multi-disaster: every need/submission/location/announcement is
+// tagged with a disasterId, and disasters are addressed by slug.
 
 export const disaster: Disaster = {
   id: 'd1',
+  slug: 'seydikemer-orman-yangini',
   name: 'Seydikemer Orman Yangını',
   region: 'Seydikemer, Muğla · Türkiye',
   status: 'Active',
@@ -12,27 +15,35 @@ export const disaster: Disaster = {
     'Kuzey sırtındaki yangın cepheleri kontrol altında; dört mahalle hâlâ tahliye halinde. Sahada 168 gönüllü kayıtlı. Yardım girişi 08:00–22:00 arası kapalı pazar yerinden yapılıyor, bu akşam ikinci bir giriş noktası açılıyor.',
   openedAt: '21 Temmuz',
   updatedLabel: '4 dakika önce',
+  volunteers: 168,
+  onShift: 24,
 };
+
+// All active disasters (only Seydikemer today; the structure supports more).
+export const disasters: Disaster[] = [disaster];
 
 export const verifiedTotalSeed = 437;
 
 export const locations: Location[] = [
   {
-    id: 'loc1', name: 'Seydikemer Kapalı Pazar Yeri', address: 'Atatürk Cd. 14, Seydikemer / Muğla',
+    id: 'loc1', disasterId: 'd1', name: 'Seydikemer Kapalı Pazar Yeri', address: 'Atatürk Cd. 14, Seydikemer / Muğla',
     hours: 'Her gün 08:00 – 22:00', accepts: 'Tıbbi, hijyen, giyim, enerji', contact: 'Elif Kaya',
     phone: '+90 555 210 44 18', status: 'Teslim alıyor', statusTone: 'green', coords: '36.6321° K, 29.3187° D',
+    lat: 36.6321, lng: 29.3187,
   },
   {
-    id: 'loc2', name: 'Çamlıyayla Okul Spor Salonu', address: 'Çamlıyayla Mah. Okul Sk. 3, Seydikemer',
+    id: 'loc2', disasterId: 'd1', name: 'Çamlıyayla Okul Spor Salonu', address: 'Çamlıyayla Mah. Okul Sk. 3, Seydikemer',
     hours: 'Her gün 09:00 – 19:00', accepts: 'Ekipman, giyim, pil', contact: 'Hakan Öz',
     phone: '+90 555 884 02 31', status: "20:00'de açılıyor", statusTone: 'yellow', coords: '36.6688° K, 29.2740° D',
+    lat: 36.6688, lng: 29.2740,
   },
 ];
 
 const MP = 'Seydikemer Kapalı Pazar Yeri';
 const GYM = 'Çamlıyayla Okul Spor Salonu';
 
-export const needs: Need[] = [
+type RawNeed = Omit<Need, 'disasterId' | 'disasterName' | 'disasterSlug'>;
+const rawNeeds: RawNeed[] = [
   { id: 'n1', name: 'Maske', cat: 'Sağlık', priority: 'Critical', required: 100, verified: 30, pending: 15, unit: 'kutu', updated: '4 dakika önce', loc: MP },
   { id: 'n2', name: 'Göz Damlası', cat: 'Sağlık', priority: 'Critical', required: 100, verified: 15, pending: 10, unit: 'adet', updated: '11 dakika önce', loc: MP },
   { id: 'n3', name: 'Powerbank', cat: 'Enerji', priority: 'Urgent', required: 50, verified: 12, pending: 6, unit: 'adet', updated: '18 dakika önce', loc: MP },
@@ -43,6 +54,10 @@ export const needs: Need[] = [
   { id: 'n8', name: 'İş Pantolonu', cat: 'Giyim', priority: 'Normal', required: 60, verified: 18, pending: 5, unit: 'adet', updated: '2 saat önce', loc: GYM },
   { id: 'n9', name: 'Tişört ve Gömlek', cat: 'Giyim', priority: 'Normal', required: 150, verified: 55, pending: 12, unit: 'adet', updated: '2 saat önce', loc: MP },
 ];
+
+export const needs: Need[] = rawNeeds.map((n) => ({
+  ...n, disasterId: disaster.id, disasterName: disaster.name, disasterSlug: disaster.slug,
+}));
 
 export const subs: Submission[] = [
   { id: 's1', code: 'AFT-4821', contributor: 'Ayşe Yılmaz', city: 'Muğla', needId: 'n1', qty: 30, unit: 'kutu', loc: MP, submitted: '12 dakika önce', status: 'Pending verification', verifiedQty: null, note: 'Pazar yerinde giriş kontrolü bekleniyor.' },

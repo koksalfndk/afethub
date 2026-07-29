@@ -15,6 +15,48 @@ export type SubFilter = 'Pending' | 'Verified' | 'Partially' | 'Rejected' | 'All
 
 export interface ModalState { subId: string; kind: VerifyKind; qty: string; reason: string; }
 
+// ---- URL (hash) routing: every screen is shareable; disasters use their slug ----
+const TABS: Tab[] = ['overview', 'needs', 'locations', 'announcements', 'activity'];
+
+function toHash(route: Route, tab: Tab, slug: string): string {
+  switch (route) {
+    case 'home': return '#/';
+    case 'disaster': return `#/afet/${slug}` + (tab && tab !== 'needs' ? `/${tab}` : '');
+    case 'report': return '#/bildir';
+    case 'track': return '#/takip';
+    case 'needReq': return '#/talep';
+    case 'coordHome': return '#/koordinasyon';
+    case 'coordQueue': return '#/koordinasyon/kuyruk';
+    case 'coordNeeds': return '#/koordinasyon/ihtiyaclar';
+    case 'coordLog': return '#/koordinasyon/kayit';
+    case 'system': return '#/sistem';
+    case 'components': return '#/bilesenler';
+    default: return '#/';
+  }
+}
+
+interface ParsedHash { route: Route; tab?: Tab; slug?: string; role?: Role; }
+function fromHash(hash: string): ParsedHash {
+  const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  if (parts.length === 0) return { route: 'home', role: 'visitor' };
+  switch (parts[0]) {
+    case 'afet':
+      if (parts[1]) return { route: 'disaster', slug: parts[1], tab: (TABS.includes(parts[2] as Tab) ? (parts[2] as Tab) : 'needs'), role: 'visitor' };
+      return { route: 'home', role: 'visitor' };
+    case 'bildir': return { route: 'report' };
+    case 'takip': return { route: 'track' };
+    case 'talep': return { route: 'needReq' };
+    case 'koordinasyon': {
+      const s = parts[1];
+      const r: Route = s === 'kuyruk' ? 'coordQueue' : s === 'ihtiyaclar' ? 'coordNeeds' : s === 'kayit' ? 'coordLog' : 'coordHome';
+      return { route: r, role: 'coordinator' };
+    }
+    case 'sistem': return { route: 'system' };
+    case 'bilesenler': return { route: 'components' };
+    default: return { route: 'home' };
+  }
+}
+
 const emptyForm = {
   needId: 'n1', qty: '', unit: 'kutu', loc: 'Seydikemer Kapalı Pazar Yeri', date: '2026-07-29',
   eta: '16:30', notes: '', name: '', email: '', phone: '', city: '', confirm: false,
@@ -25,7 +67,7 @@ const emptyCneed = { title: '', cat: 'Sağlık', priority: 'Critical' as Priorit
 export interface AppApi {
   snap: Snapshot | null;
   backend: 'local' | 'supabase';
-  route: Route; tab: Tab; device: Device; role: Role;
+  route: Route; tab: Tab; device: Device; role: Role; currentSlug: string;
   query: string; filter: Filter; subFilter: SubFilter;
   form: typeof emptyForm; nreq: typeof emptyNreq; cneed: typeof emptyCneed;
   track: { code: string; email: string };
@@ -34,6 +76,7 @@ export interface AppApi {
   trackedSub: Submission | null; trackError: string;
 
   go: (r: Route, extra?: Partial<{ tab: Tab }>) => void;
+  openDisaster: (slug: string, tab?: Tab) => void;
   setDevice: (d: Device) => void; setRole: (r: Role) => void; setTab: (t: Tab) => void;
   setQuery: (q: string) => void; setFilter: (f: Filter) => void; setSubFilter: (f: SubFilter) => void;
   clearFilters: () => void;
@@ -59,11 +102,13 @@ export const useApp = () => {
 };
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const initial = fromHash(typeof window !== 'undefined' ? window.location.hash : '');
   const [snap, setSnap] = useState<Snapshot | null>(null);
-  const [route, setRoute] = useState<Route>('home');
-  const [tab, setTab] = useState<Tab>('needs');
+  const [route, setRoute] = useState<Route>(initial.route);
+  const [tab, setTab] = useState<Tab>(initial.tab ?? 'needs');
   const [device, setDevice] = useState<Device>('desktop');
-  const [role, setRole] = useState<Role>('visitor');
+  const [role, setRole] = useState<Role>(initial.role ?? 'visitor');
+  const [currentSlug, setCurrentSlug] = useState<string>(initial.slug ?? '');
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('All');
   const [subFilter, setSubFilter] = useState<SubFilter>('Pending');
@@ -82,19 +127,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [trackError, setTrackError] = useState('');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const useLocal = () => fallbackToLocal().getSnapshot().then((s) => { if (!cancelled) setSnap(s); });
-    repo.getSnapshot()
+  // Load a disaster snapshot (with graceful local fallback when Supabase is empty/unset).
+  const loadSnapshot = (slug: string) => {
+    let done = false;
+    const useLocal = () => fallbackToLocal().getSnapshot(slug || undefined).then((s) => { done = true; applySnap(s); });
+    const applySnap = (s: Snapshot) => {
+      setSnap(s);
+      if (!currentSlug && s.disaster.slug) setCurrentSlug(s.disaster.slug);
+      // Handy for debugging which backend served the data.
+      if (typeof console !== 'undefined') console.info(`[AfetHUB] backend=${repo.kind} afet=${s.disasters.length} ihtiyaç=${s.needs.length}`);
+    };
+    repo.getSnapshot(slug || undefined)
       .then((s) => {
-        if (cancelled) return;
-        // Supabase configured but not seeded yet → show the local seed instead.
+        if (done) return;
+        // Supabase reachable but not seeded (no needs) → show the local seed so the UI is never empty.
         if (repo.kind === 'supabase' && s.needs.length === 0) { void useLocal(); return; }
-        setSnap(s);
+        applySnap(s);
       })
       .catch(() => { void useLocal(); });
-    return () => { cancelled = true; };
+  };
+
+  useEffect(() => { loadSnapshot(currentSlug); /* initial */ // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Browser back/forward: re-parse the hash into state.
+  useEffect(() => {
+    const onHash = () => {
+      const p = fromHash(window.location.hash);
+      setRoute(p.route);
+      if (p.tab) setTab(p.tab);
+      if (p.role) setRole(p.role);
+      if (p.slug && p.slug !== currentSlug) { setCurrentSlug(p.slug); loadSnapshot(p.slug); }
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSlug]);
+
+  // Reflect state into the URL hash (guarded against loops).
+  useEffect(() => {
+    const slug = currentSlug || snap?.disaster.slug || '';
+    const h = toHash(route, tab, slug);
+    if (window.location.hash !== h) window.history.replaceState(null, '', h);
+  }, [route, tab, currentSlug, snap]);
 
   const showToast = (m: string) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -104,11 +179,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const api: AppApi = useMemo(() => ({
     snap, backend: repo.kind,
-    route, tab, device, role, query, filter, subFilter,
+    route, tab, device, role, currentSlug, query, filter, subFilter,
     form, nreq, cneed, track, reportStage, lastCode, formError, copied,
     needReqCode, modal, toast, trackedSub, trackError,
 
     go: (r, extra) => { setRoute(r); if (extra?.tab) setTab(extra.tab); },
+    openDisaster: (slug, t) => { setCurrentSlug(slug); setRoute('disaster'); setTab(t ?? 'needs'); if (slug !== currentSlug) loadSnapshot(slug); },
     setDevice,
     setRole: (r) => { setRole(r); setRoute(r === 'coordinator' ? 'coordHome' : 'home'); },
     setTab, setQuery, setFilter, setSubFilter,
@@ -187,7 +263,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
     },
     showToast,
-  }), [snap, route, tab, device, role, query, filter, subFilter, form, nreq, cneed, track, reportStage, lastCode, formError, copied, needReqCode, modal, toast, trackedSub, trackError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [snap, route, tab, device, role, currentSlug, query, filter, subFilter, form, nreq, cneed, track, reportStage, lastCode, formError, copied, needReqCode, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

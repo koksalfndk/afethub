@@ -21,14 +21,23 @@ function addLog(entry: Partial<LogEntry> & Pick<LogEntry, 'action' | 'detail' | 
   log = [{ id: nextId('l'), user: 'Elif Kaya', time: NOW, ...entry }, ...log];
 }
 
-function snap(): Snapshot {
+function currentDisaster(slug?: string) {
+  return seed.disasters.find((d) => d.slug === slug)
+    ?? seed.disasters.find((d) => d.status === 'Active')
+    ?? seed.disasters[0];
+}
+
+function snap(slug?: string): Snapshot {
+  const current = currentDisaster(slug);
+  const mine = (id: string) => id === current.id;
   return {
-    disaster: seed.disaster,
-    locations: seed.locations,
-    needs: needs.map((n) => ({ ...n })),
+    disaster: current,
+    disasters: seed.disasters.map((d) => ({ ...d })),
+    locations: seed.locations.filter((l) => mine(l.disasterId)),
+    needs: needs.filter((n) => mine(n.disasterId)).map((n) => ({ ...n })),
     subs: subs.map((s) => ({ ...s })),
     log: log.map((l) => ({ ...l })),
-    announcements: seed.announcements,
+    announcements: seed.announcements.map((a) => ({ ...a })),
     verifiedTotal,
   };
 }
@@ -36,8 +45,8 @@ function snap(): Snapshot {
 export class LocalRepo implements Repo {
   readonly kind = 'local' as const;
 
-  async getSnapshot(): Promise<Snapshot> {
-    return snap();
+  async getSnapshot(slug?: string): Promise<Snapshot> {
+    return snap(slug);
   }
 
   async createDelivery(f: DeliveryInput): Promise<CreateDeliveryResult> {
@@ -110,7 +119,7 @@ export class LocalRepo implements Repo {
   async publishNeed(c: NeedDraft): Promise<Snapshot> {
     const id = nextId('n');
     needs = [
-      { id, name: c.title, cat: c.cat, priority: c.priority, required: c.required, verified: 0, pending: 0, unit: c.unit || 'adet', updated: NOW, loc: c.loc },
+      { id, disasterId: seed.disaster.id, disasterName: seed.disaster.name, disasterSlug: seed.disaster.slug, name: c.title, cat: c.cat, priority: c.priority, required: c.required, verified: 0, pending: 0, unit: c.unit || 'adet', updated: NOW, loc: c.loc },
       ...needs,
     ];
     addLog({ action: 'İhtiyaç oluşturuldu', detail: `${c.title} · ${c.priority}`, oldValue: '—', newValue: `${c.required} gerekli`, color: '#102A43' });
