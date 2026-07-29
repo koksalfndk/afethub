@@ -58,7 +58,7 @@ export function Header() {
     <header style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, position: 'relative', zIndex: 30 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 18, padding: mob ? '12px 14px' : '14px 28px' }}>
         <button onClick={() => a.go(coord ? 'coordHome' : 'home')} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 0, padding: 0, cursor: 'pointer' }}>
-          <img src="/logo_horizontal.png" alt={tr.brand} style={{ height: mob ? 26 : 30, width: 'auto', display: 'block' }} />
+          <img src="/logo_horizontal.png" alt={tr.brand} style={{ height: mob ? 32 : 38, width: 'auto', display: 'block' }} />
           <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: C.muted, border: `1px solid ${C.borderSoft}`, borderRadius: 5, padding: '2px 5px' }}>
             {coord ? tr.modeCoordinator : tr.modePublic}
           </span>

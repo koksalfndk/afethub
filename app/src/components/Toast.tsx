@@ -6,7 +6,7 @@ export function Toast() {
   if (!a.toast) return null;
   return (
     <div className="anim-in" style={{
-      position: 'absolute', right: 18, bottom: 18, zIndex: 80, background: '#0B1E30', color: '#fff',
+      position: 'fixed', right: 18, bottom: 18, zIndex: 80, background: '#0B1E30', color: '#fff',
       borderRadius: 11, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10,
       boxShadow: '0 12px 30px rgba(11,30,48,.3)', maxWidth: 340,
     }}>

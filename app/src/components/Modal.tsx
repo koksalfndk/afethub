@@ -32,7 +32,7 @@ export function Modal() {
   );
 
   return (
-    <div style={{ position: 'absolute', inset: 0, background: 'rgba(11,30,48,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 70 }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,30,48,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 70 }}>
       <div className="anim-in" style={{ background: C.surface, borderRadius: 14, width: '100%', maxWidth: 460, boxShadow: '0 18px 48px rgba(11,30,48,.25)', maxHeight: '90%', overflowY: 'auto' }}>
         <div style={{ padding: '18px 20px', borderBottom: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: C.muted2 }}>{sub.code} · {sub.contributor}</div>
