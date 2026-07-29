@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { repo, fallbackToLocal, type Snapshot } from './data';
 import type { Submission, VerifyKind, PriorityKey } from './types';
 import { tr } from './i18n/strings';
+import { useAuth } from './auth';
 
 export type Route =
   | 'home' | 'disaster' | 'report' | 'track' | 'needReq'
@@ -59,8 +60,11 @@ function fromHash(hash: string): ParsedHash {
 
 const emptyForm = {
   needId: 'n1', qty: '', unit: 'kutu', loc: 'Seydikemer Kapalı Pazar Yeri', date: '2026-07-29',
-  eta: '16:30', notes: '', name: '', email: '', phone: '', city: '', confirm: false,
+  eta: '16:30', notes: '', name: '', email: '', phone: '', city: '', confirm: false, photoUrl: '',
 };
+
+const isMobileWidth = () => typeof window !== 'undefined' && window.innerWidth < 768;
+const IS_DEV = Boolean(import.meta.env.DEV);
 const emptyNreq = { cat: 'Sağlık', title: '', desc: '', qty: '', unit: '', priority: 'Critical' as PriorityKey, loc: '', name: '', email: '', phone: '', city: '' };
 const emptyCneed = { title: '', cat: 'Sağlık', priority: 'Critical' as PriorityKey, required: '', unit: '', loc: 'Seydikemer Kapalı Pazar Yeri', deadline: '' };
 
@@ -68,6 +72,7 @@ export interface AppApi {
   snap: Snapshot | null;
   backend: 'local' | 'supabase';
   route: Route; tab: Tab; device: Device; role: Role; currentSlug: string;
+  frame: boolean; showToolbar: boolean;
   query: string; filter: Filter; subFilter: SubFilter;
   form: typeof emptyForm; nreq: typeof emptyNreq; cneed: typeof emptyCneed;
   track: { code: string; email: string };
@@ -106,8 +111,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [route, setRoute] = useState<Route>(initial.route);
   const [tab, setTab] = useState<Tab>(initial.tab ?? 'needs');
-  const [device, setDevice] = useState<Device>('desktop');
-  const [role, setRole] = useState<Role>(initial.role ?? 'visitor');
+  const auth = useAuth();
+  const [device, setDevice] = useState<Device>(isMobileWidth() ? 'mobile' : 'desktop');
+  const [protoRole, setProtoRole] = useState<Role>(initial.role ?? 'visitor');
+  // Effective role: real auth when Supabase is configured, else the dev toggle.
+  const role: Role = auth.enabled ? (auth.isCoordinator ? 'coordinator' : 'visitor') : protoRole;
+  // The 412px phone mock-up frame is a dev-preview aid only; production is truly responsive.
+  const frame = IS_DEV && device === 'mobile';
   const [currentSlug, setCurrentSlug] = useState<string>(initial.slug ?? '');
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('All');
@@ -156,7 +166,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const p = fromHash(window.location.hash);
       setRoute(p.route);
       if (p.tab) setTab(p.tab);
-      if (p.role) setRole(p.role);
+      if (p.role) setProtoRole(p.role);
       if (p.slug && p.slug !== currentSlug) { setCurrentSlug(p.slug); loadSnapshot(p.slug); }
     };
     window.addEventListener('hashchange', onHash);
@@ -171,6 +181,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (window.location.hash !== h) window.history.replaceState(null, '', h);
   }, [route, tab, currentSlug, snap]);
 
+  // Real responsive layout: track viewport width.
+  useEffect(() => {
+    const onResize = () => setDevice(isMobileWidth() ? 'mobile' : 'desktop');
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // When auth is active, keep the route in sync with the signed-in role.
+  useEffect(() => {
+    if (!auth.enabled || !auth.ready) return;
+    if (role === 'coordinator') setRoute((r) => (r.startsWith('coord') ? r : 'coordHome'));
+    else setRoute((r) => (r.startsWith('coord') ? 'home' : r));
+  }, [role, auth.enabled, auth.ready]);
+
   const showToast = (m: string) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast(m);
@@ -179,14 +203,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const api: AppApi = useMemo(() => ({
     snap, backend: repo.kind,
-    route, tab, device, role, currentSlug, query, filter, subFilter,
+    route, tab, device, role, currentSlug, frame, showToolbar: IS_DEV, query, filter, subFilter,
     form, nreq, cneed, track, reportStage, lastCode, formError, copied,
     needReqCode, modal, toast, trackedSub, trackError,
 
     go: (r, extra) => { setRoute(r); if (extra?.tab) setTab(extra.tab); },
     openDisaster: (slug, t) => { setCurrentSlug(slug); setRoute('disaster'); setTab(t ?? 'needs'); if (slug !== currentSlug) loadSnapshot(slug); },
     setDevice,
-    setRole: (r) => { setRole(r); setRoute(r === 'coordinator' ? 'coordHome' : 'home'); },
+    setRole: (r) => { setProtoRole(r); setRoute(r === 'coordinator' ? 'coordHome' : 'home'); },
     setTab, setQuery, setFilter, setSubFilter,
     clearFilters: () => { setFilter('All'); setQuery(''); },
     setForm: (k, v) => setFormState((s) => ({ ...s, [k]: v })),
@@ -207,10 +231,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       repo.createDelivery({
         needId: form.needId, qty, unit: form.unit, loc: form.loc, date: form.date, eta: form.eta,
         notes: form.notes, name: form.name, email: form.email, phone: form.phone, city: form.city,
+        photoUrl: form.photoUrl || null,
       }).then(({ snapshot, code }) => { setSnap(snapshot); setLastCode(code); setCopied(false); setReportStage('done'); });
     },
     copyCode: () => { try { navigator.clipboard.writeText(lastCode); } catch { /* ignore */ } setCopied(true); },
-    reportAnother: () => { setReportStage('form'); setCopied(false); setFormState((s) => ({ ...s, qty: '', notes: '', confirm: false })); },
+    reportAnother: () => { setReportStage('form'); setCopied(false); setFormState((s) => ({ ...s, qty: '', notes: '', confirm: false, photoUrl: '' })); },
 
     submitNeedReq: () => {
       repo.submitNeedRequest(nreq.title, nreq.name).then(({ snapshot, code }) => {

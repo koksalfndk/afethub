@@ -1,10 +1,12 @@
 import { useApp } from '../store';
+import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 
 // The prototype's top chrome: switch role (Visitor/Coordinator), simulate device
 // (Desktop/Mobile), and jump to the reference screens (Architecture / Components).
 export function Toolbar() {
   const a = useApp();
+  const auth = useAuth();
   const coord = a.role === 'coordinator';
   const mob = a.device === 'mobile';
 
@@ -21,10 +23,12 @@ export function Toolbar() {
       <span style={{ fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: '#9FB3C8', fontWeight: 600 }}>
         {tr.prototype}
       </span>
-      <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,.08)', padding: 3, borderRadius: 8 }}>
-        <button style={seg(!coord)} onClick={() => a.setRole('visitor')}>{tr.toolbar.visitor}</button>
-        <button style={seg(coord)} onClick={() => a.setRole('coordinator')}>{tr.toolbar.coordinator}</button>
-      </div>
+      {!auth.enabled && (
+        <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,.08)', padding: 3, borderRadius: 8 }}>
+          <button style={seg(!coord)} onClick={() => a.setRole('visitor')}>{tr.toolbar.visitor}</button>
+          <button style={seg(coord)} onClick={() => a.setRole('coordinator')}>{tr.toolbar.coordinator}</button>
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,.08)', padding: 3, borderRadius: 8 }}>
         <button style={seg(!mob)} onClick={() => a.setDevice('desktop')}>{tr.toolbar.desktop}</button>
         <button style={seg(mob)} onClick={() => a.setDevice('mobile')}>{tr.toolbar.mobile}</button>

@@ -60,6 +60,8 @@ export interface Submission {
   status: StatusKey;     // canonical
   verifiedQty: number | null;
   note: string;
+  photoUrl?: string | null;
+  needName?: string;     // set by the public tracking RPC (Supabase mode)
 }
 
 export interface LogEntry {
@@ -90,6 +92,15 @@ export interface DeliveryInput {
   needId: string; qty: number; unit: string; loc: string;
   date: string; eta: string; notes: string;
   name: string; email: string; phone: string; city: string;
+  photoUrl?: string | null;
+}
+
+export type UserRole = 'volunteer' | 'coordinator' | 'admin';
+
+export interface Profile {
+  id: string;
+  fullName: string;
+  role: UserRole;
 }
 
 export interface NeedDraft {

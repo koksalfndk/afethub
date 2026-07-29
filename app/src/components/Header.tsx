@@ -1,12 +1,24 @@
 import { useApp } from '../store';
+import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C } from '../theme';
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'AH';
+  const a = parts[0][0] ?? '';
+  const b = parts.length > 1 ? parts[parts.length - 1][0] ?? '' : '';
+  return (a + b).toUpperCase() || 'AH';
+}
+
 export function Header() {
   const a = useApp();
+  const auth = useAuth();
   const coord = a.role === 'coordinator';
   const mob = a.device === 'mobile';
   const pending = a.snap ? a.snap.subs.filter((s) => s.status === 'Pending verification').length : 0;
+  const loggedIn = auth.enabled && !!auth.user;
+  const name = auth.profile?.fullName || '';
 
   const navItem = (label: string, active: boolean, onClick: () => void) => (
     <button key={label} onClick={onClick} style={{
@@ -30,12 +42,23 @@ export function Header() {
         navItem(tr.nav.howItWorks, a.route === 'system', () => a.go('system')),
       ];
 
+  const avatar = (
+    <span title={name} style={{ width: 34, height: 34, flex: '0 0 34px', borderRadius: '50%', background: C.navy, color: '#fff', fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {initials(name)}
+    </span>
+  );
+  const logoutBtn = (
+    <button onClick={() => void auth.signOut()} style={{ background: C.surface, border: `1px solid ${C.borderSoft}`, borderRadius: 9, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, color: C.muted, cursor: 'pointer', minHeight: 44 }}>{tr.header.logout}</button>
+  );
+  const loginBtn = (
+    <button onClick={auth.openModal} style={{ background: C.navy, border: `1px solid ${C.navy}`, borderRadius: 9, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, color: '#fff', cursor: 'pointer', minHeight: 44 }}>{tr.header.login}</button>
+  );
+
   return (
     <header style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, position: 'relative', zIndex: 30 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 18, padding: mob ? '12px 14px' : '14px 28px' }}>
-        <button onClick={() => a.go(coord ? 'coordHome' : 'home')} style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'none', border: 0, padding: 0, cursor: 'pointer' }}>
-          <span style={{ width: 30, height: 30, borderRadius: 8, background: C.navy, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14 }}>A</span>
-          <span style={{ fontWeight: 700, fontSize: 17, letterSpacing: '-.01em', color: C.navy }}>{tr.brand}</span>
+        <button onClick={() => a.go(coord ? 'coordHome' : 'home')} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 0, padding: 0, cursor: 'pointer' }}>
+          <img src="/logo_horizontal.png" alt={tr.brand} style={{ height: mob ? 26 : 30, width: 'auto', display: 'block' }} />
           <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: C.muted, border: `1px solid ${C.borderSoft}`, borderRadius: 5, padding: '2px 5px' }}>
             {coord ? tr.modeCoordinator : tr.modePublic}
           </span>
@@ -44,20 +67,20 @@ export function Header() {
         {!mob && <nav style={{ display: 'flex', gap: 2, marginLeft: 8 }}>{nav}</nav>}
         <div style={{ flex: 1 }} />
 
-        {coord ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 7, background: '#FEF3F2', border: '1px solid #F6C9C9', color: C.emergency, borderRadius: 8, padding: '7px 11px', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {coord && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#FEF3F2', border: '1px solid #F6C9C9', color: C.emergency, borderRadius: 8, padding: '7px 11px', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.emergency, animation: 'afetPulse 1.8s infinite' }} />
               {mob ? String(pending) : tr.header.awaiting(pending)}
             </span>
-            {!mob && <span style={{ width: 34, height: 34, flex: '0 0 34px', borderRadius: '50%', background: C.navy, color: '#fff', fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>EK</span>}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button onClick={() => a.go('track')} className="hv-navy" style={{ background: C.surface, border: `1px solid ${C.borderSoft}`, borderRadius: 9, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, color: C.navy, cursor: 'pointer', minHeight: 44 }}>{tr.header.track}</button>
-            {!mob && <button style={{ background: C.navy, border: `1px solid ${C.navy}`, borderRadius: 9, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, color: '#fff', cursor: 'pointer', minHeight: 44 }}>{tr.header.login}</button>}
-          </div>
-        )}
+          )}
+          {!coord && <button onClick={() => a.go('track')} className="hv-navy" style={{ background: C.surface, border: `1px solid ${C.borderSoft}`, borderRadius: 9, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, color: C.navy, cursor: 'pointer', minHeight: 44 }}>{tr.header.track}</button>}
+          {loggedIn ? (
+            <>{!mob && avatar}{logoutBtn}</>
+          ) : (
+            auth.enabled ? loginBtn : null
+          )}
+        </div>
       </div>
     </header>
   );

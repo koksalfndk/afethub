@@ -7,6 +7,7 @@ import { Sidebar } from './components/Sidebar';
 import { BottomNav } from './components/BottomNav';
 import { Modal } from './components/Modal';
 import { Toast } from './components/Toast';
+import { AuthModal } from './components/AuthModal';
 import { Home } from './screens/Home';
 import { Disaster } from './screens/Disaster';
 import { Report } from './screens/Report';
@@ -23,6 +24,7 @@ export function App() {
   const a = useApp();
   const mob = a.device === 'mobile';
   const coord = a.role === 'coordinator';
+  const frame = a.frame; // 412px phone mock-up wrapper (dev preview only)
 
   const screens: Record<string, () => ReactElement | null> = {
     home: Home, disaster: Disaster, report: Report, track: Track, needReq: NeedRequest,
@@ -33,12 +35,12 @@ export function App() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.canvas, color: C.navy, fontSize: 15, lineHeight: 1.5 }}>
-      <Toolbar />
-      <div style={{ display: 'flex', justifyContent: 'center', padding: mob ? '20px 12px 32px' : '0' }}>
+      {a.showToolbar && <Toolbar />}
+      <div style={{ display: 'flex', justifyContent: 'center', padding: frame ? '20px 12px 32px' : '0' }}>
         <div style={{
-          width: '100%', maxWidth: mob ? 412 : 'none', background: C.canvas,
-          border: mob ? `1px solid ${C.borderSoft}` : '0', borderRadius: mob ? 20 : 0,
-          overflow: 'hidden', boxShadow: mob ? '0 18px 44px rgba(16,42,67,.14)' : 'none',
+          width: '100%', maxWidth: frame ? 412 : 'none', background: C.canvas,
+          border: frame ? `1px solid ${C.borderSoft}` : '0', borderRadius: frame ? 20 : 0,
+          overflow: 'hidden', boxShadow: frame ? '0 18px 44px rgba(16,42,67,.14)' : 'none',
           minHeight: 720, position: 'relative',
         }}>
           <Header />
@@ -50,6 +52,7 @@ export function App() {
           </div>
           {mob && <BottomNav />}
           <Modal />
+          <AuthModal />
           <Toast />
         </div>
       </div>
