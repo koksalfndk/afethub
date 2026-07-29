@@ -9,9 +9,9 @@ import { Modal } from './components/Modal';
 import { Toast } from './components/Toast';
 import { AuthModal } from './components/AuthModal';
 import { AccountBanner } from './components/AccountBanner';
+import { ReportModal } from './components/ReportModal';
 import { Home } from './screens/Home';
 import { Disaster } from './screens/Disaster';
-import { Report } from './screens/Report';
 import { Track } from './screens/Track';
 import { NeedRequest } from './screens/NeedRequest';
 import { CoordHome } from './screens/CoordHome';
@@ -28,11 +28,13 @@ export function App() {
   const frame = a.frame; // 412px phone mock-up wrapper (dev preview only)
 
   const screens: Record<string, () => ReactElement | null> = {
-    home: Home, disaster: Disaster, report: Report, track: Track, needReq: NeedRequest,
+    home: Home, disaster: Disaster, track: Track, needReq: NeedRequest,
     coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog,
     components: Components, system: System,
   };
-  const Screen = screens[a.route] ?? Home;
+  const isReport = a.route === 'report';
+  // "Teslimat bildir" opens as a modal over the previous page (home as backdrop).
+  const Screen = isReport ? Home : (screens[a.route] ?? Home);
 
   return (
     <div style={{ minHeight: '100vh', background: C.canvas, color: C.navy, fontSize: 15, lineHeight: 1.5 }}>
@@ -53,6 +55,7 @@ export function App() {
             </main>
           </div>
           {mob && <BottomNav />}
+          {isReport && <ReportModal />}
           <Modal />
           <AuthModal />
           <Toast />

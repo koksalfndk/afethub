@@ -3,6 +3,7 @@ import { tr, priorityLabel } from '../i18n/strings';
 import { C } from '../theme';
 import { cols } from '../select';
 import { Field, inputStyle } from '../ui';
+import { UNIT_PRESETS } from '../util';
 import type { PriorityKey } from '../theme';
 
 const CATS = ['Sağlık', 'Ekipman', 'Hijyen', 'Giyim', 'Enerji', 'Gıda ve Su'];
@@ -36,7 +37,8 @@ export function NeedRequest() {
           <input value={r.qty} onChange={(e) => a.setNreq('qty', e.target.value)} type="number" placeholder="80" style={inputStyle} />
         </Field>
         <Field label={tr.needReq.unit}>
-          <input value={r.unit} onChange={(e) => a.setNreq('unit', e.target.value)} placeholder="paket" style={inputStyle} />
+          <input value={r.unit} onChange={(e) => a.setNreq('unit', e.target.value)} placeholder="paket" list="unit-presets" style={inputStyle} />
+          <datalist id="unit-presets">{UNIT_PRESETS.map((u) => <option key={u} value={u} />)}</datalist>
         </Field>
         <Field label={tr.needReq.priority}>
           <select value={r.priority} onChange={(e) => a.setNreq('priority', e.target.value)} style={inputStyle}>

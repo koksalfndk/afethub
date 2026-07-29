@@ -228,12 +228,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     submitDelivery: () => {
       const qty = parseInt(form.qty, 10);
       if (!qty || qty < 1) return setFormError(tr.report.errQty);
-      if (!form.name || !form.email || !form.phone || !form.city) return setFormError(tr.report.errContact);
+      const loggedIn = auth.enabled && !!auth.user;
+      // Signed-in users are already identifiable — contact fields come from their profile.
+      const name = loggedIn ? (auth.profile?.fullName || 'Gönüllü') : form.name;
+      const email = loggedIn ? (auth.user?.email || '') : form.email;
+      if (!loggedIn && (!form.name || !form.email || !form.phone || !form.city)) return setFormError(tr.report.errContact);
       if (!form.confirm) return setFormError(tr.report.errConfirm);
       setFormError('');
       repo.createDelivery({
         needId: form.needId, qty, unit: form.unit, loc: form.loc, date: form.date, eta: form.eta,
-        notes: form.notes, name: form.name, email: form.email, phone: form.phone, city: form.city,
+        notes: form.notes, name, email, phone: form.phone, city: form.city,
         photoUrl: form.photoUrl || null,
       }).then(({ snapshot, code }) => { setSnap(snapshot); setLastCode(code); setCopied(false); setReportStage('done'); });
     },

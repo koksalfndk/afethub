@@ -3,6 +3,7 @@ import { tr, priorityLabel } from '../i18n/strings';
 import { C } from '../theme';
 import { enrichSorted, cols } from '../select';
 import { Field, inputStyle, PriorityBadge } from '../ui';
+import { UNIT_PRESETS } from '../util';
 import type { PriorityKey } from '../theme';
 
 const CATS = ['Sağlık', 'Ekipman', 'Hijyen', 'Giyim', 'Enerji'];
@@ -29,7 +30,7 @@ export function CoordNeeds() {
             <select value={c.priority} onChange={(e) => a.setCneed('priority', e.target.value)} style={inputStyle}>{PRIOS.map((p) => <option key={p} value={p}>{priorityLabel[p]}</option>)}</select>
           </Field>
           <Field label={tr.coord.fRequired}><input value={c.required} onChange={(e) => a.setCneed('required', e.target.value)} type="number" placeholder="100" style={inputStyle} /></Field>
-          <Field label={tr.coord.fUnit}><input value={c.unit} onChange={(e) => a.setCneed('unit', e.target.value)} placeholder="paket" style={inputStyle} /></Field>
+          <Field label={tr.coord.fUnit}><input value={c.unit} onChange={(e) => a.setCneed('unit', e.target.value)} placeholder="paket" list="unit-presets" style={inputStyle} /><datalist id="unit-presets">{UNIT_PRESETS.map((u) => <option key={u} value={u} />)}</datalist></Field>
           <Field label={tr.coord.fLocation}>
             <select value={c.loc} onChange={(e) => a.setCneed('loc', e.target.value)} style={inputStyle}>
               <option>Seydikemer Kapalı Pazar Yeri</option><option>Çamlıyayla Okul Spor Salonu</option>
