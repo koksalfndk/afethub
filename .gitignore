@@ -1,0 +1,7 @@
+# macOS
+.DS_Store
+
+# Geçici teslimat klasörü (silinebilir)
+_to_delete/
+
+# app/ kendi .gitignore'una sahip: node_modules, dist, .env

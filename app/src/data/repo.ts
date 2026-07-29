@@ -1,0 +1,40 @@
+import type {
+  Disaster, Location, Need, Submission, LogEntry, Announcement,
+  VerifyKind, DeliveryInput, NeedDraft,
+} from '../types';
+
+// A snapshot is the full operational state the UI renders from. Mutations return
+// a fresh snapshot so the store can re-render. This same interface is backed by
+// the in-memory LocalRepo now and by SupabaseRepo when env vars are present.
+export interface Snapshot {
+  disaster: Disaster;
+  locations: Location[];
+  needs: Need[];
+  subs: Submission[];
+  log: LogEntry[];
+  announcements: Announcement[];
+  verifiedTotal: number;
+}
+
+export interface CreateDeliveryResult {
+  snapshot: Snapshot;
+  code: string;
+}
+
+export interface Repo {
+  readonly kind: 'local' | 'supabase';
+  getSnapshot(): Promise<Snapshot>;
+  createDelivery(input: DeliveryInput): Promise<CreateDeliveryResult>;
+  verifySubmission(subId: string, kind: VerifyKind, qty: number, reason: string): Promise<Snapshot>;
+  publishNeed(draft: NeedDraft): Promise<Snapshot>;
+  bumpNeed(needId: string): Promise<Snapshot>;
+  togglePause(needId: string): Promise<Snapshot>;
+  submitNeedRequest(title: string, name: string): Promise<{ snapshot: Snapshot; code: string }>;
+  trackSubmission(code: string, email: string): Promise<Submission | null>;
+}
+
+// Shared, pure domain helpers — the invariant lives here and in schema.sql.
+export const remaining = (n: Need): number => Math.max(0, n.required - n.verified);
+export const pct = (n: Need): number => Math.min(100, Math.round((n.verified / n.required) * 100));
+export const genCode = (r: number): string => 'AFT-' + (4900 + Math.floor(r * 90));
+export const genNrq = (r: number): string => 'NRQ-' + (120 + Math.floor(r * 80));

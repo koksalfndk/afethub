@@ -1,0 +1,25 @@
+/* Global styles ported from the approved design (AfetHUB.dc.html <helmet>). */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #F6F8FA;
+  font-family: Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: #102A43; text-decoration: none; }
+a:hover { color: #D9363E; }
+input, select, textarea, button { font-family: inherit; }
+input:focus, select:focus, textarea:focus, button:focus-visible {
+  outline: 2px solid #102A43;
+  outline-offset: 1px;
+}
+::placeholder { color: #9FB3C8; }
+
+@keyframes afetPulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+@keyframes afetIn { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
+@keyframes afetShimmer { 0% { background-position: -220px 0 } 100% { background-position: 220px 0 } }
+
+/* style-hover ports */
+.hv-emergency:hover { background: #C22B33 !important; }
+.hv-navy:hover { border-color: #102A43 !important; }
+.anim-in { animation: afetIn .22s ease-out; }
