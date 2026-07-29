@@ -101,6 +101,7 @@ export interface Profile {
   id: string;
   fullName: string;
   role: UserRole;
+  avatarUrl?: string | null;
 }
 
 export interface NeedDraft {

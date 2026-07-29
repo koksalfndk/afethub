@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useApp } from '../store';
 import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C } from '../theme';
+import { AccountModal } from './AccountModal';
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -19,6 +21,7 @@ export function Header() {
   const pending = a.snap ? a.snap.subs.filter((s) => s.status === 'Pending verification').length : 0;
   const loggedIn = auth.enabled && !!auth.user;
   const name = auth.profile?.fullName || '';
+  const [accountOpen, setAccountOpen] = useState(false);
 
   const navItem = (label: string, active: boolean, onClick: () => void) => (
     <button key={label} onClick={onClick} style={{
@@ -42,13 +45,12 @@ export function Header() {
         navItem(tr.nav.howItWorks, a.route === 'system', () => a.go('system')),
       ];
 
-  const avatar = (
-    <span title={name} style={{ width: 34, height: 34, flex: '0 0 34px', borderRadius: '50%', background: C.navy, color: '#fff', fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {initials(name)}
-    </span>
-  );
-  const logoutBtn = (
-    <button onClick={() => void auth.signOut()} style={{ background: C.surface, border: `1px solid ${C.borderSoft}`, borderRadius: 9, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, color: C.muted, cursor: 'pointer', minHeight: 44 }}>{tr.header.logout}</button>
+  const avatarEl = (
+    <button onClick={() => setAccountOpen(true)} title={name} style={{ border: 0, background: 'none', padding: 0, cursor: 'pointer', flex: '0 0 34px' }}>
+      {auth.profile?.avatarUrl
+        ? <img src={auth.profile.avatarUrl} alt="" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', display: 'block', border: `1px solid ${C.borderSoft}` }} />
+        : <span style={{ width: 34, height: 34, borderRadius: '50%', background: C.navy, color: '#fff', fontSize: 12.5, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{initials(name)}</span>}
+    </button>
   );
   const loginBtn = (
     <button onClick={auth.openModal} style={{ background: C.navy, border: `1px solid ${C.navy}`, borderRadius: 9, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, color: '#fff', cursor: 'pointer', minHeight: 44 }}>{tr.header.login}</button>
@@ -75,13 +77,10 @@ export function Header() {
             </span>
           )}
           {!coord && <button onClick={() => a.go('track')} className="hv-navy" style={{ background: C.surface, border: `1px solid ${C.borderSoft}`, borderRadius: 9, padding: '10px 14px', fontSize: 13.5, fontWeight: 600, color: C.navy, cursor: 'pointer', minHeight: 44 }}>{tr.header.track}</button>}
-          {loggedIn ? (
-            <>{!mob && avatar}{logoutBtn}</>
-          ) : (
-            auth.enabled ? loginBtn : null
-          )}
+          {loggedIn ? avatarEl : (auth.enabled ? loginBtn : null)}
         </div>
       </div>
+      <AccountModal open={accountOpen} onClose={() => setAccountOpen(false)} />
     </header>
   );
 }

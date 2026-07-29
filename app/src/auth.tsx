@@ -19,6 +19,7 @@ export interface AuthApi {
   signUp: (email: string, password: string, fullName: string) => Promise<'ok' | 'confirm' | 'error'>;
   signOut: () => Promise<void>;
   resendVerification: () => Promise<boolean>;
+  setAvatar: (url: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -31,9 +32,9 @@ export const useAuth = () => {
 
 async function loadProfile(userId: string): Promise<Profile | null> {
   if (!supabase) return null;
-  const { data } = await supabase.from('profiles').select('id, full_name, role').eq('id', userId).maybeSingle();
+  const { data } = await supabase.from('profiles').select('id, full_name, role, avatar_url').eq('id', userId).maybeSingle();
   if (!data) return null;
-  return { id: String(data.id), fullName: String(data.full_name ?? ''), role: (data.role as UserRole) ?? 'volunteer' };
+  return { id: String(data.id), fullName: String(data.full_name ?? ''), role: (data.role as UserRole) ?? 'volunteer', avatarUrl: data.avatar_url ?? null };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -97,6 +98,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
       const { error: e } = await supabase.auth.resend({ type: 'signup', email: user.email, options: { emailRedirectTo: redirectTo } });
       return !e;
+    },
+    setAvatar: async (url) => {
+      if (!supabase || !user) return;
+      await supabase.from('profiles').update({ avatar_url: url }).eq('id', user.id);
+      setProfile((p) => (p ? { ...p, avatarUrl: url } : p));
     },
   }), [enabled, ready, user, profile, working, error, modalOpen]);
 
