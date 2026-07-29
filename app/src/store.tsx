@@ -16,29 +16,30 @@ export type SubFilter = 'Pending' | 'Verified' | 'Partially' | 'Rejected' | 'All
 
 export interface ModalState { subId: string; kind: VerifyKind; qty: string; reason: string; }
 
-// ---- URL (hash) routing: every screen is shareable; disasters use their slug ----
+// ---- Clean URL routing (History API): every screen is a real, shareable path ----
+// A Vercel SPA rewrite (vercel.json) serves index.html for these paths.
 const TABS: Tab[] = ['overview', 'needs', 'locations', 'announcements', 'activity'];
 
-function toHash(route: Route, tab: Tab, slug: string): string {
+function toPath(route: Route, tab: Tab, slug: string): string {
   switch (route) {
-    case 'home': return '#/';
-    case 'disaster': return `#/afet/${slug}` + (tab && tab !== 'needs' ? `/${tab}` : '');
-    case 'report': return '#/bildir';
-    case 'track': return '#/takip';
-    case 'needReq': return '#/talep';
-    case 'coordHome': return '#/koordinasyon';
-    case 'coordQueue': return '#/koordinasyon/kuyruk';
-    case 'coordNeeds': return '#/koordinasyon/ihtiyaclar';
-    case 'coordLog': return '#/koordinasyon/kayit';
-    case 'system': return '#/sistem';
-    case 'components': return '#/bilesenler';
-    default: return '#/';
+    case 'home': return '/';
+    case 'disaster': return `/afet/${slug}` + (tab && tab !== 'needs' ? `/${tab}` : '');
+    case 'report': return '/bildir';
+    case 'track': return '/takip';
+    case 'needReq': return '/talep';
+    case 'coordHome': return '/koordinasyon';
+    case 'coordQueue': return '/koordinasyon/kuyruk';
+    case 'coordNeeds': return '/koordinasyon/ihtiyaclar';
+    case 'coordLog': return '/koordinasyon/kayit';
+    case 'system': return '/sistem';
+    case 'components': return '/bilesenler';
+    default: return '/';
   }
 }
 
-interface ParsedHash { route: Route; tab?: Tab; slug?: string; role?: Role; }
-function fromHash(hash: string): ParsedHash {
-  const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+interface ParsedPath { route: Route; tab?: Tab; slug?: string; role?: Role; }
+function fromPath(pathname: string): ParsedPath {
+  const parts = pathname.replace(/^\/+/, '').split('/').filter(Boolean);
   if (parts.length === 0) return { route: 'home', role: 'visitor' };
   switch (parts[0]) {
     case 'afet':
@@ -107,7 +108,7 @@ export const useApp = () => {
 };
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const initial = fromHash(typeof window !== 'undefined' ? window.location.hash : '');
+  const initial = fromPath(typeof window !== 'undefined' ? window.location.pathname : '/');
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [route, setRoute] = useState<Route>(initial.route);
   const [tab, setTab] = useState<Tab>(initial.tab ?? 'needs');
@@ -160,25 +161,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => { loadSnapshot(currentSlug); /* initial */ // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Browser back/forward: re-parse the hash into state.
+  // Browser back/forward: re-parse the path into state.
   useEffect(() => {
-    const onHash = () => {
-      const p = fromHash(window.location.hash);
+    const onPop = () => {
+      const p = fromPath(window.location.pathname);
       setRoute(p.route);
       if (p.tab) setTab(p.tab);
       if (p.role) setProtoRole(p.role);
       if (p.slug && p.slug !== currentSlug) { setCurrentSlug(p.slug); loadSnapshot(p.slug); }
     };
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSlug]);
 
-  // Reflect state into the URL hash (guarded against loops).
+  // Reflect state into the URL path (guarded against loops; pushes a history entry per navigation).
   useEffect(() => {
     const slug = currentSlug || snap?.disaster.slug || '';
-    const h = toHash(route, tab, slug);
-    if (window.location.hash !== h) window.history.replaceState(null, '', h);
+    const path = toPath(route, tab, slug);
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
   }, [route, tab, currentSlug, snap]);
 
   // Real responsive layout: track viewport width.
