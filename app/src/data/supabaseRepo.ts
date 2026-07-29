@@ -1,9 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   Disaster, Location, Need, Submission, LogEntry, Announcement,
-  VerifyKind, DeliveryInput, NeedDraft, PriorityKey, StatusKey,
+  VerifyKind, DeliveryInput, PriorityKey, StatusKey,
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult } from './repo';
+import type { NeedPayload } from '../needForm';
 import { genCode, genNrq } from './repo';
 
 // Turkish relative-time formatter for DB timestamps.
@@ -63,6 +64,7 @@ export class SupabaseRepo implements Repo {
       priority: r.priority as PriorityKey, required: Number(r.required_qty),
       verified: Number(r.verified_qty), pending: Number(r.pending_qty), unit: String(r.unit),
       updated: rel(String(r.updated_at)), loc: String(r.location_name),
+      details: (r.details as Record<string, string>) ?? {},
     }));
 
     const subs: Submission[] = (su.data ?? []).map((r: Record<string, unknown>) => ({
@@ -108,11 +110,11 @@ export class SupabaseRepo implements Repo {
     return this.getSnapshot();
   }
 
-  async publishNeed(c: NeedDraft): Promise<Snapshot> {
+  async publishNeed(p: NeedPayload): Promise<Snapshot> {
     const snap0 = await this.getSnapshot();
     await this.db.from('needs').insert({
-      disaster_id: snap0.disaster.id, name: c.title, category: c.cat, priority: c.priority,
-      required_qty: c.required, unit: c.unit || 'adet', location_name: c.loc,
+      disaster_id: snap0.disaster.id, name: p.title, category: p.category, priority: p.priority,
+      required_qty: p.required, unit: p.unit || 'adet', location_name: p.loc, details: p.details,
     });
     return this.getSnapshot();
   }
@@ -138,10 +140,15 @@ export class SupabaseRepo implements Repo {
     return this.getSnapshot();
   }
 
-  async submitNeedRequest(title: string, name: string): Promise<{ snapshot: Snapshot; code: string }> {
+  async submitNeedRequest(p: NeedPayload, contact: { name: string; email: string; phone: string; city: string }): Promise<{ snapshot: Snapshot; code: string }> {
     const code = genNrq(Math.random());
     const snap0 = await this.getSnapshot();
-    await this.db.from('need_requests').insert({ code, disaster_id: snap0.disaster.id, title, name });
+    await this.db.from('need_requests').insert({
+      code, disaster_id: snap0.disaster.id, title: p.title, category: p.category,
+      priority: p.priority, qty: p.required, unit: p.unit || 'adet',
+      location_name: p.loc, details: p.details,
+      name: contact.name, email: contact.email, phone: contact.phone, city: contact.city,
+    });
     return { snapshot: snap0, code };
   }
 

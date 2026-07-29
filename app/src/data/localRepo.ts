@@ -1,6 +1,7 @@
-import type { LogEntry, Need, Submission, VerifyKind, DeliveryInput, NeedDraft } from '../types';
+import type { LogEntry, Need, Submission, VerifyKind, DeliveryInput } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult } from './repo';
 import { genCode, genNrq } from './repo';
+import type { NeedPayload } from '../needForm';
 import * as seed from './seed';
 
 // In-memory implementation. Mirrors the approved prototype's behaviour and the
@@ -116,13 +117,13 @@ export class LocalRepo implements Repo {
     return snap();
   }
 
-  async publishNeed(c: NeedDraft): Promise<Snapshot> {
+  async publishNeed(p: NeedPayload): Promise<Snapshot> {
     const id = nextId('n');
     needs = [
-      { id, disasterId: seed.disaster.id, disasterName: seed.disaster.name, disasterSlug: seed.disaster.slug, name: c.title, cat: c.cat, priority: c.priority, required: c.required, verified: 0, pending: 0, unit: c.unit || 'adet', updated: NOW, loc: c.loc },
+      { id, disasterId: seed.disaster.id, disasterName: seed.disaster.name, disasterSlug: seed.disaster.slug, name: p.title, cat: p.category, priority: p.priority, required: p.required, verified: 0, pending: 0, unit: p.unit || 'adet', updated: NOW, loc: p.loc, details: p.details },
       ...needs,
     ];
-    addLog({ action: 'İhtiyaç oluşturuldu', detail: `${c.title} · ${c.priority}`, oldValue: '—', newValue: `${c.required} gerekli`, color: '#102A43' });
+    addLog({ action: 'İhtiyaç oluşturuldu', detail: `${p.title} · ${p.priority}`, oldValue: '—', newValue: `${p.required} ${p.unit || 'adet'} gerekli`, color: '#102A43' });
     return snap();
   }
 
@@ -144,9 +145,9 @@ export class LocalRepo implements Repo {
     return snap();
   }
 
-  async submitNeedRequest(title: string, name: string): Promise<{ snapshot: Snapshot; code: string }> {
+  async submitNeedRequest(p: NeedPayload, contact: { name: string; email: string; phone: string; city: string }): Promise<{ snapshot: Snapshot; code: string }> {
     const code = genNrq(Math.random());
-    addLog({ user: name || 'Misafir', action: 'İhtiyaç talebi gönderildi', detail: `${title || 'Başlıksız ihtiyaç'} · ${code}`, oldValue: '—', newValue: 'Doğrulama bekliyor', color: '#E6A700' });
+    addLog({ user: contact.name || 'Misafir', action: 'İhtiyaç talebi gönderildi', detail: `${p.title || 'Başlıksız ihtiyaç'} · ${code}`, oldValue: '—', newValue: 'Doğrulama bekliyor', color: '#E6A700' });
     return { snapshot: snap(), code };
   }
 

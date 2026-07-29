@@ -238,6 +238,43 @@ export const tr = {
     sentToast: (code: string) => `İhtiyaç talebi ${code} doğrulama için gönderildi`,
   },
 
+  wizard: {
+    coordTitle: 'Yeni ihtiyaç oluştur',
+    coordIntro: 'Adım adım ilerleyin. Yayınlanan ihtiyaç, herkese açık afet sayfasında anında görünür.',
+    publicTitle: 'İhtiyaç bildir',
+    publicIntro: 'Sahadaki herkes bir eksikliği bildirebilir. Bir koordinatör inceler, birleştirebilir ve yayınlar.',
+    steps: { category: 'Kategori', details: 'Detaylar', location: 'Konum ve zaman', contact: 'İletişim', review: 'Özet' },
+    stepOf: (n: number, total: number) => `Adım ${n} / ${total}`,
+    chooseCategory: 'Ne tür bir ihtiyaç?',
+    // standard supply fields
+    fTitle: 'İhtiyaç başlığı', fTitlePh: 'Yanık pansumanı',
+    fRequired: 'Gerekli miktar', fUnit: 'Birim',
+    fPriority: 'Öncelik',
+    // transport / logistics
+    fVehicle: 'Araç tipi', fCapacity: 'Kapasite (kişi)', fLoad: 'Taşınacak yük',
+    fLoadPh: 'Örn. 200 koli su, 1 ton çadır',
+    fFrom: 'Nereden', fTo: 'Nereye', fWhen: 'Tarih ve saat',
+    fTrips: 'Sefer sayısı',
+    // pets
+    fAnimal: 'Hayvan türü', fCount: 'Hayvan sayısı', fPetNeeds: 'İhtiyaçlar',
+    // shared
+    fLocation: 'Teslim / buluşma noktası', fDeadline: 'Son tarih',
+    fName: 'Ad Soyad', fEmail: 'E-posta', fPhone: 'Telefon', fCity: 'Şehir',
+    contactIntro: 'Bir koordinatörün size ulaşabilmesi için:',
+    back: 'Geri', next: 'Devam', publish: 'İhtiyacı yayınla', submit: 'Talebi gönder',
+    reviewTitle: 'Göndermeden önce kontrol edin',
+    errCategory: 'Lütfen bir kategori seçin.',
+    errRequired: 'Lütfen gerekli miktarı girin.',
+    errTitle: 'Lütfen bir başlık girin.',
+    errCapacity: 'Lütfen kaç kişilik kapasite gerektiğini girin.',
+    errAnimal: 'Lütfen hayvan sayısını girin.',
+    errContact: 'Bir koordinatörün size ulaşabilmesi için ad, e-posta, telefon ve şehir gereklidir.',
+    doneTitle: 'İhtiyaç talebi gönderildi',
+    doneBody: (code: string) => `Takip kodunuz ${code}. Bir koordinatör talebi inceleyecek.`,
+    close: 'Kapat',
+    none: '—',
+  },
+
   coord: {
     dashTitle: 'Koordinasyon paneli',
     dashSubtitle: 'Seydikemer Orman Yangını · Elif Kaya, saha koordinatörü',

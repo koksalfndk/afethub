@@ -10,6 +10,7 @@ import { Toast } from './components/Toast';
 import { AuthModal } from './components/AuthModal';
 import { AccountBanner } from './components/AccountBanner';
 import { ReportModal } from './components/ReportModal';
+import { NeedWizard } from './components/NeedWizard';
 import { Home } from './screens/Home';
 import { Disaster } from './screens/Disaster';
 import { Track } from './screens/Track';
@@ -56,6 +57,7 @@ export function App() {
           </div>
           {mob && <BottomNav />}
           {isReport && <ReportModal />}
+          <NeedWizard />
           <Modal />
           <AuthModal />
           <Toast />

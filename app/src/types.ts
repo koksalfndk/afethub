@@ -45,6 +45,7 @@ export interface Need {
   unit: string;          // Turkish unit display string
   updated: string;       // display string
   loc: string;
+  details?: Record<string, string>; // category-specific extra fields (transport/pets/…)
 }
 
 export interface Submission {

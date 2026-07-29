@@ -3,6 +3,7 @@ import { tr } from '../i18n/strings';
 import { C } from '../theme';
 import { enrichSorted, cols } from '../select';
 import { PriorityBadge, ProgressBar, Chip } from '../ui';
+import { detailPairs } from '../needForm';
 import { LocationMap } from '../components/LocationMap';
 import type { Filter, Tab } from '../store';
 
@@ -146,6 +147,15 @@ export function Disaster() {
                     ))}
                   </div>
                   <div style={{ fontSize: 12.5, color: C.muted }}>{tr.common.dropOff(n.loc)}</div>
+                  {detailPairs(n.details).length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {detailPairs(n.details).map(([k, val]) => (
+                        <span key={k} style={{ fontSize: 12, color: C.heading2, background: C.chipNavyBg, border: `1px solid ${C.borderSoft}`, borderRadius: 6, padding: '3px 8px' }}>
+                          <b style={{ fontWeight: 600 }}>{k}:</b> {val}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div style={{ display: 'flex', gap: 8, marginTop: 'auto', flexWrap: 'wrap' }}>
                     <button onClick={() => a.prefillReport(n.id, n.unit, n.loc)} style={{ flex: '1 1 150px', background: n.done ? C.muted3 : C.emergency, border: `1px solid ${n.done ? C.muted3 : C.emergency}`, color: '#fff', borderRadius: 9, padding: '11px 14px', fontSize: 14, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>{n.done ? tr.disaster.fullyCovered : tr.disaster.iDelivered}</button>
                     <button onClick={() => a.showToast(tr.toasts.detail(n.name, n.verified, n.pending, n.remaining))} style={{ background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 9, padding: '11px 14px', fontSize: 14, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>{tr.common.details}</button>

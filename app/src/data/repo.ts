@@ -1,7 +1,8 @@
 import type {
   Disaster, Location, Need, Submission, LogEntry, Announcement,
-  VerifyKind, DeliveryInput, NeedDraft,
+  VerifyKind, DeliveryInput,
 } from '../types';
+import type { NeedPayload } from '../needForm';
 
 // A snapshot is the full operational state the UI renders from. Mutations return
 // a fresh snapshot so the store can re-render. This same interface is backed by
@@ -27,10 +28,10 @@ export interface Repo {
   getSnapshot(slug?: string): Promise<Snapshot>;
   createDelivery(input: DeliveryInput): Promise<CreateDeliveryResult>;
   verifySubmission(subId: string, kind: VerifyKind, qty: number, reason: string): Promise<Snapshot>;
-  publishNeed(draft: NeedDraft): Promise<Snapshot>;
+  publishNeed(p: NeedPayload): Promise<Snapshot>;
   bumpNeed(needId: string): Promise<Snapshot>;
   togglePause(needId: string): Promise<Snapshot>;
-  submitNeedRequest(title: string, name: string): Promise<{ snapshot: Snapshot; code: string }>;
+  submitNeedRequest(p: NeedPayload, contact: { name: string; email: string; phone: string; city: string }): Promise<{ snapshot: Snapshot; code: string }>;
   trackSubmission(code: string, email: string): Promise<Submission | null>;
 }
 

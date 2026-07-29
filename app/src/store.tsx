@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { repo, fallbackToLocal, type Snapshot } from './data';
-import type { Submission, VerifyKind, PriorityKey } from './types';
+import type { Submission, VerifyKind } from './types';
+import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
 import { useAuth } from './auth';
 
@@ -66,8 +67,11 @@ const emptyForm = {
 
 const isMobileWidth = () => typeof window !== 'undefined' && window.innerWidth < 768;
 const IS_DEV = Boolean(import.meta.env.DEV);
-const emptyNreq = { cat: 'Sağlık', title: '', desc: '', qty: '', unit: '', priority: 'Critical' as PriorityKey, loc: '', name: '', email: '', phone: '', city: '' };
-const emptyCneed = { title: '', cat: 'Sağlık', priority: 'Critical' as PriorityKey, required: '', unit: '', loc: 'Seydikemer Kapalı Pazar Yeri', deadline: '' };
+
+// The step-by-step need wizard is opened in one of two modes:
+//   'coord'  → coordinator publishes a need directly (İhtiyaç oluştur)
+//   'public' → a visitor submits a need request for review (İhtiyaç talebi)
+export type WizardMode = 'coord' | 'public';
 
 export interface AppApi {
   snap: Snapshot | null;
@@ -75,11 +79,12 @@ export interface AppApi {
   route: Route; tab: Tab; device: Device; role: Role; currentSlug: string;
   frame: boolean; showToolbar: boolean;
   query: string; filter: Filter; subFilter: SubFilter;
-  form: typeof emptyForm; nreq: typeof emptyNreq; cneed: typeof emptyCneed;
+  form: typeof emptyForm;
   track: { code: string; email: string };
   reportStage: 'form' | 'done'; lastCode: string; formError: string; copied: boolean;
-  needReqCode: string; modal: ModalState | null; toast: string | null;
+  modal: ModalState | null; toast: string | null;
   trackedSub: Submission | null; trackError: string;
+  wizardMode: WizardMode | null;
 
   go: (r: Route, extra?: Partial<{ tab: Tab }>) => void;
   openDisaster: (slug: string, tab?: Tab) => void;
@@ -87,12 +92,12 @@ export interface AppApi {
   setQuery: (q: string) => void; setFilter: (f: Filter) => void; setSubFilter: (f: SubFilter) => void;
   clearFilters: () => void;
   setForm: (k: keyof typeof emptyForm, v: string | boolean) => void;
-  setNreq: (k: keyof typeof emptyNreq, v: string) => void;
-  setCneed: (k: keyof typeof emptyCneed, v: string) => void;
   setTrack: (k: 'code' | 'email', v: string) => void;
   prefillReport: (needId: string, unit: string, loc: string) => void;
   submitDelivery: () => void; copyCode: () => void; reportAnother: () => void;
-  submitNeedReq: () => void; publishNeed: () => void;
+  openWizard: (mode: WizardMode) => void; closeWizard: () => void;
+  publishNeed: (p: NeedPayload) => Promise<boolean>;
+  requestNeed: (p: NeedPayload, contact: { name: string; email: string; phone: string; city: string }) => Promise<string | null>;
   bumpNeed: (id: string) => void; togglePause: (id: string) => void;
   openModal: (sub: Submission, kind: VerifyKind) => void; closeModal: () => void;
   setModalQty: (v: string) => void; setModalReason: (v: string) => void; confirmModal: () => void;
@@ -126,14 +131,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [filter, setFilter] = useState<Filter>('All');
   const [subFilter, setSubFilter] = useState<SubFilter>('Pending');
   const [form, setFormState] = useState(emptyForm);
-  const [nreq, setNreqState] = useState(emptyNreq);
-  const [cneed, setCneedState] = useState(emptyCneed);
   const [track, setTrackState] = useState({ code: '', email: '' });
   const [reportStage, setReportStage] = useState<'form' | 'done'>('form');
   const [lastCode, setLastCode] = useState('');
   const [formError, setFormError] = useState('');
   const [copied, setCopied] = useState(false);
-  const [needReqCode, setNeedReqCode] = useState('');
+  const [wizardMode, setWizardMode] = useState<WizardMode | null>(null);
   const [modal, setModal] = useState<ModalState | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [trackedSub, setTrackedSub] = useState<Submission | null>(null);
@@ -207,8 +210,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const api: AppApi = useMemo(() => ({
     snap, backend: repo.kind,
     route, tab, device, role, currentSlug, frame, showToolbar: IS_DEV, query, filter, subFilter,
-    form, nreq, cneed, track, reportStage, lastCode, formError, copied,
-    needReqCode, modal, toast, trackedSub, trackError,
+    form, track, reportStage, lastCode, formError, copied,
+    modal, toast, trackedSub, trackError, wizardMode,
 
     go: (r, extra) => { setRoute(r); if (extra?.tab) setTab(extra.tab); },
     openDisaster: (slug, t) => { setCurrentSlug(slug); setRoute('disaster'); setTab(t ?? 'needs'); if (slug !== currentSlug) loadSnapshot(slug); },
@@ -217,8 +220,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTab, setQuery, setFilter, setSubFilter,
     clearFilters: () => { setFilter('All'); setQuery(''); },
     setForm: (k, v) => setFormState((s) => ({ ...s, [k]: v })),
-    setNreq: (k, v) => setNreqState((s) => ({ ...s, [k]: v })),
-    setCneed: (k, v) => setCneedState((s) => ({ ...s, [k]: v })),
     setTrack: (k, v) => setTrackState((s) => ({ ...s, [k]: v })),
     prefillReport: (needId, unit, loc) => {
       setFormState((s) => ({ ...s, needId, unit, loc }));
@@ -244,17 +245,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     copyCode: () => { try { navigator.clipboard.writeText(lastCode); } catch { /* ignore */ } setCopied(true); },
     reportAnother: () => { setReportStage('form'); setCopied(false); setFormState((s) => ({ ...s, qty: '', notes: '', confirm: false, photoUrl: '' })); },
 
-    submitNeedReq: () => {
-      repo.submitNeedRequest(nreq.title, nreq.name).then(({ snapshot, code }) => {
-        setSnap(snapshot); setNeedReqCode(code); showToast(tr.needReq.sentToast(code));
-      });
+    openWizard: (mode) => setWizardMode(mode),
+    closeWizard: () => setWizardMode(null),
+    publishNeed: async (p) => {
+      if (unverified) { showToast(tr.auth.verifyFirst); return false; }
+      const s = await repo.publishNeed(p);
+      setSnap(s); showToast(tr.coord.publishedToast(p.title));
+      return true;
     },
-    publishNeed: () => {
-      if (unverified) return showToast(tr.auth.verifyFirst);
-      const req = parseInt(cneed.required, 10);
-      if (!cneed.title || !req) return showToast(tr.coord.publishNeedNote);
-      repo.publishNeed({ title: cneed.title, cat: cneed.cat, priority: cneed.priority, required: req, unit: cneed.unit, loc: cneed.loc, deadline: cneed.deadline })
-        .then((s) => { setSnap(s); setCneedState((c) => ({ ...c, title: '', required: '', unit: '' })); showToast(tr.coord.publishedToast(cneed.title)); });
+    requestNeed: async (p, contact) => {
+      const { snapshot, code } = await repo.submitNeedRequest(p, contact);
+      setSnap(snapshot); showToast(tr.needReq.sentToast(code));
+      return code;
     },
     bumpNeed: (id) => { if (unverified) return showToast(tr.auth.verifyFirst); repo.bumpNeed(id).then((s) => { setSnap(s); const n = s.needs.find((x) => x.id === id); if (n) showToast(tr.coord.bumpToast(n.name, n.required, n.unit)); }); },
     togglePause: (id) => { if (unverified) return showToast(tr.auth.verifyFirst); repo.togglePause(id).then(setSnap); },
@@ -298,7 +300,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     showToast,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [snap, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, form, nreq, cneed, track, reportStage, lastCode, formError, copied, needReqCode, modal, toast, trackedSub, trackError]);
+  }), [snap, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, form, track, reportStage, lastCode, formError, copied, wizardMode, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
