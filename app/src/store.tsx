@@ -119,6 +119,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const role: Role = auth.enabled ? (auth.isCoordinator ? 'coordinator' : 'visitor') : protoRole;
   // The 412px phone mock-up frame is a dev-preview aid only; production is truly responsive.
   const frame = IS_DEV && device === 'mobile';
+  // Signed in but email not confirmed → privileged (coordinator) actions are blocked.
+  const unverified = auth.enabled && !!auth.user && !auth.emailVerified;
   const [currentSlug, setCurrentSlug] = useState<string>(initial.slug ?? '');
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('All');
@@ -244,13 +246,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
     },
     publishNeed: () => {
+      if (unverified) return showToast(tr.auth.verifyFirst);
       const req = parseInt(cneed.required, 10);
       if (!cneed.title || !req) return showToast(tr.coord.publishNeedNote);
       repo.publishNeed({ title: cneed.title, cat: cneed.cat, priority: cneed.priority, required: req, unit: cneed.unit, loc: cneed.loc, deadline: cneed.deadline })
         .then((s) => { setSnap(s); setCneedState((c) => ({ ...c, title: '', required: '', unit: '' })); showToast(tr.coord.publishedToast(cneed.title)); });
     },
-    bumpNeed: (id) => { repo.bumpNeed(id).then((s) => { setSnap(s); const n = s.needs.find((x) => x.id === id); if (n) showToast(tr.coord.bumpToast(n.name, n.required, n.unit)); }); },
-    togglePause: (id) => { repo.togglePause(id).then(setSnap); },
+    bumpNeed: (id) => { if (unverified) return showToast(tr.auth.verifyFirst); repo.bumpNeed(id).then((s) => { setSnap(s); const n = s.needs.find((x) => x.id === id); if (n) showToast(tr.coord.bumpToast(n.name, n.required, n.unit)); }); },
+    togglePause: (id) => { if (unverified) return showToast(tr.auth.verifyFirst); repo.togglePause(id).then(setSnap); },
 
     openModal: (sub, kind) => setModal({ subId: sub.id, kind, qty: String(kind === 'partial' ? Math.max(1, sub.qty - 5) : sub.qty), reason: '' }),
     closeModal: () => setModal(null),
@@ -258,6 +261,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setModalReason: (v) => setModal((m) => (m ? { ...m, reason: v } : m)),
     confirmModal: () => {
       if (!modal || !snap) return;
+      if (unverified) { setModal(null); return showToast(tr.auth.verifyFirst); }
       const sub = snap.subs.find((s) => s.id === modal.subId);
       const need = sub && snap.needs.find((n) => n.id === sub.needId);
       const qty = Math.max(0, Math.min(parseInt(modal.qty, 10) || 0, sub?.qty ?? 0));
@@ -290,7 +294,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     showToast,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [snap, route, tab, device, role, currentSlug, query, filter, subFilter, form, nreq, cneed, track, reportStage, lastCode, formError, copied, needReqCode, modal, toast, trackedSub, trackError]);
+  }), [snap, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, form, nreq, cneed, track, reportStage, lastCode, formError, copied, needReqCode, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

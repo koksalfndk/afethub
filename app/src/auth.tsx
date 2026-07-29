@@ -9,6 +9,7 @@ export interface AuthApi {
   user: User | null;
   profile: Profile | null;
   isCoordinator: boolean;    // profile role is coordinator or admin
+  emailVerified: boolean;    // Supabase email_confirmed_at is set
   working: boolean;
   error: string;
   modalOpen: boolean;
@@ -17,6 +18,7 @@ export interface AuthApi {
   signIn: (email: string, password: string) => Promise<boolean>;
   signUp: (email: string, password: string, fullName: string) => Promise<'ok' | 'confirm' | 'error'>;
   signOut: () => Promise<void>;
+  resendVerification: () => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -61,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const api: AuthApi = useMemo(() => ({
     enabled, ready, user, profile,
     isCoordinator: profile?.role === 'coordinator' || profile?.role === 'admin',
+    emailVerified: !!user?.email_confirmed_at,
     working, error,
     modalOpen,
     openModal: () => { setError(''); setModalOpen(true); },
@@ -78,9 +81,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp: async (email, password, fullName) => {
       if (!supabase) return 'error';
       setWorking(true); setError('');
+      const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
       const { data, error: e } = await supabase.auth.signUp({
         email: email.trim(), password,
-        options: { data: { full_name: fullName.trim() } },
+        options: { data: { full_name: fullName.trim() }, emailRedirectTo: redirectTo },
       });
       setWorking(false);
       if (e) { setError(e.message); return 'error'; }
@@ -88,6 +92,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return data.session ? 'ok' : 'confirm';
     },
     signOut: async () => { if (supabase) await supabase.auth.signOut(); },
+    resendVerification: async () => {
+      if (!supabase || !user?.email) return false;
+      const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+      const { error: e } = await supabase.auth.resend({ type: 'signup', email: user.email, options: { emailRedirectTo: redirectTo } });
+      return !e;
+    },
   }), [enabled, ready, user, profile, working, error, modalOpen]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;

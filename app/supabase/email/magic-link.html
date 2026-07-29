@@ -1,0 +1,47 @@
+<!--
+  AfetHUB · Kurumsal e-posta şablonu — "Magic Link"
+  Supabase Dashboard → Authentication → Email Templates → "Magic Link"
+  Konu (Subject): AfetHUB · Giriş bağlantın
+  Değişken: {{ .ConfirmationURL }}
+-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F6F8FA;padding:28px 12px;font-family:Inter,Arial,Helvetica,sans-serif;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;overflow:hidden;">
+        <tr>
+          <td style="padding:22px 28px;border-bottom:1px solid #EEF2F6;">
+            <img src="https://afethub.com/logo_horizontal.png" alt="AfetHUB" height="30" style="height:30px;display:block;border:0;" />
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px;">
+            <h1 style="margin:0 0 8px;font-size:22px;line-height:1.25;color:#102A43;font-weight:700;">Giriş bağlantın</h1>
+            <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#486581;">
+              <strong style="color:#102A43;">AfetHUB</strong>'a giriş yapmak için aşağıdaki butona tıkla. Bağlantı kısa süre geçerlidir.
+            </p>
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 20px;">
+              <tr>
+                <td style="border-radius:10px;background:#102A43;">
+                  <a href="{{ .ConfirmationURL }}" target="_blank"
+                     style="display:inline-block;padding:13px 22px;font-size:15px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:10px;">
+                    Giriş yap
+                  </a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:0 0 6px;font-size:13px;line-height:1.6;color:#627D98;">Buton çalışmazsa bu bağlantıyı tarayıcına yapıştır:</p>
+            <p style="margin:0 0 18px;font-size:12.5px;line-height:1.5;color:#829AB1;word-break:break-all;">{{ .ConfirmationURL }}</p>
+            <p style="margin:0;font-size:13px;line-height:1.6;color:#829AB1;">Bu isteği sen yapmadıysan bu e-postayı yok sayabilirsin.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 28px;border-top:1px solid #EEF2F6;background:#F6F8FA;">
+            <p style="margin:0;font-size:12px;line-height:1.6;color:#9FB3C8;">
+              AfetHUB · Afet yardım koordinasyonu · <a href="https://afethub.com" style="color:#627D98;text-decoration:none;">afethub.com</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>

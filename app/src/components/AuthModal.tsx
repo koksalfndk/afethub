@@ -40,7 +40,7 @@ export function AuthModal() {
   const err = localErr || auth.error;
 
   return (
-    <div onClick={auth.closeModal} style={{ position: 'absolute', inset: 0, background: 'rgba(11,30,48,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 90 }}>
+    <div onClick={auth.closeModal} style={{ position: 'fixed', inset: 0, background: 'rgba(11,30,48,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 90 }}>
       <div onClick={(e) => e.stopPropagation()} className="anim-in" style={{ background: C.surface, borderRadius: 14, width: '100%', maxWidth: 420, boxShadow: '0 18px 48px rgba(11,30,48,.28)', overflow: 'hidden' }}>
         <div style={{ padding: '18px 20px 0' }}>
           <img src="/logo_horizontal.png" alt={tr.brand} style={{ height: 26, marginBottom: 12, display: 'block' }} />
