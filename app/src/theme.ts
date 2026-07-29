@@ -27,6 +27,10 @@ export const C = {
   errorText: '#A32027',
   errorSurface: '#FEF3F2',
   errorBorder: '#F6C9C9',
+  // Accent-only tokens — used for stat-card borders, icons and numbers so
+  // operational categories are distinguishable without filling cards with colour.
+  info: '#2A6FB0',   // delivery locations
+  teal: '#0F766E',   // volunteers
 } as const;
 
 export type PriorityKey = 'Critical' | 'Urgent' | 'Normal' | 'Paused' | 'Completed';

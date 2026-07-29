@@ -39,6 +39,9 @@ export const tr = {
     login: 'Giriş yap',
     logout: 'Çıkış yap',
     awaiting: (n: number) => `${n} inceleme bekliyor`,
+    reportAid: 'Yardım bildir',
+    search: 'İhtiyaç, kategori veya nokta ara…',
+    searchLabel: 'İhtiyaçlarda ara',
   },
 
   auth: {
@@ -130,6 +133,31 @@ export const tr = {
     howVerification: 'Doğrulama nasıl işler',
     howItWorks: 'Nasıl çalışır',
     howItWorksBody: 'Yalnızca koordinatörce doğrulanan teslimatlar kalan miktarı düşürür. Bekleyen bildirimler sayıları asla değiştirmez.',
+
+    // Live operations panel (hero, right side)
+    liveOps: 'Aktif operasyon',
+    activeNeedsCount: (n: number) => `${n} aktif ihtiyaç`,
+    lastVerification: 'Son doğrulama',
+    left: (n: number) => `${n} kaldı`,
+    openOperation: 'Operasyonu aç',
+
+    // Operational disaster card
+    metrics: { activeNeeds: 'Aktif ihtiyaç', deliveryPoints: 'Teslim noktası', volunteers: 'Gönüllü', pendingDeliveries: 'Bekleyen teslim' },
+    lastUpdate: 'Son güncelleme',
+
+    // Live activity feed (replaces the empty "no other disaster" panel)
+    feedTitle: 'Canlı hareket akışı',
+    feedNote: 'Yalnızca gerçekleşen olaylar',
+    feedAll: 'Tüm hareketleri gör',
+    feedEmpty: 'Henüz kayıtlı hareket yok.',
+
+    // "Nasıl çalışır" — one continuous timeline
+    steps: [
+      { title: 'Koordinatör ihtiyaç oluşturur', body: 'Ürün, gerekli miktar, öncelik ve teslim noktası.' },
+      { title: 'Vatandaş teslim bildirir', body: 'Hesap gerekmez. Ad, e-posta, telefon ve şehir yeterli.' },
+      { title: 'Koordinatör doğrular', body: 'Tam, kısmi veya reddedilmiş — kayda geçen bir gerekçeyle.' },
+      { title: 'Kalan miktar otomatik güncellenir', body: 'Kalan = gerekli − doğrulanan. Bekleyen asla sayılmaz.' },
+    ],
   },
 
   disaster: {
@@ -142,8 +170,8 @@ export const tr = {
       completedNeeds: 'Tamamlanan ihtiyaç', completedHint: 'tamamen karşılandı',
       pendingDeliveries: 'Bekleyen teslimat', pendingHint: (u: number) => `${u} adet bildirildi`,
       verifiedDeliveries: 'Doğrulanan teslimat', verifiedHint: '21 Temmuz’dan bu yana',
-      volunteers: 'Gönüllü', volunteersHint: 'şu an 24 nöbette',
-      deliveryPoints: 'Teslim noktası', deliveryPointsHint: '1 bu gece açılıyor',
+      volunteers: 'Gönüllü', volunteersHint: (n: number) => `şu an ${n} nöbette`,
+      deliveryPoints: 'Teslim noktası', deliveryPointsHint: (opening: number) => (opening > 0 ? `${opening} bu akşam açılıyor` : 'hepsi teslim alıyor'),
     },
     situation: 'Durum',
     situationBody: 'Kuzey sırtındaki yangın cepheleri kontrol altında; dört mahalle hâlâ tahliye halinde. Sahada 168 gönüllü kayıtlı. Yardım girişi 08:00–22:00 arası kapalı pazar yerinden yapılıyor, bu akşam ikinci bir giriş noktası açılıyor.',
@@ -152,9 +180,23 @@ export const tr = {
     units: (n: number) => `${n} adet`,
     criticalNeeds: 'Kritik ihtiyaçlar',
     left: (n: number) => `${n} kaldı`,
-    searchNeeds: 'İhtiyaç ara…',
+    searchNeeds: 'İhtiyaç, kategori veya teslim noktası ara…',
     filters: { All: 'Tümü', Critical: 'Kritik', Urgent: 'Acil', Normal: 'Normal', Completed: 'Tamamlanan' },
+    filtersMore: {
+      allCategories: 'Tüm kategoriler',
+      allLocations: 'Tüm teslim noktaları',
+      onlyCritical: 'Sadece kritik',
+      updatedToday: 'Bugün güncellenen',
+      myArea: 'Bölgem · yakında',
+      clear: 'Filtreleri temizle',
+      count: (shown: number, total: number) => `${shown} / ${total} ihtiyaç`,
+    },
     verifiedUnit: (v: number, r: number, u: string) => `${v} / ${r} ${u} doğrulandı`,
+    verifiedOfUnit: (v: number, r: number) => `${v} / ${r} doğrulandı`,
+    remainingWord: 'kalan',
+    pendingInline: (n: number) => `${n} doğrulama bekliyor`,
+    verifiedInline: (n: number) => `${n} doğrulandı`,
+    coveredWord: 'karşılandı',
     noNeedsTitle: 'Bu filtreye uyan ihtiyaç yok',
     noNeedsBody: 'Aramayı temizlemeyi ya da tüm önceliklere dönmeyi deneyin.',
     clearFilters: 'Filtreleri temizle',

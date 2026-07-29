@@ -81,12 +81,102 @@ export function Btn({
   );
 }
 
-export function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+export function Chip({ label, active, onClick, disabled, accent }: {
+  label: string; active: boolean; onClick: () => void; disabled?: boolean; accent?: string;
+}) {
+  const on = active && !disabled;
+  const tone = accent ?? C.navy;
   return (
-    <button onClick={onClick} style={{
-      background: active ? C.navy : C.surface, border: `1px solid ${active ? C.navy : C.borderSoft}`,
-      color: active ? '#fff' : C.heading2, borderRadius: 20, padding: '9px 13px', fontSize: 13,
-      fontWeight: 600, cursor: 'pointer', minHeight: 40,
+    <button onClick={disabled ? undefined : onClick} disabled={disabled} title={disabled ? label : undefined} style={{
+      background: on ? tone : C.surface, border: `1px solid ${on ? tone : C.borderSoft}`,
+      color: disabled ? C.muted3 : on ? '#fff' : C.heading2, borderRadius: 20, padding: '9px 13px', fontSize: 13,
+      fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', minHeight: 40,
     }}>{label}</button>
+  );
+}
+
+// Lightweight select used by the needs filter bar — same footprint as a Chip so
+// the filter row stays visually calm.
+export const filterSelectStyle: CSSProperties = {
+  background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.heading2,
+  borderRadius: 20, padding: '9px 12px', fontSize: 13, fontWeight: 600, minHeight: 40,
+  cursor: 'pointer', maxWidth: 200,
+};
+
+// ---- Operational primitives ------------------------------------------------
+
+// Pulsing status dot — marks anything that reflects live operational state.
+export function LiveDot({ color = C.emergency, size = 7, still }: { color?: string; size?: number; still?: boolean }) {
+  return (
+    <span style={{
+      width: size, height: size, borderRadius: '50%', background: color, flex: `0 0 ${size}px`,
+      animation: still ? undefined : 'afetPulse 1.8s infinite',
+    }} />
+  );
+}
+
+// Minimal stroke icon set (currentColor, 1.8px) — used only as a colour-coded
+// category marker on stat cards and headers, never as decoration.
+export type IcoName = 'need' | 'verified' | 'pending' | 'completed' | 'pin' | 'people' | 'critical' | 'activity' | 'search';
+
+const ICO: Record<IcoName, ReactNode> = {
+  need: <><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z" /><path d="M3 7.5 12 12l9-4.5M12 12v9" /></>,
+  verified: <><circle cx="12" cy="12" r="9" /><path d="M8 12.5l2.6 2.5L16 9.5" /></>,
+  completed: <><path d="M20 6.5 9.5 17 4 11.5" /></>,
+  pending: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 2" /></>,
+  pin: <><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" /></>,
+  people: <><path d="M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20" /><circle cx="9.5" cy="7.5" r="3.5" /><path d="M17 4.4a3.6 3.6 0 0 1 0 7" /><path d="M21 20v-1.5a4 4 0 0 0-3-3.8" /></>,
+  critical: <><path d="M12 4.5 21 19H3z" /><path d="M12 10v4M12 16.8h.01" /></>,
+  activity: <><path d="M3 12h4l2.5-6 4 12L16 12h5" /></>,
+  search: <><circle cx="11" cy="11" r="7" /><path d="M20 20l-4.2-4.2" /></>,
+};
+
+export function Ico({ n, size = 17, color }: { n: IcoName; size?: number; color?: string }) {
+  return (
+    <svg
+      width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? 'currentColor'}
+      strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+      style={{ display: 'block', flex: `0 0 ${size}px` }}
+    >{ICO[n]}</svg>
+  );
+}
+
+// Operational stat card. The card body stays white — only the top border, the
+// icon and the number carry the status colour, so a grid of these stays calm
+// while still being scannable.
+export function StatCard({ accent, icon, label, value, hint, onClick }: {
+  accent: string; icon: IcoName; label: string; value: string | number; hint?: string; onClick?: () => void;
+}) {
+  const body = (
+    <>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <Ico n={icon} size={16} color={accent} />
+        <span style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>{label}</span>
+      </span>
+      <span style={{ fontSize: 25, fontWeight: 700, color: accent, letterSpacing: '-.02em', lineHeight: 1.1 }}>{value}</span>
+      {hint ? <span style={{ fontSize: 11.5, color: C.muted2 }}>{hint}</span> : null}
+    </>
+  );
+  const style: CSSProperties = {
+    textAlign: 'left', background: C.surface, border: `1px solid ${C.border}`,
+    borderTop: `3px solid ${accent}`, borderRadius: 11, padding: '12px 14px 13px',
+    display: 'flex', flexDirection: 'column', gap: 5,
+  };
+  return onClick
+    ? <button onClick={onClick} className="hv-navy" style={{ ...style, cursor: 'pointer' }}>{body}</button>
+    : <div style={style}>{body}</div>;
+}
+
+// Compact metric inside a card (disaster summary). Colour lives on the left edge
+// and the number only.
+export function MetricCell({ accent, value, label }: { accent: string; value: string | number; label: string }) {
+  return (
+    <div style={{
+      background: C.canvas, border: `1px solid ${C.border}`, borderLeft: `3px solid ${accent}`,
+      borderRadius: 9, padding: '9px 11px',
+    }}>
+      <div style={{ fontSize: 21, fontWeight: 700, color: accent, letterSpacing: '-.02em', lineHeight: 1.15 }}>{value}</div>
+      <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 500, marginTop: 1 }}>{label}</div>
+    </div>
   );
 }

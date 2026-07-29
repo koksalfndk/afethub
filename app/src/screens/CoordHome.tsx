@@ -2,7 +2,7 @@ import { useApp } from '../store';
 import { tr } from '../i18n/strings';
 import { C } from '../theme';
 import { enrichSorted, cols } from '../select';
-import { ProgressBar } from '../ui';
+import { ProgressBar, StatCard, type IcoName } from '../ui';
 
 export function CoordHome() {
   const a = useApp();
@@ -17,13 +17,15 @@ export function CoordHome() {
   const nearDone = needs.slice().sort((x, y) => y.pctVal - x.pctVal).slice(0, 4);
   const recent = a.snap.log.slice(0, 4);
 
-  const cards = [
-    { label: tr.coord.cards.criticalNeeds, value: needs.filter((n) => n.priority === 'Critical').length, hint: tr.coord.cards.criticalHint, color: C.emergency, onClick: () => a.go('coordNeeds') },
-    { label: tr.coord.cards.pendingDeliveries, value: pendingSubs.length, hint: tr.coord.cards.pendingHint(pendingUnits), color: C.warning, onClick: () => { a.setSubFilter('Pending'); a.go('coordQueue'); } },
-    { label: tr.coord.cards.verifiedToday, value: verifiedToday, hint: tr.coord.cards.verifiedHint, color: C.success, onClick: () => { a.setSubFilter('Verified'); a.go('coordQueue'); } },
-    { label: tr.coord.cards.completedNeeds, value: completedNeeds, hint: tr.coord.cards.completedHint, color: C.success, onClick: () => a.go('coordNeeds') },
-    { label: tr.coord.cards.openRequests, value: 3, hint: tr.coord.cards.openRequestsHint, color: C.orange, onClick: () => a.showToast(tr.coord.requestsToast) },
-    { label: tr.coord.cards.pendingVolunteers, value: 11, hint: tr.coord.cards.pendingVolunteersHint, color: C.navy, onClick: () => a.showToast(tr.coord.volunteersToast) },
+  // Same accent-only stat card as the public disaster page, so both roles read the
+  // operational counters the same way.
+  const cards: { label: string; value: number; hint: string; accent: string; icon: IcoName; onClick: () => void }[] = [
+    { label: tr.coord.cards.criticalNeeds, value: needs.filter((n) => n.priority === 'Critical').length, hint: tr.coord.cards.criticalHint, accent: C.emergency, icon: 'critical', onClick: () => a.go('coordNeeds') },
+    { label: tr.coord.cards.pendingDeliveries, value: pendingSubs.length, hint: tr.coord.cards.pendingHint(pendingUnits), accent: C.warning, icon: 'pending', onClick: () => { a.setSubFilter('Pending'); a.go('coordQueue'); } },
+    { label: tr.coord.cards.verifiedToday, value: verifiedToday, hint: tr.coord.cards.verifiedHint, accent: C.success, icon: 'verified', onClick: () => { a.setSubFilter('Verified'); a.go('coordQueue'); } },
+    { label: tr.coord.cards.completedNeeds, value: completedNeeds, hint: tr.coord.cards.completedHint, accent: C.success, icon: 'completed', onClick: () => a.go('coordNeeds') },
+    { label: tr.coord.cards.openRequests, value: 3, hint: tr.coord.cards.openRequestsHint, accent: C.orange, icon: 'need', onClick: () => a.showToast(tr.coord.requestsToast) },
+    { label: tr.coord.cards.pendingVolunteers, value: 11, hint: tr.coord.cards.pendingVolunteersHint, accent: C.teal, icon: 'people', onClick: () => a.showToast(tr.coord.volunteersToast) },
   ];
 
   return (
@@ -41,11 +43,7 @@ export function CoordHome() {
 
       <div style={{ display: 'grid', gap: 10, gridTemplateColumns: L.stat }}>
         {cards.map((c) => (
-          <button key={c.label} onClick={c.onClick} className="hv-navy" style={{ textAlign: 'left', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 11, padding: 14, cursor: 'pointer' }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>{c.label}</div>
-            <div style={{ fontSize: 25, fontWeight: 700, marginTop: 6, color: c.color, letterSpacing: '-.02em' }}>{c.value}</div>
-            <div style={{ fontSize: 11.5, color: C.muted2, marginTop: 2 }}>{c.hint}</div>
-          </button>
+          <StatCard key={c.label} accent={c.accent} icon={c.icon} label={c.label} value={c.value} hint={c.hint} onClick={c.onClick} />
         ))}
       </div>
 

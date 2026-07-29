@@ -79,6 +79,7 @@ export interface AppApi {
   route: Route; tab: Tab; device: Device; role: Role; currentSlug: string;
   frame: boolean; showToolbar: boolean;
   query: string; filter: Filter; subFilter: SubFilter;
+  catFilter: string; locFilter: string; onlyCritical: boolean; updatedToday: boolean;
   form: typeof emptyForm;
   track: { code: string; email: string };
   reportStage: 'form' | 'done'; lastCode: string; formError: string; copied: boolean;
@@ -90,7 +91,10 @@ export interface AppApi {
   openDisaster: (slug: string, tab?: Tab) => void;
   setDevice: (d: Device) => void; setRole: (r: Role) => void; setTab: (t: Tab) => void;
   setQuery: (q: string) => void; setFilter: (f: Filter) => void; setSubFilter: (f: SubFilter) => void;
+  setCatFilter: (c: string) => void; setLocFilter: (l: string) => void;
+  toggleOnlyCritical: () => void; toggleUpdatedToday: () => void;
   clearFilters: () => void;
+  searchFromHeader: (q: string) => void;
   setForm: (k: keyof typeof emptyForm, v: string | boolean) => void;
   setTrack: (k: 'code' | 'email', v: string) => void;
   prefillReport: (needId: string, unit: string, loc: string) => void;
@@ -130,6 +134,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('All');
   const [subFilter, setSubFilter] = useState<SubFilter>('Pending');
+  // Secondary needs filters — empty string / false means "no restriction".
+  const [catFilter, setCatFilter] = useState('');
+  const [locFilter, setLocFilter] = useState('');
+  const [onlyCritical, setOnlyCritical] = useState(false);
+  const [updatedToday, setUpdatedToday] = useState(false);
   const [form, setFormState] = useState(emptyForm);
   const [track, setTrackState] = useState({ code: '', email: '' });
   const [reportStage, setReportStage] = useState<'form' | 'done'>('form');
@@ -210,6 +219,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const api: AppApi = useMemo(() => ({
     snap, backend: repo.kind,
     route, tab, device, role, currentSlug, frame, showToolbar: IS_DEV, query, filter, subFilter,
+    catFilter, locFilter, onlyCritical, updatedToday,
     form, track, reportStage, lastCode, formError, copied,
     modal, toast, trackedSub, trackError, wizardMode,
 
@@ -218,7 +228,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDevice,
     setRole: (r) => { setProtoRole(r); setRoute(r === 'coordinator' ? 'coordHome' : 'home'); },
     setTab, setQuery, setFilter, setSubFilter,
-    clearFilters: () => { setFilter('All'); setQuery(''); },
+    setCatFilter, setLocFilter,
+    toggleOnlyCritical: () => setOnlyCritical((v) => !v),
+    toggleUpdatedToday: () => setUpdatedToday((v) => !v),
+    clearFilters: () => {
+      setFilter('All'); setQuery(''); setCatFilter(''); setLocFilter('');
+      setOnlyCritical(false); setUpdatedToday(false);
+    },
+    // Header search: type anywhere, land on the needs list already filtered.
+    searchFromHeader: (q) => {
+      setQuery(q);
+      setRoute('disaster');
+      setTab('needs');
+    },
     setForm: (k, v) => setFormState((s) => ({ ...s, [k]: v })),
     setTrack: (k, v) => setTrackState((s) => ({ ...s, [k]: v })),
     prefillReport: (needId, unit, loc) => {
@@ -300,7 +322,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     showToast,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [snap, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, form, track, reportStage, lastCode, formError, copied, wizardMode, modal, toast, trackedSub, trackError]);
+  }), [snap, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

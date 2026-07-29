@@ -2,9 +2,10 @@ import { useApp } from '../store';
 import { tr } from '../i18n/strings';
 import { C } from '../theme';
 import { enrichSorted, cols } from '../select';
-import { PriorityBadge, ProgressBar, Chip } from '../ui';
+import { PriorityBadge, ProgressBar, Chip, StatCard, LiveDot, Ico, filterSelectStyle, type IcoName } from '../ui';
 import { detailPairs } from '../needForm';
 import { LocationMap } from '../components/LocationMap';
+import { isToday } from '../util';
 import type { Filter, Tab } from '../store';
 
 const FILTERS: Filter[] = ['All', 'Critical', 'Urgent', 'Normal', 'Completed'];
@@ -23,20 +24,36 @@ export function Disaster() {
   const totalVer = needs.reduce((x, n) => x + n.verified, 0);
   const fulfil = Math.round((totalVer / totalReq) * 100);
 
-  const summary = [
-    { label: tr.disaster.summary.activeNeeds, value: activeNeeds, hint: tr.disaster.summary.activeHint, color: C.navy },
-    { label: tr.disaster.summary.completedNeeds, value: completedNeeds, hint: tr.disaster.summary.completedHint, color: C.success },
-    { label: tr.disaster.summary.pendingDeliveries, value: pendingSubs.length, hint: tr.disaster.summary.pendingHint(pendingUnits), color: C.warning },
-    { label: tr.disaster.summary.verifiedDeliveries, value: a.snap.verifiedTotal, hint: tr.disaster.summary.verifiedHint, color: C.success },
-    { label: tr.disaster.summary.volunteers, value: 168, hint: tr.disaster.summary.volunteersHint, color: C.navy },
-    { label: tr.disaster.summary.deliveryPoints, value: 2, hint: tr.disaster.summary.deliveryPointsHint, color: C.orange },
+  // Volunteer and delivery-point figures come from the snapshot, not constants,
+  // so the summary can never drift from what the disaster page actually lists.
+  const openingSoon = a.snap.locations.filter((l) => l.statusTone === 'yellow').length;
+  const summary: { label: string; value: number; hint: string; accent: string; icon: IcoName }[] = [
+    { label: tr.disaster.summary.activeNeeds, value: activeNeeds, hint: tr.disaster.summary.activeHint, accent: C.navy, icon: 'need' },
+    { label: tr.disaster.summary.completedNeeds, value: completedNeeds, hint: tr.disaster.summary.completedHint, accent: C.success, icon: 'completed' },
+    { label: tr.disaster.summary.pendingDeliveries, value: pendingSubs.length, hint: tr.disaster.summary.pendingHint(pendingUnits), accent: C.warning, icon: 'pending' },
+    { label: tr.disaster.summary.verifiedDeliveries, value: a.snap.verifiedTotal, hint: tr.disaster.summary.verifiedHint, accent: C.success, icon: 'verified' },
+    { label: tr.disaster.summary.volunteers, value: a.snap.disaster.volunteers, hint: tr.disaster.summary.volunteersHint(a.snap.disaster.onShift), accent: C.teal, icon: 'people' },
+    { label: tr.disaster.summary.deliveryPoints, value: a.snap.locations.length, hint: tr.disaster.summary.deliveryPointsHint(openingSoon), accent: C.info, icon: 'pin' },
   ];
 
+  // Needs filtering: free-text search plus the secondary filters (category,
+  // delivery point, critical-only, updated today). Every clause is additive.
   const q = a.query.trim().toLowerCase();
-  const visibleNeeds = needs.filter((n) =>
-    (a.filter === 'All' || (a.filter === 'Completed' ? n.remaining === 0 : n.priority === a.filter)) &&
-    (!q || n.name.toLowerCase().includes(q) || n.cat.toLowerCase().includes(q)),
-  );
+  const visibleNeeds = needs.filter((n) => {
+    const priorityOk = a.filter === 'All' || (a.filter === 'Completed' ? n.remaining === 0 : n.priority === a.filter);
+    const searchOk = !q
+      || n.name.toLowerCase().includes(q)
+      || n.cat.toLowerCase().includes(q)
+      || n.loc.toLowerCase().includes(q);
+    return priorityOk && searchOk
+      && (!a.catFilter || n.cat === a.catFilter)
+      && (!a.locFilter || n.loc === a.locFilter)
+      && (!a.onlyCritical || n.priority === 'Critical')
+      && (!a.updatedToday || isToday(n.updated));
+  });
+  const categories = Array.from(new Set(needs.map((n) => n.cat))).sort((x, y) => x.localeCompare(y, 'tr'));
+  const dropOffs = Array.from(new Set(needs.map((n) => n.loc))).sort((x, y) => x.localeCompare(y, 'tr'));
+  const anyFilter = a.filter !== 'All' || !!q || !!a.catFilter || !!a.locFilter || a.onlyCritical || a.updatedToday;
   const criticalNeeds = needs.filter((n) => n.priority === 'Critical').slice(0, 3);
 
   const tabs: { key: Tab; label: string }[] = [
@@ -57,18 +74,14 @@ export function Disaster() {
             <div style={{ fontSize: 13.5, color: C.muted, marginTop: 4 }}>{tr.disaster.openedUpdated(a.snap.disaster.openedAt, a.snap.disaster.updatedLabel)}</div>
           </div>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#FEF3F2', color: C.emergency, border: '1px solid #F6C9C9', borderRadius: 20, padding: '5px 11px', fontSize: 12.5, fontWeight: 700 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.emergency }} />{tr.disaster.active}
+            <LiveDot size={6} />{tr.disaster.active}
           </span>
         </div>
       </div>
 
       <div style={{ display: 'grid', gap: 10, gridTemplateColumns: L.stat }}>
         {summary.map((c) => (
-          <div key={c.label} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 11, padding: 14 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>{c.label}</div>
-            <div style={{ fontSize: 24, fontWeight: 700, marginTop: 6, color: c.color, letterSpacing: '-.02em' }}>{c.value}</div>
-            <div style={{ fontSize: 11.5, color: C.muted2, marginTop: 2 }}>{c.hint}</div>
-          </div>
+          <StatCard key={c.label} accent={c.accent} icon={c.icon} label={c.label} value={c.value} hint={c.hint} />
         ))}
       </div>
 
@@ -113,40 +126,87 @@ export function Disaster() {
 
       {a.tab === 'needs' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <input value={a.query} onChange={(e) => a.setQuery(e.target.value)} placeholder={tr.disaster.searchNeeds} style={{ flex: '1 1 220px', minWidth: 180, background: C.surface, border: `1px solid ${C.borderSoft}`, borderRadius: 9, padding: '11px 13px', fontSize: 14, color: C.navy, minHeight: 44 }} />
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {FILTERS.map((f) => <Chip key={f} label={tr.disaster.filters[f]} active={a.filter === f} onClick={() => a.setFilter(f)} />)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 240px', minWidth: 180, background: C.surface, border: `1px solid ${C.borderSoft}`, borderRadius: 9, padding: '0 12px', minHeight: 44 }}>
+                <Ico n="search" size={15} color={C.muted2} />
+                <input
+                  value={a.query}
+                  onChange={(e) => a.setQuery(e.target.value)}
+                  placeholder={tr.disaster.searchNeeds}
+                  aria-label={tr.disaster.searchNeeds}
+                  style={{ border: 0, background: 'none', outline: 'none', fontSize: 14, color: C.navy, padding: '11px 0', width: '100%', minWidth: 0 }}
+                />
+              </label>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {FILTERS.map((f) => <Chip key={f} label={tr.disaster.filters[f]} active={a.filter === f} onClick={() => a.setFilter(f)} />)}
+              </div>
+            </div>
+
+            {/* Secondary filters — narrow the list without adding a second toolbar. */}
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+              <select value={a.catFilter} onChange={(e) => a.setCatFilter(e.target.value)} aria-label={tr.disaster.filtersMore.allCategories} style={filterSelectStyle}>
+                <option value="">{tr.disaster.filtersMore.allCategories}</option>
+                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select value={a.locFilter} onChange={(e) => a.setLocFilter(e.target.value)} aria-label={tr.disaster.filtersMore.allLocations} style={filterSelectStyle}>
+                <option value="">{tr.disaster.filtersMore.allLocations}</option>
+                {dropOffs.map((l) => <option key={l} value={l}>{l}</option>)}
+              </select>
+              <Chip label={tr.disaster.filtersMore.onlyCritical} active={a.onlyCritical} onClick={a.toggleOnlyCritical} accent={C.emergency} />
+              <Chip label={tr.disaster.filtersMore.updatedToday} active={a.updatedToday} onClick={a.toggleUpdatedToday} />
+              <Chip label={tr.disaster.filtersMore.myArea} active={false} onClick={() => {}} disabled />
+              <span style={{ flex: 1, minWidth: 4 }} />
+              <span className="tnum" style={{ fontSize: 12.5, color: C.muted2, fontWeight: 500 }}>{tr.disaster.filtersMore.count(visibleNeeds.length, needs.length)}</span>
+              {anyFilter && (
+                <button onClick={a.clearFilters} style={{ background: 'none', border: 0, padding: '6px 2px', fontSize: 12.5, fontWeight: 600, color: C.navy, cursor: 'pointer', textDecoration: 'underline' }}>{tr.disaster.filtersMore.clear}</button>
+              )}
             </div>
           </div>
 
           {visibleNeeds.length > 0 ? (
             <div style={{ display: 'grid', gap: 14, gridTemplateColumns: L.need }}>
               {visibleNeeds.map((n) => (
-                <div key={n.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                // Priority is carried by the top border AND the badge — never colour alone (rule 04).
+                <div key={n.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderTop: `3px solid ${n.barColor}`, borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 16.5, fontWeight: 700, color: C.navy }}>{n.name}</div>
+                    <div style={{ fontSize: 12.5, color: C.muted2, marginTop: 2 }}>{n.cat} · {tr.common.updated(n.updated)}</div>
+                  </div>
+
+                  {/* Remaining is the decision-driving number, so it is the largest
+                      element on the card — never the requested quantity (rule 04). */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                     <div>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: C.navy }}>{n.name}</div>
-                      <div style={{ fontSize: 12.5, color: C.muted2, marginTop: 2 }}>{n.cat} · {tr.common.updated(n.updated)}</div>
+                      <div className="tnum" style={{ fontSize: 34, fontWeight: 700, lineHeight: 1, letterSpacing: '-.03em', color: n.barColor }}>{n.remaining}</div>
+                      <div style={{ fontSize: 12.5, color: C.muted, fontWeight: 600, marginTop: 4 }}>
+                        {n.done ? tr.disaster.coveredWord : `${n.unit} ${tr.disaster.remainingWord}`}
+                      </div>
                     </div>
                     <PriorityBadge p={n.priority} />
                   </div>
+
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, color: C.heading2 }}>
-                      <span>{tr.disaster.verifiedUnit(n.verified, n.required, n.unit)}</span>
-                      <span style={{ color: n.barColor }}>{n.pctVal}%</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13, fontWeight: 600, color: C.heading2 }}>
+                      <span className="tnum">{tr.disaster.verifiedUnit(n.verified, n.required, n.unit)}</span>
+                      <span className="tnum" style={{ color: C.muted2, fontWeight: 500 }}>{n.pctVal}%</span>
                     </div>
                     <div style={{ marginTop: 7 }}><ProgressBar pct={n.pctVal} color={n.barColor} height={8} /></div>
+                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 8, fontSize: 12.5, fontWeight: 600 }}>
+                      <span className="tnum" style={{ display: 'flex', alignItems: 'center', gap: 6, color: C.successText }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.success, flex: '0 0 7px' }} />
+                        {tr.disaster.verifiedInline(n.verified)}
+                      </span>
+                      <span className="tnum" style={{ display: 'flex', alignItems: 'center', gap: 6, color: C.warningText }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: C.warning, flex: '0 0 7px' }} />
+                        {tr.disaster.pendingInline(n.pending)}
+                      </span>
+                    </div>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 8 }}>
-                    {[[tr.common.verified, n.verified, C.success], [tr.common.pending, n.pending, C.warning], [tr.common.remaining, n.remaining, C.navy]].map(([lbl, val, col]) => (
-                      <div key={lbl as string} style={{ background: C.canvas, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 9px' }}>
-                        <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 600 }}>{lbl}</div>
-                        <div style={{ fontSize: 15.5, fontWeight: 700, color: col as string }}>{val}</div>
-                      </div>
-                    ))}
+
+                  <div style={{ fontSize: 12.5, color: C.muted, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Ico n="pin" size={14} color={C.muted2} />{tr.common.dropOff(n.loc)}
                   </div>
-                  <div style={{ fontSize: 12.5, color: C.muted }}>{tr.common.dropOff(n.loc)}</div>
                   {detailPairs(n.details).length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {detailPairs(n.details).map(([k, val]) => (
@@ -156,9 +216,10 @@ export function Disaster() {
                       ))}
                     </div>
                   )}
+                  {/* Primary action stays visually dominant; details is a quiet secondary. */}
                   <div style={{ display: 'flex', gap: 8, marginTop: 'auto', flexWrap: 'wrap' }}>
-                    <button onClick={() => a.prefillReport(n.id, n.unit, n.loc)} style={{ flex: '1 1 150px', background: n.done ? C.muted3 : C.emergency, border: `1px solid ${n.done ? C.muted3 : C.emergency}`, color: '#fff', borderRadius: 9, padding: '11px 14px', fontSize: 14, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>{n.done ? tr.disaster.fullyCovered : tr.disaster.iDelivered}</button>
-                    <button onClick={() => a.showToast(tr.toasts.detail(n.name, n.verified, n.pending, n.remaining))} style={{ background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 9, padding: '11px 14px', fontSize: 14, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>{tr.common.details}</button>
+                    <button onClick={() => a.prefillReport(n.id, n.unit, n.loc)} className={n.done ? undefined : 'hv-emergency'} style={{ flex: '1 1 160px', background: n.done ? C.muted3 : C.emergency, border: `1px solid ${n.done ? C.muted3 : C.emergency}`, color: '#fff', borderRadius: 9, padding: '13px 16px', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', minHeight: 48 }}>{n.done ? tr.disaster.fullyCovered : tr.disaster.iDelivered}</button>
+                    <button onClick={() => a.showToast(tr.toasts.detail(n.name, n.verified, n.pending, n.remaining))} className="hv-navy" style={{ flex: '0 0 auto', background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.heading2, borderRadius: 9, padding: '13px 15px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', minHeight: 48 }}>{tr.common.details}</button>
                   </div>
                 </div>
               ))}
