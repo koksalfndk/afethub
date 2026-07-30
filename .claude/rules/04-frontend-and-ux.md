@@ -171,13 +171,37 @@ Avoid:
 
 - Dramatic disaster photographs in core operational views
 - Decorative animation
-- Excessive gradients
 - Glassmorphism
 - Tiny text
 - Dense dashboard layouts
 - Gamification
 - Confetti
 - Leaderboards for aid
+
+### Gradients
+
+Measured gradients are allowed. They exist to give a surface depth or to mark a
+panel, never as decoration. The permitted uses are defined as tokens in
+`app/src/theme.ts` (`G`, `wash()`, `barFill()`, `ribbon()`); do not hand-roll new
+gradients in components.
+
+Allowed:
+
+- Header bar and card surfaces washed toward white (white stays dominant)
+- A 4px accent ribbon on the top edge of a card
+- Progress fills and primary buttons
+- A dark navy panel or strip that carries only short labels and figures
+
+Not allowed:
+
+- Gradients behind body copy that must stay readable outdoors on a weak screen
+- More than two colour stops of visible contrast in one surface
+- A gradient that replaces the status colour of a border, badge or figure —
+  status is still carried by colour **and** text
+- Glassmorphism, blur-behind panels, and translucent overlays over content
+
+The hero and any card containing paragraph text stays light. Contrast targets in
+this file still apply to every gradient surface.
 
 ## Responsive Navigation
 
