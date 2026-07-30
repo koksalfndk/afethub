@@ -148,8 +148,16 @@ export interface Repo {
   listMySubmissions(): Promise<Submission[]>;
   // Volunteer applications. Submitting needs no account; reading needs a coordinator,
   // because every row is a named person with a phone number.
-  submitVolunteerApplication(input: VolunteerInput): Promise<void>;
+  // Returns the new application's id: the receipt e-mail is addressed by id, never by an
+  // address the browser supplies (migration 0018 + send-volunteer-receipt).
+  submitVolunteerApplication(input: VolunteerInput): Promise<string>;
   listVolunteerApplications(): Promise<VolunteerApplication[]>;
+  // The signed-in visitor's OWN applications, matched server-side on their account
+  // e-mail. Guests are not covered on purpose: without an account there is nothing to
+  // match on but a typed address, and that would be a disclosure endpoint.
+  listMyVolunteerApplications(): Promise<VolunteerApplication[]>;
+  updateMyVolunteerApplication(id: string, input: VolunteerInput): Promise<VolunteerApplication[]>;
+  withdrawMyVolunteerApplication(id: string): Promise<VolunteerApplication[]>;
   reviewVolunteerApplication(id: string, status: VolunteerStatus, note: string): Promise<VolunteerApplication[]>;
   // Staff. Admin-only, enforced by is_admin() inside the RPCs — not by the screen being
   // hard to reach (rules/03 §Server-Side Authorization).

@@ -472,12 +472,13 @@ export class LocalRepo implements Repo {
   }
 
   // ---- Volunteer applications ----------------------------------------------
-  async submitVolunteerApplication(input: VolunteerInput): Promise<void> {
+  async submitVolunteerApplication(input: VolunteerInput): Promise<string> {
     if (!input.consent) throw new Error('consent required');
     if (!input.phone.trim() && !input.email.trim()) throw new Error('contact required');
     const d = input.disasterId ? seed.disasters.find((x) => x.id === input.disasterId) : undefined;
+    const id = nextId('vol');
     volunteerApps.unshift({
-      id: nextId('vol'),
+      id,
       disasterId: input.disasterId, disasterName: d?.name ?? '',
       fullName: input.fullName.trim(), phone: input.phone.trim(), email: input.email.trim(),
       province: input.province, district: input.district,
@@ -490,6 +491,55 @@ export class LocalRepo implements Repo {
       detail: [input.province, input.skills[0]].filter(Boolean).join(' · ') || 'Genel havuz',
       oldValue: '—', newValue: 'Koordinatör incelemesi bekliyor', color: '#E6A700',
     });
+    return id;
+  }
+
+  // Local mode has no session, so "mine" is matched on the address in the form — the
+  // Supabase implementation matches the ACCOUNT's address server-side instead, which is
+  // the part that actually protects the rows.
+  async listMyVolunteerApplications(): Promise<VolunteerApplication[]> {
+    return volunteerApps.map((v) => ({ ...v, skills: v.skills.slice() }));
+  }
+
+  async updateMyVolunteerApplication(id: string, input: VolunteerInput): Promise<VolunteerApplication[]> {
+    const app = volunteerApps.find((v) => v.id === id);
+    if (!app) throw new Error('not authorized');
+    if (app.status === 'Rejected' || app.status === 'Withdrawn') throw new Error('application closed');
+    if (input.skills.length === 0) throw new Error('at least one skill required');
+    const d = input.disasterId ? seed.disasters.find((x) => x.id === input.disasterId) : undefined;
+    const wasApproved = app.status === 'Approved';
+    Object.assign(app, {
+      disasterId: input.disasterId, disasterName: d?.name ?? '',
+      fullName: input.fullName.trim(), phone: input.phone.trim(),
+      province: input.province, district: input.district,
+      skills: input.skills.slice(), availability: input.availability, note: input.note.trim(),
+      // Editing an approved application puts it back in the queue: the approval was a
+      // decision about the previous version (mirrors migration 0018).
+      status: wasApproved ? 'Pending review' : app.status,
+      reviewNote: wasApproved ? '' : app.reviewNote,
+      onShift: wasApproved ? false : app.onShift,
+      shiftSinceLabel: wasApproved ? '' : app.shiftSinceLabel,
+    });
+    addLog(d?.id ?? activeDisasterId(), {
+      user: app.fullName || 'Gönüllü', action: 'Gönüllü başvurusu güncellendi',
+      detail: app.fullName, oldValue: wasApproved ? 'Approved' : app.status,
+      newValue: app.status, color: '#2A6FB0',
+    });
+    return this.listMyVolunteerApplications();
+  }
+
+  async withdrawMyVolunteerApplication(id: string): Promise<VolunteerApplication[]> {
+    const app = volunteerApps.find((v) => v.id === id);
+    if (!app) throw new Error('not authorized');
+    const before = app.status;
+    app.status = 'Withdrawn';
+    app.onShift = false;
+    app.shiftSinceLabel = '';
+    addLog(activeDisasterId(), {
+      user: app.fullName || 'Gönüllü', action: 'Gönüllü başvurusu geri çekildi',
+      detail: app.fullName, oldValue: before, newValue: 'Withdrawn', color: '#8095A8',
+    });
+    return this.listMyVolunteerApplications();
   }
 
   async listVolunteerApplications(): Promise<VolunteerApplication[]> {

@@ -476,15 +476,56 @@ export class SupabaseRepo implements Repo {
   }
 
   // ---- Volunteer applications ----------------------------------------------
-  async submitVolunteerApplication(input: VolunteerInput): Promise<void> {
-    const { error } = await this.db.from('volunteer_applications').insert({
+  async submitVolunteerApplication(input: VolunteerInput): Promise<string> {
+    const { data, error } = await this.db.from('volunteer_applications').insert({
       disaster_id: input.disasterId,
       full_name: input.fullName.trim(), phone: input.phone.trim(), email: input.email.trim(),
       province: input.province.trim(), district: input.district.trim(),
       skills: input.skills.filter(Boolean), availability: input.availability,
       note: input.note.trim(), consent: input.consent,
+    }).select('id').single();
+    if (error) throw error;
+    return String((data as Record<string, unknown>)?.id ?? '');
+  }
+
+  // Own rows only, decided by the database: my_volunteer_applications() matches the
+  // caller's account e-mail (migration 0018). An id passed from the browser is never
+  // what grants access.
+  async listMyVolunteerApplications(): Promise<VolunteerApplication[]> {
+    const { data, error } = await this.db.rpc('my_volunteer_applications');
+    if (error) throw error;
+    return (data ?? []).map((r: Record<string, unknown>) => ({
+      id: String(r.id),
+      disasterId: r.disaster_id ? String(r.disaster_id) : null,
+      disasterName: String(r.disaster_name ?? ''),
+      fullName: String(r.full_name ?? ''), phone: String(r.phone ?? ''), email: String(r.email ?? ''),
+      province: String(r.province ?? ''), district: String(r.district ?? ''),
+      skills: Array.isArray(r.skills) ? (r.skills as string[]) : [],
+      availability: String(r.availability ?? ''), note: String(r.note ?? ''),
+      status: (r.status as VolunteerStatus) ?? 'Pending review',
+      reviewNote: String(r.review_note ?? ''),
+      createdLabel: r.created_at ? rel(String(r.created_at)) : '',
+      reviewedLabel: r.reviewed_at ? rel(String(r.reviewed_at)) : '',
+      onShift: r.on_shift === true,
+      shiftSinceLabel: r.shift_since ? rel(String(r.shift_since)) : '',
+    }));
+  }
+
+  async updateMyVolunteerApplication(id: string, input: VolunteerInput): Promise<VolunteerApplication[]> {
+    const { error } = await this.db.rpc('update_my_volunteer_application', {
+      p_app: id, p_disaster: input.disasterId, p_full_name: input.fullName.trim(),
+      p_phone: input.phone.trim(), p_province: input.province.trim(), p_district: input.district.trim(),
+      p_skills: input.skills.filter(Boolean), p_availability: input.availability,
+      p_note: input.note.trim(),
     });
     if (error) throw error;
+    return this.listMyVolunteerApplications();
+  }
+
+  async withdrawMyVolunteerApplication(id: string): Promise<VolunteerApplication[]> {
+    const { error } = await this.db.rpc('withdraw_my_volunteer_application', { p_app: id });
+    if (error) throw error;
+    return this.listMyVolunteerApplications();
   }
 
   async listVolunteerApplications(): Promise<VolunteerApplication[]> {

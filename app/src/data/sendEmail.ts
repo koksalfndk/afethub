@@ -63,3 +63,24 @@ export async function sendStaffInvite(
   if (!data?.ok) return { ok: false, error: String(data?.error ?? 'unknown') };
   return { ok: true, kind: data.kind === 'granted' ? 'granted' : 'invited' };
 }
+
+// ---------------------------------------------------------------------------
+// Volunteer application receipt
+// ---------------------------------------------------------------------------
+// Takes only the application id. The Edge Function reads the recipient address and the
+// content from the database (`volunteer_receipt_context`, migration 0018), which answers
+// once per application and only within 15 minutes of it being filed. Nothing about the
+// message — not the address, not the subject, not a line of HTML — comes from here, so
+// this cannot be used to send mail in AfetHUB's name.
+export async function sendVolunteerReceipt(applicationId: string): Promise<boolean> {
+  if (!supabase || !applicationId) return false;
+  try {
+    const { data, error } = await supabase.functions.invoke('send-volunteer-receipt', {
+      body: { applicationId },
+    });
+    if (error) return false;
+    return data?.ok === true && data?.skipped !== true;
+  } catch {
+    return false;
+  }
+}

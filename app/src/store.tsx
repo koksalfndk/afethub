@@ -12,7 +12,7 @@ import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
 import { withTimeout } from './util';
 import { useAuth } from './auth';
-import { sendStaffInvite } from './data/sendEmail';
+import { sendStaffInvite, sendVolunteerReceipt } from './data/sendEmail';
 
 export type Route =
   | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
@@ -150,6 +150,11 @@ export interface AppApi {
   volunteersPending: number;
   reloadVolunteers: () => void;
   submitVolunteer: (input: VolunteerInput) => Promise<boolean>;
+  // The signed-in visitor's own applications, for the panel above the form.
+  myVolunteer: VolunteerApplication[]; myVolunteerLoading: boolean;
+  reloadMyVolunteer: () => void;
+  updateMyVolunteer: (id: string, input: VolunteerInput) => Promise<boolean>;
+  withdrawMyVolunteer: (id: string) => Promise<boolean>;
   reviewVolunteer: (id: string, status: VolunteerStatus, note: string) => Promise<boolean>;
   // Staff (admin only; the RPCs enforce it).
   staff: StaffMember[]; invites: RoleInvite[]; staffLoading: boolean; staffError: string;
@@ -282,6 +287,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [reportQueueLoading, setReportQueueLoading] = useState(false);
   const [reportQueueError, setReportQueueError] = useState('');
   const [volunteers, setVolunteers] = useState<VolunteerApplication[]>([]);
+  const [myVolunteer, setMyVolunteer] = useState<VolunteerApplication[]>([]);
+  const [myVolunteerLoading, setMyVolunteerLoading] = useState(false);
   const [volunteersLoading, setVolunteersLoading] = useState(false);
   const [volunteersError, setVolunteersError] = useState('');
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -366,6 +373,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setOrgEditsError(tr.coordOrgEdits.loadFailed);
     } finally {
       setOrgEditsLoading(false);
+    }
+  };
+
+  // Own applications: loaded only for a signed-in account, because that is the only
+  // thing the server can match them on.
+  const loadMyVolunteer = async () => {
+    if (!auth.enabled || !auth.user) { setMyVolunteer([]); return; }
+    setMyVolunteerLoading(true);
+    try {
+      setMyVolunteer(await withTimeout(repo.listMyVolunteerApplications()));
+    } catch {
+      setMyVolunteer([]);
+    } finally {
+      setMyVolunteerLoading(false);
     }
   };
 
@@ -501,6 +522,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     mySubs, mySubsLoading, mySubsError,
     orgEdits, orgEditsLoading, orgEditsError, orgEditsPending,
     reportQueue, reportQueueLoading, reportQueueError,
+    myVolunteer, myVolunteerLoading,
     systemLog, systemLogLoading, systemLogError, volunteerFilter,
     volunteers, volunteersLoading, volunteersError,
     volunteersPending: volunteers.filter((v) => v.status === 'Pending review').length,
@@ -674,9 +696,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // visitor sees; the table's own constraints are what actually hold.
     submitVolunteer: async (input) => {
       try {
-        await withTimeout(repo.submitVolunteerApplication(input));
+        const id = await withTimeout(repo.submitVolunteerApplication(input));
+        // The receipt is attempted after the row exists and is never allowed to fail the
+        // application: the person applied, whatever the mail provider does next.
+        void sendVolunteerReceipt(id);
+        void loadMyVolunteer();
         return true;
       } catch { return false; }
+    },
+    reloadMyVolunteer: () => { void loadMyVolunteer(); },
+    updateMyVolunteer: async (id, input) => {
+      try {
+        setMyVolunteer(await withTimeout(repo.updateMyVolunteerApplication(id, input)));
+        showToast(tr.volunteerMine.updatedToast);
+        return true;
+      } catch { showToast(tr.volunteerMine.actionFailed); return false; }
+    },
+    withdrawMyVolunteer: async (id) => {
+      try {
+        setMyVolunteer(await withTimeout(repo.withdrawMyVolunteerApplication(id)));
+        showToast(tr.volunteerMine.withdrawnToast);
+        return true;
+      } catch { showToast(tr.volunteerMine.actionFailed); return false; }
     },
     reviewVolunteer: async (id, status, note) => {
       if (unverified) { showToast(tr.auth.verifyFirst); return false; }
@@ -867,7 +908,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Every piece of state exposed on `api` must be listed here, or consumers keep the
   // previous value: `deliveryOpen` and `slides` were missing, so the delivery overlay
   // never appeared and the slide list could go stale after a save.
-  }), [snap, loadError, overview, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, systemLog, systemLogLoading, systemLogError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
+  }), [snap, loadError, overview, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, systemLog, systemLogLoading, systemLogError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
