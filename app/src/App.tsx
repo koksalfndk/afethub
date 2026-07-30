@@ -20,6 +20,7 @@ import { NeedRequest } from './screens/NeedRequest';
 import { Organizations } from './screens/Organizations';
 import { ReportDisaster } from './screens/ReportDisaster';
 import { About } from './screens/About';
+import { HowItWorks } from './screens/HowItWorks';
 import { DisasterReportModal } from './components/DisasterReportModal';
 import { Footer } from './components/Footer';
 import { CoordHome } from './screens/CoordHome';
@@ -36,7 +37,7 @@ export function App() {
   const frame = a.frame; // 412px phone mock-up wrapper (dev preview only)
 
   const screens: Record<string, () => ReactElement | null> = {
-    home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About,
+    home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About, howItWorks: HowItWorks,
     coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog,
     components: Components, system: System,
   };

@@ -42,7 +42,7 @@ export function HeroBanner() {
       onClick: a.openDisasterForm },
     { key: 'verify', image: '/banners/coordination.jpg', tint: '#159947',
       title: tr.banner.verifyTitle, body: tr.banner.verifyBody, cta: tr.home.howVerification,
-      onClick: () => a.go('system') },
+      onClick: () => a.go('howItWorks') },
     { key: 'orgs', image: '/banners/volunteers.jpg', tint: '#2A6FB0',
       title: tr.banner.orgsTitle, body: tr.banner.orgsBody, cta: tr.nav.orgs,
       onClick: () => a.go('orgs') },

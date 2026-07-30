@@ -12,7 +12,8 @@ export function About() {
   const t = tr.about;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 900 }}>
+    // Centred reading column — this is a content page, not a dashboard.
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 880, margin: '0 auto', width: '100%' }}>
       <div>
         <span style={eyebrow}>{tr.footer.about}</span>
         <h1 style={{ fontSize: L.h2, fontWeight: 700, letterSpacing: '-.02em', margin: '7px 0 0', color: C.navy }}>{t.title}</h1>

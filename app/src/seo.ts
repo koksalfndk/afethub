@@ -51,6 +51,11 @@ const ROUTE_META: Record<Route, RouteMeta> = {
     description: 'AfetHUB bağımsız bir sivil afet koordinasyon platformudur. Kalan miktar = gerekli − doğrulanan; bekleyen bildirimler sayıları değiştirmez.',
     index: true,
   },
+  howItWorks: {
+    title: 'Nasıl çalışır',
+    description: 'AfetHUB’ın yapısı, kimin ne yapabildiği ve her işlemin adımları: afet bildirme, ihtiyaç çağrısı, yardım bildirimi, takip ve doğrulama zinciri.',
+    index: true,
+  },
   reportDisaster: {
     title: 'Afet bildir',
     description: 'Yangın, deprem, sel veya şiddetli hava olayını bildirin. Aynı olaya ait bildirimler birleştirilir.',

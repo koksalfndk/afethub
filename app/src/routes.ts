@@ -17,6 +17,7 @@ export function routePath(route: Route, tab: Tab, slug: string): string {
     case 'orgs': return '/kurumlar';
     case 'reportDisaster': return '/afet-bildir';
     case 'about': return '/hakkimizda';
+    case 'howItWorks': return '/nasil-calisir';
     case 'coordHome': return '/koordinasyon';
     case 'coordQueue': return '/koordinasyon/kuyruk';
     case 'coordNeeds': return '/koordinasyon/ihtiyaclar';

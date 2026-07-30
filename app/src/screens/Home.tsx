@@ -302,7 +302,7 @@ export function Home() {
                 );
               })}
             </ol>
-            <button onClick={() => a.go('system')} style={{ marginTop: 10, background: 'none', border: 0, padding: 0, fontSize: 13, fontWeight: 600, color: C.navy, cursor: 'pointer', textDecoration: 'underline' }}>{tr.home.howVerification}</button>
+            <button onClick={() => a.go('howItWorks')} style={{ marginTop: 10, background: 'none', border: 0, padding: 0, fontSize: 13, fontWeight: 600, color: C.navy, cursor: 'pointer', textDecoration: 'underline' }}>{tr.home.howVerification}</button>
           </section>
         </div>
       </div>

@@ -55,7 +55,7 @@ export function Header() {
     : [
         { label: tr.nav.activeDisasters, active: a.route === 'home', onClick: () => a.go('home') },
         { label: tr.nav.orgs, active: a.route === 'orgs', onClick: () => a.go('orgs') },
-        { label: tr.nav.howItWorks, active: a.route === 'system', onClick: () => a.go('system') },
+        { label: tr.nav.howItWorks, active: a.route === 'howItWorks', onClick: () => a.go('howItWorks') },
       ];
 
   const nav = (

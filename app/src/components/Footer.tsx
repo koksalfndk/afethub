@@ -42,7 +42,7 @@ export function Footer() {
         {col(tr.footer.platform, [
           { label: tr.nav.activeDisasters, onClick: () => a.go('home') },
           { label: tr.nav.orgs, onClick: () => a.go('orgs') },
-          { label: tr.nav.howItWorks, onClick: () => a.go('system') },
+          { label: tr.nav.howItWorks, onClick: () => a.go('howItWorks') },
           { label: tr.footer.about, onClick: () => a.go('about') },
         ])}
 

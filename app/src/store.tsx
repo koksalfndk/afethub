@@ -9,7 +9,7 @@ import { withTimeout } from './util';
 import { useAuth } from './auth';
 
 export type Route =
-  | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about'
+  | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks'
   | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog'
   | 'components' | 'system';
 export type Tab = 'overview' | 'needs' | 'locations' | 'announcements' | 'activity';
@@ -34,6 +34,7 @@ function toPath(route: Route, tab: Tab, slug: string): string {
     case 'orgs': return '/kurumlar';
     case 'reportDisaster': return '/afet-bildir';
     case 'about': return '/hakkimizda';
+    case 'howItWorks': return '/nasil-calisir';
     case 'coordHome': return '/koordinasyon';
     case 'coordQueue': return '/koordinasyon/kuyruk';
     case 'coordNeeds': return '/koordinasyon/ihtiyaclar';
@@ -58,6 +59,7 @@ function fromPath(pathname: string): ParsedPath {
     case 'kurumlar': return { route: 'orgs' };
     case 'afet-bildir': return { route: 'reportDisaster' };
     case 'hakkimizda': return { route: 'about' };
+    case 'nasil-calisir': return { route: 'howItWorks' };
     case 'koordinasyon': {
       const s = parts[1];
       const r: Route = s === 'kuyruk' ? 'coordQueue' : s === 'ihtiyaclar' ? 'coordNeeds' : s === 'kayit' ? 'coordLog' : 'coordHome';

@@ -657,5 +657,152 @@ export const tr = {
     ],
   },
 
+  // "Nasıl Çalışır" — herkese açık içerik sayfası. Yalnızca üründe gerçekten var olan
+  // davranışı anlatır; doğrulanmamış hiçbir yetki veya bağlantı iddiası içermez
+  // (rules/03 §Legal and Safety Disclaimer, rules/07 §Tone).
+  howItWorks: {
+    eyebrow: 'Nasıl çalışır',
+    title: 'AfetHUB nasıl çalışır',
+    lead: 'AfetHUB bir afet bölgesinde neyin gerektiğini, neyin ulaştığını, neyin '
+      + 'doğrulama beklediğini ve neyin hâlâ eksik olduğunu tek yerde gösterir. Bu sayfa '
+      + 'sistemin parçalarını, kimin ne yapabildiğini ve her işlemin adımlarını anlatır.',
+
+    formulaTitle: 'Sistemin tek kuralı',
+    formula: 'Kalan miktar = Talep edilen − Doğrulanan',
+    formulaBody: 'Her sayı bu formülden türer. Bir bildirim, koordinatör onaylamadan '
+      + 'önce kalan miktarı düşürmez; reddedilen miktar da düşürmez. Böylece sahadaki '
+      + 'ekip "daha ne gerekiyor" sorusuna her zaman gerçek bir sayı görür.',
+    states: [
+      { label: 'Talep edilen', body: 'Koordinatörün yayınladığı toplam ihtiyaç.', accent: 'navy' },
+      { label: 'Doğrulanan', body: 'Koordinatörün teslim aldığını onayladığı miktar.', accent: 'success' },
+      { label: 'Doğrulama bekleyen', body: 'Bildirilmiş ama henüz onaylanmamış miktar. Bilgi amaçlıdır.', accent: 'warning' },
+      { label: 'Kalan', body: 'Talep edilen eksi doğrulanan. Kartlarda en büyük sayı budur.', accent: 'emergency' },
+    ],
+    exampleTitle: 'Örnek',
+    exampleSteps: [
+      '100 kutu maske talep edildi. Kalan: 100.',
+      'Bir gönüllü 30 kutu bildirdi. Doğrulama bekleyen: 30. Kalan hâlâ 100.',
+      'Koordinatör 25 kutu teslim aldığını onayladı, 5 kutu için gerekçe yazdı.',
+      'Doğrulanan: 25. Kalan: 75. Bildirilen 30 sayısı kayıtta olduğu gibi kalır.',
+    ],
+
+    partsTitle: 'Sistem neyden oluşuyor',
+    partsIntro: 'Her kayıt türü ayrı tutulur; talep ile bildirim, bildirim ile onay '
+      + 'birbirine karıştırılmaz.',
+    parts: [
+      { icon: 'critical', label: 'Afet', body: 'Bir operasyonun kapsayıcısı: yangın, deprem, sel, fırtına, tahliye. Kendi ihtiyaçları, teslim noktaları, duyuruları ve hareket kaydı vardır.' },
+      { icon: 'need', label: 'İhtiyaç', body: 'Ölçülebilir tek bir talep: miktar, birim, öncelik ve teslim noktası. Talebi temsil eder, teslimatı değil.' },
+      { icon: 'pin', label: 'Teslim noktası', body: 'Yardımın fiziksel olarak bırakılacağı yer; çalışma saati ve durumu ile birlikte.' },
+      { icon: 'track', label: 'Yardım bildirimi', body: 'Bir kişinin "bunu getirdim" beyanı. Takip kodu üretir ve doğrulama beklemeye alınır.' },
+      { icon: 'verified', label: 'Doğrulama kararı', body: 'Koordinatörün gerçekten teslim aldığı miktar: tam, kısmi veya ret. Gerekçesi kayda geçer.' },
+      { icon: 'activity', label: 'Denetim kaydı', body: 'Miktarı değiştiren her işlemin eski ve yeni değeriyle birlikte silinemez kaydı.' },
+      { icon: 'people', label: 'Kurum', body: 'Afetlerde çalışan kamu kurumu, belediye, dernek, vakıf veya gönüllü grubu; iletişim bilgileriyle.' },
+      { icon: 'pending', label: 'Afet bildirimi', body: 'Vatandaşın "burada bir olay var" beyanı. Henüz bir operasyon değildir; koordinatör incelemesine düşer.' },
+    ],
+
+    rolesTitle: 'Kim ne yapabilir',
+    roles: [
+      {
+        label: 'Ziyaretçi · hesap gerekmez',
+        body: 'Aktif afetleri, ihtiyaçları ve teslim noktalarını görebilir; yardım bildirebilir, '
+          + 'ihtiyaç çağrısı açabilir, afet bildirebilir, kurum ekleyebilir ve gönderisini takip edebilir.',
+      },
+      {
+        label: 'Hesabı olan katkı sahibi · isteğe bağlı',
+        body: 'Hesap yalnızca kolaylık içindir: iletişim bilgileri kayıtlı gelir, geçmiş gönderiler '
+          + 'bir arada görünür. Hesap, bir katkıyı daha değerli yapmaz.',
+      },
+      {
+        label: 'Koordinatör · kimlik doğrulamalı',
+        body: 'İhtiyaç yayınlar, miktar değiştirir, bildirimleri onaylar veya reddeder, teslim '
+          + 'noktalarını ve duyuruları yönetir. Miktarı değiştiren her işlem sunucuda doğrulanır ve kayda geçer.',
+      },
+    ],
+
+    flowsTitle: 'İşlemler adım adım',
+    flows: [
+      {
+        label: 'Afet bildirme',
+        steps: [
+          'Olay türünü seç: yangın, deprem, sel, fırtına, tahliye veya diğer.',
+          'İl, ilçe ve olayın görüldüğü tarihi gir.',
+          'Yakın konumda, aynı tarihlerde ve aynı türde bir bildirim varsa sistem onu önerir.',
+          'Aynı olaysa bildirimler birleştirilir ve panelde "n kişi bildirdi" olarak görünür.',
+          'Bildirim bir afet sayfası açmaz; koordinatör inceleyip operasyonu kendisi başlatır.',
+        ],
+        note: '"n kişi bildirdi" bir beyan sayacıdır, doğrulama değildir.',
+      },
+      {
+        label: 'İhtiyaç bildirme',
+        steps: [
+          'Neyin gerektiğini, miktarı ve birimi gir.',
+          'Bölgeyi ve iletişim bilgini bırak; iletişim yalnızca koordinatöre açıktır.',
+          'Talep koordinatör incelemesine düşer.',
+          'Koordinatör onaylarsa ayrı bir ihtiyaç kaydı olarak yayınlanır; orijinal talep saklanır.',
+        ],
+        note: 'Gönderilen bir talep, yayınlanmış bir ihtiyaç değildir.',
+      },
+      {
+        label: 'Yardım bildirme',
+        steps: [
+          'İhtiyaç kartındaki "Bunu teslim ettim" ile başla.',
+          'Getirdiğin miktarı, teslim noktasını ve tahmini varış saatini gir.',
+          'Bildirim "doğrulama bekliyor" durumunda kaydedilir ve takip kodu verilir.',
+          'Koordinatör teslim aldığını onaylayınca miktar doğrulanana geçer ve kalan yeniden hesaplanır.',
+        ],
+        note: 'Bildirim yapmak teslim edilmiş anlamına gelmez; bu ayrım bilinçlidir.',
+      },
+      {
+        label: 'Gönderi takibi',
+        steps: [
+          'Takip kodu ve gönderide kullandığın e-posta ile sorgula.',
+          'Durum zaman çizelgesini, doğrulanan miktarı ve koordinatör notunu gör.',
+        ],
+        note: 'Takip kodu tek başına özel bilgiye erişim vermez.',
+      },
+      {
+        label: 'Kurum ekleme ve düzeltme',
+        steps: [
+          'Kurum adı, türü, hizmet alanları ve iletişim bilgileriyle kayıt gönder.',
+          'Kayıt hemen listede görünür ve "Doğrulama bekliyor" etiketi taşır.',
+          'Aynı adda bir kurum varsa ekleme engellenir.',
+          'Doğrulanmış bir kayıtta hata varsa "Düzeltme Talebi Gönder" ile bildir; koordinatör kontrol eder.',
+        ],
+        note: 'Doğrulanmış kayıtlar herkese açık sayfadan doğrudan düzenlenemez.',
+      },
+    ],
+
+    chainTitle: 'Doğrulama zinciri',
+    chainIntro: 'Bir bildirimin panelde bir sayıya dönüşmesi için izlediği yol:',
+    chain: [
+      { label: 'Bildirim alındı', body: 'Kayıt oluşturuldu, takip kodu verildi. Kalan miktar değişmedi.' },
+      { label: 'İletişim doğrulaması', body: 'Gerektiğinde e-posta doğrulaması istenir. Bu, yardımın doğrulanması değildir.' },
+      { label: 'Koordinatör incelemesi', body: 'Kuyruğa düşer; koordinatör tam onay, kısmi onay, ret veya bilgi talebi verir.' },
+      { label: 'Karar kaydedildi', body: 'Bildirilen, onaylanan ve reddedilen miktarlar ayrı ayrı saklanır; gerekçe yazılır.' },
+      { label: 'Kalan yeniden hesaplandı', body: 'Yalnızca onaylanan miktar kadar düşer. İşlem tek bir veritabanı hareketinde yapılır.' },
+      { label: 'Denetim kaydı yazıldı', body: 'Eski değer, yeni değer, işlemi yapan ve zaman damgası silinemez biçimde kaydedilir.' },
+    ],
+
+    privacyTitle: 'Verileriniz',
+    privacyPoints: [
+      'Katkı sahibinin e-posta ve telefon bilgisi herkese açık hiçbir ekranda görünmez; yalnızca operasyonel ihtiyacı olan yetkili görür.',
+      'Herkese açık sayfalar için ayrı veritabanı görünümleri kullanılır: özel alanlar tarayıcıya hiç gitmez, arayüzde gizlenmez.',
+      'Yalnızca koordinasyon için gerekli bilgi istenir; kimlik belgesi istenmez.',
+      'Miktarı değiştiren işlemler denetlenebilir kalır; kayıtlar olağan akışta silinmez, arşivlenir.',
+    ],
+
+    notTitle: 'AfetHUB ne değildir',
+    notPoints: [
+      'Resmî bir acil yardım kurumu değildir ve hiçbir kurumla resmî bağlantı iddia etmez.',
+      'Öncelikli olarak para bağışı platformu değildir; odak fiziksel yardım ve koordinasyondur.',
+      'Bildirilen bir yardımı, koordinatör onayı olmadan "ulaştı" saymaz.',
+    ],
+    emergency: 'Acil ve hayati tehlike durumunda 112’yi arayın. Orman yangını ihbarı için 177.',
+
+    ctaDashboard: 'Aktif afetleri gör',
+    ctaOrgs: 'Kurumlar ve dernekler',
+    ctaAbout: 'Hakkımızda',
+  },
+
   sidebarFooter: { regionSuffix: 'Koordinasyon açık' },
 } as const;
