@@ -84,7 +84,11 @@ export function App() {
               footer down. alignItems: stretch keeps the coordinator sidebar and the
               disaster rail running the full height of the row. */}
           <div style={{ display: 'flex', alignItems: 'stretch', flex: 1, minHeight: 0 }}>
-            {coord && !mob && <Sidebar />}
+            {/* Panel chrome belongs to panel routes. A coordinator reading /gonullu or a
+                disaster page is looking at the public site and should see the public
+                site (rules/04 §Responsive Navigation: do not mix public and coordinator
+                navigation without clear role context). */}
+            {coord && !mob && a.route.startsWith('coord') && <Sidebar />}
             {/* The mobile bottom bar is fixed, so reserve its height here. */}
             <main style={{
               flex: 1, minWidth: 0,

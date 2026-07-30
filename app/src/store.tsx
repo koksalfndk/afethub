@@ -500,11 +500,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // When auth is active, keep the route in sync with the signed-in role.
+  // Previous effective role, so a sign-in can be told apart from a page load that
+  // happens to have a session.
+  const prevRole = useRef<Role | null>(null);
+
+  // Keep the route consistent with the signed-in role — in ONE direction.
+  //
+  // What this used to do: push anyone whose role resolved to 'coordinator' onto
+  // /koordinasyon from whatever page they were on. That made every public URL
+  // unreachable while signed in as a coordinator — opening /gonullu from the receipt
+  // e-mail flashed the volunteer page and then bounced to the panel. A coordinator is
+  // also a person who volunteers, reports aid and reads a disaster page; the panel is
+  // one click away in the header, it does not need to be forced.
+  //
+  // The other direction stays: someone who is NOT a coordinator sitting on a panel
+  // route is sent home, because their session may have been revoked while the tab was
+  // open. That is a courtesy, not a protection — the data is held back by RLS
+  // (rules/03 §Server-Side Authorization).
   useEffect(() => {
     if (!auth.enabled || !auth.ready) return;
-    if (role === 'coordinator') setRoute((r) => (r.startsWith('coord') ? r : 'coordHome'));
-    else setRoute((r) => (r.startsWith('coord') ? 'home' : r));
+    const before = prevRole.current;
+    prevRole.current = role;
+    if (role !== 'coordinator') {
+      setRoute((r) => (r.startsWith('coord') ? 'home' : r));
+      return;
+    }
+    // Signing in during this session, from the default landing page: the panel is where
+    // a coordinator is going. Deep links and any other page are left alone.
+    if (before !== null && before !== 'coordinator') {
+      setRoute((r) => (r === 'home' ? 'coordHome' : r));
+    }
   }, [role, auth.enabled, auth.ready]);
 
   const showToast = (m: string) => {
