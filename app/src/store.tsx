@@ -240,7 +240,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const slug = currentSlug || snap?.disaster.slug || '';
     const path = toPath(route, tab, slug);
-    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+    if (window.location.pathname !== path) {
+      window.history.pushState(null, '', path);
+      // A single-page app keeps the scroll offset across a navigation, so a new page
+      // would open half-way down. Reset it here — only on a real forward navigation,
+      // which is why this sits inside the push branch: on back/forward the path is
+      // already current, so the browser's own scroll restoration is left alone.
+      window.scrollTo(0, 0);
+    }
   }, [route, tab, currentSlug, snap]);
 
   // Real responsive layout: track viewport width.
