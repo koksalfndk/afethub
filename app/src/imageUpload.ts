@@ -68,6 +68,9 @@ export const BANNER_MAX_EDGE = 1600;
 // server (rules/03 §File Uploads).
 export const UPLOAD_PREFIX = 'upload:';
 export const BANNER_BUCKET = 'banner-images';
+export const ANNOUNCEMENT_BUCKET = 'announcement-images';
+// Announcement images sit inside a content card, not full-bleed, so they need less.
+export const ANNOUNCEMENT_MAX_EDGE = 1200;
 
 export const isUploadRef = (image: string): boolean => image.startsWith(UPLOAD_PREFIX);
 export const uploadObjectName = (image: string): string => image.slice(UPLOAD_PREFIX.length);
@@ -76,9 +79,17 @@ export const uploadObjectName = (image: string): string => image.slice(UPLOAD_PR
 // Resolve a stored slide image to something an <img>/background-image can use.
 // A shipped path is returned untouched; an upload marker is resolved through the
 // Supabase client, so the bucket's host lives in one place.
-export function slideImageSrc(image: string, db: { storage: { from: (b: string) => { getPublicUrl: (p: string) => { data: { publicUrl: string } } } } } | null): string {
+type StorageClient = { storage: { from: (b: string) => { getPublicUrl: (p: string) => { data: { publicUrl: string } } } } };
+
+export function uploadedImageSrc(image: string, bucket: string, db: StorageClient | null): string {
   if (!image) return '';
   if (!isUploadRef(image)) return image;
   if (!db) return '';
-  return db.storage.from(BANNER_BUCKET).getPublicUrl(uploadObjectName(image)).data.publicUrl;
+  return db.storage.from(bucket).getPublicUrl(uploadObjectName(image)).data.publicUrl;
 }
+
+export const slideImageSrc = (image: string, db: StorageClient | null): string =>
+  uploadedImageSrc(image, BANNER_BUCKET, db);
+
+export const announcementImageSrc = (image: string, db: StorageClient | null): string =>
+  uploadedImageSrc(image, ANNOUNCEMENT_BUCKET, db);

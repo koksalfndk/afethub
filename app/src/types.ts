@@ -104,6 +104,27 @@ export interface Announcement {
   author: string;
   title: string;
   body: string;
+  // '' , a shipped path, or 'upload:<object>.webp' in our own bucket. Never a remote
+  // URL — see the check constraint in migration 0014.
+  image: string;
+}
+
+// What a coordinator may write on an announcement. `author` is filled from the session,
+// not typed: a hand-typed author on a public page is an unverifiable attribution.
+export interface AnnouncementInput {
+  disasterId: string;
+  kind: string;
+  accent: string;
+  title: string;
+  body: string;
+  image: string;
+}
+
+export interface LocationInput {
+  disasterId: string;
+  name: string; address: string; hours: string; accepts: string;
+  contact: string; phone: string; status: string;
+  lat: number | null; lng: number | null;
 }
 
 // Verification action kinds handled by the data layer / RPC.

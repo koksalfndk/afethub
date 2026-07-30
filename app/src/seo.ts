@@ -63,6 +63,7 @@ const ROUTE_META: Record<Route, RouteMeta> = {
   coordOrgEdits: { title: 'Kurum düzeltme talepleri', index: false },
   coordOrgs: { title: 'Kurum yönetimi', index: false },
   coordStaff: { title: 'Ekip ve gönüllüler', index: false },
+  coordOps: { title: 'Duyuru ve teslim noktaları', index: false },
   volunteer: {
     title: 'Gönüllü ol',
     description: 'Afet bölgesinde gönüllü olarak destek vermek için başvurun. Hesap gerekmez; başvurunuz koordinatör incelemesinden sonra değerlendirilir.',

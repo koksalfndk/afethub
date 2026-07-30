@@ -6,6 +6,7 @@ import type {
   DisasterReport, DisasterReportInput, ReportStatus, BannerSlide, BannerSlideInput, SlideAction,
   OrgEditRequestInput, OrgEditRequest, OrgEditable, EditRequestStatus, DisasterInput,
   OrganizationSave, VolunteerInput, VolunteerApplication, VolunteerStatus,
+  AnnouncementInput, LocationInput,
   StaffMember, StaffRole, RoleInvite,
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
@@ -101,6 +102,7 @@ export class SupabaseRepo implements Repo {
     const announcements: Announcement[] = (an.data ?? []).filter((r: Record<string, unknown>) => String(r.disaster_id) === disaster.id).map((r: Record<string, unknown>) => ({
       id: String(r.id), disasterId: String(r.disaster_id ?? ''), kind: String(r.kind), accent: String(r.accent), time: rel(String(r.created_at)),
       author: String(r.author), title: String(r.title), body: String(r.body),
+      image: String(r.image ?? ''),
     }));
 
     const verifiedTotal = subs.filter((s) => s.status === 'Verified' || s.status === 'Partially verified').length;
@@ -356,10 +358,69 @@ export class SupabaseRepo implements Repo {
     if (error) throw error;
   }
 
+  // ---- Per-operation public content ----------------------------------------
+  // No RPC needed: these tables carry no quantities and no invariant to keep, so a
+  // plain write under the coordinator RLS policy is enough. The audit entry is written
+  // by a trigger (migration 0014) rather than a second client call.
+  private async snapOf(disasterId: string): Promise<Snapshot> {
+    const { data } = await this.db.from('disasters').select('slug').eq('id', disasterId).maybeSingle();
+    return this.getSnapshot(data?.slug ? String(data.slug) : undefined);
+  }
+
+  async saveAnnouncement(id: string | null, input: AnnouncementInput, author: string): Promise<Snapshot> {
+    const row = {
+      disaster_id: input.disasterId, kind: input.kind, accent: input.accent,
+      title: input.title.trim(), body: input.body.trim(), image: input.image,
+    };
+    if (id) {
+      const { error } = await this.db.from('announcements').update(row).eq('id', id);
+      if (error) throw error;
+    } else {
+      // `author` comes from the session, not the form: an attribution on a public page
+      // that anyone could type is not an attribution.
+      const { error } = await this.db.from('announcements').insert({ ...row, author });
+      if (error) throw error;
+    }
+    return this.snapOf(input.disasterId);
+  }
+
+  async deleteAnnouncement(id: string): Promise<Snapshot> {
+    const { data } = await this.db.from('announcements').select('disaster_id').eq('id', id).maybeSingle();
+    const disasterId = data?.disaster_id ? String(data.disaster_id) : '';
+    const { error } = await this.db.from('announcements').delete().eq('id', id);
+    if (error) throw error;
+    return disasterId ? this.snapOf(disasterId) : this.getSnapshot();
+  }
+
+  async saveLocation(id: string | null, input: LocationInput): Promise<Snapshot> {
+    const row = {
+      disaster_id: input.disasterId, name: input.name.trim(), address: input.address.trim(),
+      hours: input.hours.trim(), accepts: input.accepts.trim(),
+      contact_name: input.contact.trim(), contact_phone: input.phone.trim(),
+      status: input.status.trim(), lat: input.lat, lng: input.lng,
+    };
+    if (id) {
+      const { error } = await this.db.from('locations').update(row).eq('id', id);
+      if (error) throw error;
+    } else {
+      const { error } = await this.db.from('locations').insert(row);
+      if (error) throw error;
+    }
+    return this.snapOf(input.disasterId);
+  }
+
+  async deleteLocation(id: string): Promise<Snapshot> {
+    const { data } = await this.db.from('locations').select('disaster_id').eq('id', id).maybeSingle();
+    const disasterId = data?.disaster_id ? String(data.disaster_id) : '';
+    const { error } = await this.db.from('locations').delete().eq('id', id);
+    if (error) throw error;
+    return disasterId ? this.snapOf(disasterId) : this.getSnapshot();
+  }
+
   // ---- Coordinator organization management ---------------------------------
   // Writes go to the base table (coordinator RLS policy from migration 0002); reads still
   // come back through organizations_public, so the submitter columns never travel.
-  async saveOrganization(id: string | null, input: OrganizationSave): Promise<Organization[]> {
+  async saveOrganization(id: string | null, input: OrganizationSave, publishVerified: boolean): Promise<Organization[]> {
     const row = {
       name: input.name.trim(), kind: input.kind, scope: input.scope,
       province: input.province.trim(), district: input.district.trim(),
@@ -371,14 +432,19 @@ export class SupabaseRepo implements Repo {
     if (id) {
       const { error } = await this.db.from('organizations').update(row).eq('id', id);
       if (error) throw error;
-    } else {
-      // Created by a coordinator, so it is verified on creation — the person creating it
-      // is the reviewer. `is_official` follows the same rule as verify_organization().
+    } else if (publishVerified) {
+      // Admin-only path: RLS refuses these columns to anyone else, so a coordinator who
+      // reached this branch gets an error rather than a quietly downgraded record.
       const { error } = await this.db.from('organizations').insert({
         ...row,
         status: 'Verified',
         is_official: input.kind === 'Kamu kurumu' || input.kind === 'Belediye',
         verified_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+    } else {
+      const { error } = await this.db.from('organizations').insert({
+        ...row, status: 'Pending verification', is_official: false,
       });
       if (error) throw error;
     }

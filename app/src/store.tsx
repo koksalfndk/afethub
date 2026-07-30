@@ -4,6 +4,7 @@ import type {
   Submission, VerifyKind, Organization, OrganizationInput, DisasterReport, DisasterReportInput,
   BannerSlide, BannerSlideInput, OrgEditRequestInput, OrgEditRequest, DisasterInput,
   OrganizationSave, OrgStatus, VolunteerInput, VolunteerApplication, VolunteerStatus,
+  AnnouncementInput, LocationInput,
   StaffMember, StaffRole, RoleInvite,
 } from './types';
 import type { NeedPayload } from './needForm';
@@ -14,7 +15,7 @@ import { useAuth } from './auth';
 export type Route =
   | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
   | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog' | 'coordSlider' | 'coordDisasters'
-  | 'coordOrgEdits' | 'coordOrgs' | 'coordStaff' | 'volunteer'
+  | 'coordOrgEdits' | 'coordOrgs' | 'coordStaff' | 'volunteer' | 'coordOps'
   | 'components' | 'system';
 export type Tab = 'overview' | 'needs' | 'locations' | 'announcements' | 'activity';
 export type Device = 'desktop' | 'mobile';
@@ -49,6 +50,7 @@ function toPath(route: Route, tab: Tab, slug: string): string {
     case 'coordOrgEdits': return '/koordinasyon/kurum-duzeltmeleri';
     case 'coordOrgs': return '/koordinasyon/kurumlar';
     case 'coordStaff': return '/koordinasyon/ekip';
+    case 'coordOps': return '/koordinasyon/operasyon';
     case 'volunteer': return '/gonullu';
     case 'system': return '/sistem';
     case 'components': return '/bilesenler';
@@ -80,7 +82,8 @@ function fromPath(pathname: string): ParsedPath {
         : s === 'afetler' ? 'coordDisasters'
         : s === 'kurum-duzeltmeleri' ? 'coordOrgEdits'
         : s === 'kurumlar' ? 'coordOrgs'
-        : s === 'ekip' ? 'coordStaff' : 'coordHome';
+        : s === 'ekip' ? 'coordStaff'
+        : s === 'operasyon' ? 'coordOps' : 'coordHome';
       return { route: r, role: 'coordinator' };
     }
     case 'sistem': return { route: 'system' };
@@ -128,6 +131,12 @@ export interface AppApi {
   orgEditsPending: number;
   // Coordinator organization management.
   saveOrganization: (id: string | null, input: OrganizationSave) => Promise<boolean>;
+  // Per-operation public content. `author` is taken from the session inside the store so
+  // no screen can pass an attribution of its own choosing.
+  saveAnnouncement: (id: string | null, input: AnnouncementInput) => Promise<boolean>;
+  deleteAnnouncement: (id: string) => Promise<boolean>;
+  saveLocation: (id: string | null, input: LocationInput) => Promise<boolean>;
+  deleteLocation: (id: string) => Promise<boolean>;
   verifyOrganization: (id: string, status: OrgStatus, reason: string) => Promise<boolean>;
   // Volunteer applications: public submit, coordinator review.
   volunteers: VolunteerApplication[]; volunteersLoading: boolean; volunteersError: string;
@@ -526,10 +535,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
     reloadOrgEdits: () => { void loadOrgEdits(); },
     reloadVolunteers: () => { void loadVolunteers(); },
     reloadStaff: () => { void loadStaff(); },
+    saveAnnouncement: async (id, input) => {
+      if (unverified) { showToast(tr.auth.verifyFirst); return false; }
+      try {
+        setSnap(await withTimeout(repo.saveAnnouncement(id, input, auth.profile?.fullName ?? 'Koordinatör')));
+        showToast(id ? tr.coordOps.annSavedEdit : tr.coordOps.annSavedNew);
+        return true;
+      } catch { showToast(tr.coordOps.saveFailed); return false; }
+    },
+    deleteAnnouncement: async (id) => {
+      if (unverified) { showToast(tr.auth.verifyFirst); return false; }
+      try {
+        setSnap(await withTimeout(repo.deleteAnnouncement(id)));
+        showToast(tr.coordOps.annDeleted);
+        return true;
+      } catch { showToast(tr.coordOps.saveFailed); return false; }
+    },
+    saveLocation: async (id, input) => {
+      if (unverified) { showToast(tr.auth.verifyFirst); return false; }
+      try {
+        setSnap(await withTimeout(repo.saveLocation(id, input)));
+        // The delivery-point count is part of the national dashboard, so re-read it.
+        setOverview(await withTimeout(repo.getOverview()));
+        showToast(id ? tr.coordOps.locSavedEdit : tr.coordOps.locSavedNew);
+        return true;
+      } catch { showToast(tr.coordOps.saveFailed); return false; }
+    },
+    deleteLocation: async (id) => {
+      if (unverified) { showToast(tr.auth.verifyFirst); return false; }
+      try {
+        setSnap(await withTimeout(repo.deleteLocation(id)));
+        setOverview(await withTimeout(repo.getOverview()));
+        showToast(tr.coordOps.locDeleted);
+        return true;
+      } catch { showToast(tr.coordOps.saveFailed); return false; }
+    },
     saveOrganization: async (id, input) => {
       if (unverified) { showToast(tr.auth.verifyFirst); return false; }
       try {
-        setOrgs(await withTimeout(repo.saveOrganization(id, input)));
+        // Publishing straight into "Doğrulandı" is an admin power; the store reads the
+        // role from the session so no screen can ask for it on its own.
+        setOrgs(await withTimeout(repo.saveOrganization(id, input, auth.profile?.role === 'admin')));
         showToast(id ? tr.coordOrgs.savedEdit : tr.coordOrgs.savedNew);
         return true;
       } catch { showToast(tr.coordOrgs.saveFailed); return false; }

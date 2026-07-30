@@ -4,6 +4,7 @@ import type {
   DisasterReport, DisasterReportInput, BannerSlide, BannerSlideInput, SlideAction,
   OrgEditRequestInput, OrgEditable, OrgEditRequest, DisasterInput,
   OrganizationSave, OrgStatus, VolunteerInput, VolunteerApplication, VolunteerStatus,
+  AnnouncementInput, LocationInput,
   StaffMember, StaffRole, RoleInvite,
 } from '../types';
 import type { NeedPayload } from '../needForm';
@@ -92,7 +93,11 @@ export interface Repo {
   // Coordinator-side organization management. `saveOrganization(null, …)` creates a
   // record that is published straight away — the coordinator creating it is the
   // reviewer, same reasoning as a coordinator-filed need.
-  saveOrganization(id: string | null, input: OrganizationSave): Promise<Organization[]>;
+  // `publishVerified` asks for a record that goes live already verified. Only an admin
+  // may do that (a coordinator creating a verified "AFAD" out of nothing is the exact
+  // affiliation claim the directory exists to prevent), and the RLS policy in migration
+  // 0014 is what enforces it — the flag lets the two implementations agree on intent.
+  saveOrganization(id: string | null, input: OrganizationSave, publishVerified: boolean): Promise<Organization[]>;
   // Verification is a decision about the institution, kept separate from editing its
   // fields: correcting a phone number must never imply "we checked who these people are".
   verifyOrganization(id: string, status: OrgStatus, reason: string): Promise<Organization[]>;
@@ -109,6 +114,13 @@ export interface Repo {
   // Coordinator-managed operations. A new disaster goes live immediately: the person
   // creating it is the reviewer (rules/03 — authorisation is enforced by RLS, not here).
   saveDisaster(id: string | null, input: DisasterInput): Promise<Snapshot>;
+  // Per-operation public content. Both change what the public page tells people to do,
+  // so both are audited (triggers in migration 0014, not client-side inserts that a
+  // forgotten second call could skip).
+  saveAnnouncement(id: string | null, input: AnnouncementInput, author: string): Promise<Snapshot>;
+  deleteAnnouncement(id: string): Promise<Snapshot>;
+  saveLocation(id: string | null, input: LocationInput): Promise<Snapshot>;
+  deleteLocation(id: string): Promise<Snapshot>;
   publishNeed(p: NeedPayload): Promise<Snapshot>;
   bumpNeed(needId: string): Promise<Snapshot>;
   togglePause(needId: string): Promise<Snapshot>;

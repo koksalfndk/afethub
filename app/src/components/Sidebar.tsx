@@ -56,6 +56,7 @@ export function Sidebar() {
           {item(tr.nav.orgEdits, 'coordOrgEdits', openOrgEdits, openOrgEdits > 0 ? 'red' : 'grey', () => a.go('coordOrgEdits'))}
           {item(tr.nav.staff, 'coordStaff', a.volunteersPending || null, a.volunteersPending > 0 ? 'red' : 'grey', () => a.go('coordStaff'))}
           {item(tr.nav.needs, 'coordNeeds', snap?.needs.length ?? 0, 'grey', () => a.go('coordNeeds'))}
+          {item(tr.nav.ops, 'coordOps', (snap?.announcements.length ?? 0) + (snap?.locations.length ?? 0), 'grey', () => a.go('coordOps'))}
           {item(tr.nav.auditLog, 'coordLog', snap?.log.length ?? 0, 'grey', () => a.go('coordLog'))}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

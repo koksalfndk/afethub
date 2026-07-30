@@ -3,6 +3,7 @@ import type {
   DisasterReport, DisasterReportInput, BannerSlide, BannerSlideInput, OrgEditRequestInput,
   OrgEditRequest, Disaster, DisasterInput, OrganizationSave, OrgStatus,
   VolunteerInput, VolunteerApplication, VolunteerStatus, StaffMember, StaffRole, RoleInvite,
+  Announcement, AnnouncementInput, Location, LocationInput,
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
 import { genCode, genNrq, remaining, isSameEvent, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS } from './repo';
@@ -27,6 +28,10 @@ let slides: BannerSlide[] = seed.bannerSlides.map((sl) => ({ ...sl }));
 // "pending correction" against a real institution is exactly the kind of sample data
 // that must not look verified (rules/07 §Seed Content).
 let orgEdits: OrgEditRequest[] = [];
+// Announcements and delivery points are seeded content that the panel can now edit, so
+// they become module state like needs and orgs instead of being read straight from seed.
+let announcements: Announcement[] = seed.announcements.map((x) => ({ ...x }));
+let locations: Location[] = seed.locations.map((x) => ({ ...x }));
 // Volunteer applications and staff both start empty on purpose: an invented "pending
 // volunteer" would be a named person who never applied, and a fake coordinator list
 // would misrepresent who can act on the platform (rules/07 §Seed Content).
@@ -75,13 +80,13 @@ function snap(slug?: string): Snapshot {
   return {
     disaster: current,
     disasters: seed.disasters.map((d) => ({ ...d })),
-    locations: seed.locations.filter((l) => mine(l.disasterId)),
+    locations: locations.filter((l) => mine(l.disasterId)).map((l) => ({ ...l })),
     needs: needs.filter((n) => mine(n.disasterId)).map((n) => ({ ...n })),
     // Submissions and audit entries are scoped to the current operation so one
     // disaster page never shows another operation's traffic.
     subs: subs.filter((s) => mine(disasterOfNeed(s.needId))).map((s) => ({ ...s })),
     log: log.filter((l) => mine(l.disasterId)).slice().sort(byRecency).map((l) => ({ ...l })),
-    announcements: seed.announcements.filter((a) => mine(a.disasterId)).map((a) => ({ ...a })),
+    announcements: announcements.filter((x) => mine(x.disasterId)).map((x) => ({ ...x })),
     verifiedTotal: verifiedTotals[current.id] ?? 0,
   };
 }
@@ -119,7 +124,7 @@ export class LocalRepo implements Repo {
         pendingSubs: pend.length,
         pendingUnits: pend.reduce((x, s) => x + s.qty, 0),
         verifiedSubs: verifiedTotals[d.id] ?? 0,
-        deliveryPoints: seed.locations.filter((l) => l.disasterId === d.id).length,
+        deliveryPoints: locations.filter((l) => l.disasterId === d.id).length,
         topNeeds: topOf(d.id, 2),
       };
     }).sort((x, y) => {
@@ -273,8 +278,103 @@ export class LocalRepo implements Repo {
   }
 
 
+  // ---- Per-operation public content ----------------------------------------
+  async saveAnnouncement(id: string | null, input: AnnouncementInput, author: string): Promise<Snapshot> {
+    if (!input.title.trim()) throw new Error('title required');
+    const d = seed.disasters.find((x) => x.id === input.disasterId);
+    if (!d) throw new Error('unknown disaster');
+    if (id) {
+      const target = announcements.find((x) => x.id === id);
+      if (!target) throw new Error('announcement not found');
+      Object.assign(target, {
+        kind: input.kind, accent: input.accent, title: input.title.trim(),
+        body: input.body.trim(), image: input.image, time: NOW,
+      });
+      addLog(d.id, {
+        user: author || 'Koordinatör', action: 'Duyuru güncellendi',
+        detail: target.title, oldValue: 'Yayındaki duyuru', newValue: 'Güncellendi', color: '#2A6FB0',
+      });
+    } else {
+      announcements = [{
+        id: nextId('an'), disasterId: input.disasterId, kind: input.kind, accent: input.accent,
+        time: NOW, author: author || 'Koordinatör', title: input.title.trim(),
+        body: input.body.trim(), image: input.image,
+      }, ...announcements];
+      addLog(d.id, {
+        user: author || 'Koordinatör', action: 'Duyuru yayınlandı',
+        detail: input.title.trim(), oldValue: '—',
+        newValue: input.image ? 'Görselli duyuru' : 'Duyuru', color: '#2A6FB0',
+      });
+    }
+    return snap(d.slug);
+  }
+
+  async deleteAnnouncement(id: string): Promise<Snapshot> {
+    const target = announcements.find((x) => x.id === id);
+    if (!target) throw new Error('announcement not found');
+    const d = seed.disasters.find((x) => x.id === target.disasterId);
+    announcements = announcements.filter((x) => x.id !== id);
+    addLog(target.disasterId, {
+      user: 'Koordinatör', action: 'Duyuru kaldırıldı',
+      detail: target.title, oldValue: target.title, newValue: '—', color: '#D9363E',
+    });
+    return snap(d?.slug);
+  }
+
+  async saveLocation(id: string | null, input: LocationInput): Promise<Snapshot> {
+    if (!input.name.trim()) throw new Error('name required');
+    const d = seed.disasters.find((x) => x.id === input.disasterId);
+    if (!d) throw new Error('unknown disaster');
+    // statusTone and the display coordinate string are derived, never stored twice:
+    // a hand-set tone could disagree with the status text next to it.
+    const derived = {
+      statusTone: /00/.test(input.status) ? ('yellow' as const) : ('green' as const),
+      coords: input.lat != null && input.lng != null ? `${input.lat}° K, ${input.lng}° D` : '',
+      lat: input.lat ?? 0, lng: input.lng ?? 0,
+    };
+    if (id) {
+      const target = locations.find((x) => x.id === id);
+      if (!target) throw new Error('location not found');
+      const before = target.status;
+      Object.assign(target, {
+        name: input.name.trim(), address: input.address.trim(), hours: input.hours.trim(),
+        accepts: input.accepts.trim(), contact: input.contact.trim(), phone: input.phone.trim(),
+        status: input.status.trim(), ...derived,
+      });
+      addLog(d.id, {
+        user: 'Koordinatör', action: 'Teslim noktası güncellendi',
+        detail: target.name, oldValue: before || '—', newValue: target.status || '—', color: '#E6A700',
+      });
+    } else {
+      locations = [...locations, {
+        id: nextId('loc'), disasterId: input.disasterId,
+        name: input.name.trim(), address: input.address.trim(), hours: input.hours.trim(),
+        accepts: input.accepts.trim(), contact: input.contact.trim(), phone: input.phone.trim(),
+        status: input.status.trim(), ...derived,
+      }];
+      addLog(d.id, {
+        user: 'Koordinatör', action: 'Teslim noktası eklendi',
+        detail: input.name.trim(), oldValue: '—',
+        newValue: input.address.trim() || input.name.trim(), color: '#159947',
+      });
+    }
+    return snap(d.slug);
+  }
+
+  async deleteLocation(id: string): Promise<Snapshot> {
+    const target = locations.find((x) => x.id === id);
+    if (!target) throw new Error('location not found');
+    const d = seed.disasters.find((x) => x.id === target.disasterId);
+    locations = locations.filter((x) => x.id !== id);
+    addLog(target.disasterId, {
+      user: 'Koordinatör', action: 'Teslim noktası kaldırıldı',
+      detail: target.name, oldValue: target.name, newValue: '—', color: '#D9363E',
+    });
+    return snap(d?.slug);
+  }
+
   // ---- Coordinator organization management ---------------------------------
-  async saveOrganization(id: string | null, input: OrganizationSave): Promise<Organization[]> {
+  async saveOrganization(id: string | null, input: OrganizationSave, publishVerified: boolean): Promise<Organization[]> {
     if (id) {
       const target = orgs.find((o) => o.id === id);
       if (!target) throw new Error('organization not found');
@@ -285,18 +385,21 @@ export class LocalRepo implements Repo {
       });
       return this.listOrganizations();
     }
-    // A coordinator-created record is verified on creation: the person creating it is the
-    // reviewer. A visitor-submitted record still lands as "Doğrulama bekliyor".
+    // Only an admin's record goes live verified; a coordinator's lands in the review
+    // queue like a visitor's. Mirrors organizations_public_insert in migration 0014 —
+    // local mode must never behave more permissively than the database.
     const created: Organization = {
       id: nextId('org'), ...input, services: input.services.slice(),
-      status: 'Verified', isOfficial: input.kind === 'Kamu kurumu' || input.kind === 'Belediye',
-      logo: '', verifiedAt: new Date().toISOString(), createdLabel: NOW,
+      status: publishVerified ? 'Verified' : 'Pending verification',
+      isOfficial: publishVerified && (input.kind === 'Kamu kurumu' || input.kind === 'Belediye'),
+      logo: '', verifiedAt: publishVerified ? new Date().toISOString() : null, createdLabel: NOW,
     };
     orgs = [created, ...orgs];
     addLog(activeDisasterId(), {
       user: 'Koordinatör', action: 'Kurum eklendi',
       detail: `${created.name}${created.province ? ` · ${created.province}` : ''}`,
-      oldValue: '—', newValue: 'Doğrulandı', color: '#159947',
+      oldValue: '—', newValue: created.status === 'Verified' ? 'Doğrulandı' : 'Doğrulama bekliyor',
+      color: created.status === 'Verified' ? '#159947' : '#E6A700',
     });
     return this.listOrganizations();
   }

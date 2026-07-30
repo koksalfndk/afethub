@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../store';
+import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Ico, inputStyle, labelText, eyebrow, Field } from '../ui';
@@ -40,7 +41,19 @@ type Filter = 'all' | OrgStatus;
 
 export function CoordOrgs() {
   const a = useApp();
+  const auth = useAuth();
   const mob = a.device === 'mobile';
+  // Who may write what. An admin may edit every record; a coordinator may edit exactly
+  // one — the organization their VERIFIED membership points at. A self-declared
+  // membership grants nothing, which is why `orgVerified` is part of the test: anyone can
+  // type "AFAD" on the account page. The real enforcement is the RLS policy from
+  // migration 0014; this only decides what the screen offers, because offering a button
+  // that the database will refuse is its own kind of lie.
+  const isAdmin = auth.profile?.role === 'admin';
+  const myOrgId = auth.profile?.orgVerified ? (auth.profile.orgId ?? null) : null;
+  const canEdit = (id: string) => isAdmin || id === myOrgId;
+  // Reviewing the institution you belong to is the definition of self-verification.
+  const canDecide = (id: string) => isAdmin || id !== myOrgId;
 
   const [editing, setEditing] = useState<string | null>(null); // id, or '' for new
   const [draft, setDraft] = useState<OrganizationSave>(blank());
@@ -105,6 +118,16 @@ export function CoordOrgs() {
         }}><Ico n="plus" size={16} />{tr.coordOrgs.add}</button>
       </div>
 
+      <div style={{
+        background: G.chip, border: `1px solid ${C.borderFaint}`,
+        borderLeft: `3px solid ${isAdmin ? C.info : C.warning}`,
+        borderRadius: 10, padding: '10px 13px', fontSize: 13, color: C.text,
+      }}>
+        {isAdmin ? tr.coordOrgs.scopeAdminNote
+          : myOrgId ? tr.coordOrgs.scopeCoordNote
+            : tr.coordOrgs.scopeNoOrgNote}
+      </div>
+
       {a.backend === 'local' && (
         <div style={{
           background: '#FFFBEF', border: '1px solid #F2DFA8', borderLeft: `3px solid ${C.warning}`,
@@ -119,9 +142,11 @@ export function CoordOrgs() {
           </h2>
           {editing === '' && (
             <div style={{
-              background: '#F2FBF5', border: '1px solid #BFE3CB', borderRadius: 9,
-              padding: '10px 12px', fontSize: 13, color: '#136B37', fontWeight: 600, marginBottom: 12,
-            }}>{tr.coordOrgs.directNotice}</div>
+              background: isAdmin ? '#F2FBF5' : '#FFFBEF',
+              border: `1px solid ${isAdmin ? '#BFE3CB' : '#F2DFA8'}`, borderRadius: 9,
+              padding: '10px 12px', fontSize: 13, color: isAdmin ? '#136B37' : C.warningText,
+              fontWeight: 600, marginBottom: 12,
+            }}>{isAdmin ? tr.coordOrgs.directNotice : tr.coordOrgs.coordAddNote}</div>
           )}
           <div style={{ display: 'grid', gap: 12, gridTemplateColumns: mob ? '1fr' : 'repeat(2, minmax(0,1fr))', alignItems: 'start' }}>
             <Field label={tr.orgs.fName} full>
@@ -222,6 +247,13 @@ export function CoordOrgs() {
                       fontSize: 11.5, fontWeight: 700, color: tone.fg, background: tone.bg,
                       border: `1px solid ${tone.bd}`, borderRadius: 20, padding: '3px 9px', whiteSpace: 'nowrap',
                     }}>{STATUS_LABEL[o.status]}</span>
+                    {o.id === myOrgId && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase',
+                        color: C.navy, background: C.chipNavyBg, border: `1px solid ${C.borderSoft}`,
+                        borderRadius: 5, padding: '3px 7px', whiteSpace: 'nowrap',
+                      }}>{tr.coordOrgs.yourOrgTag}</span>
+                    )}
                     {o.isOfficial && (
                       <span style={{
                         fontSize: 11, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase',
@@ -239,18 +271,23 @@ export function CoordOrgs() {
                     </div>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-                  {pending && (
+                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {pending && canDecide(o.id) && (
                     <button onClick={() => doVerify(o.id)} style={{
                       background: C.success, border: `1px solid ${C.success}`, color: '#fff', borderRadius: 10,
                       height: 42, padding: '0 14px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
                     }}>{tr.coordOrgs.verify}</button>
                   )}
-                  {o.status !== 'Rejected' && (
+                  {o.status !== 'Rejected' && canDecide(o.id) && (
                     <button onClick={() => { setRejecting(o.id); setRejectNote(''); setErr(''); }}
                       style={{ ...ghost, color: C.emergency }}>{tr.coordOrgs.reject}</button>
                   )}
-                  <button onClick={() => openEdit(o)} style={ghost}>{tr.coordOrgs.edit}</button>
+                  {!canDecide(o.id) && (
+                    <span style={{ fontSize: 12, color: C.muted3, maxWidth: 210 }}>{tr.coordOrgs.scopeSelfVerifyNote}</span>
+                  )}
+                  {canEdit(o.id) && (
+                    <button onClick={() => openEdit(o)} style={ghost}>{tr.coordOrgs.edit}</button>
+                  )}
                 </div>
               </div>
 
