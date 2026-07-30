@@ -1,7 +1,8 @@
 import type {
   Disaster, Location, Need, Submission, LogEntry, Announcement,
   VerifyKind, DeliveryInput, PriorityKey, Organization, OrganizationInput,
-  DisasterReport, DisasterReportInput, BannerSlide, BannerSlideInput, SlideAction,
+  DisasterReport, DisasterReportInput, ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
+  BannerSlide, BannerSlideInput, SlideAction,
   OrgEditRequestInput, OrgEditable, OrgEditRequest, DisasterInput,
   OrganizationSave, OrgStatus, VolunteerInput, VolunteerApplication, VolunteerStatus,
   AnnouncementInput, LocationInput,
@@ -108,7 +109,15 @@ export interface Repo {
   // merge rule itself is enforced when the report is written.
   findSimilarReports(input: DisasterReportInput): Promise<DisasterReport[]>;
   submitDisasterReport(input: DisasterReportInput): Promise<{ report: DisasterReport; merged: boolean }>;
-  confirmDisasterReport(reportId: string): Promise<DisasterReport>;
+  // Confirming carries contact details and is de-duplicated by e-mail server-side.
+  confirmDisasterReport(reportId: string, who: ReportConfirmInput): Promise<ReportConfirmResult>;
+  // Coordinator queue for community reports: publish one as an operation, or reject it
+  // with a reason. Both are authorised server-side (migration 0016), never by the
+  // screen being hard to reach.
+  listReportQueue(): Promise<ReportQueueItem[]>;
+  reviewDisasterReport(reportId: string, action: 'publish' | 'reject', reason: string): Promise<string>;
+  // Clears the "koordinatör doğrulaması bekleniyor" label from a community operation.
+  confirmCommunityDisaster(disasterId: string): Promise<void>;
   createDelivery(input: DeliveryInput): Promise<CreateDeliveryResult>;
   verifySubmission(subId: string, kind: VerifyKind, qty: number, reason: string): Promise<Snapshot>;
   // Coordinator-managed operations. A new disaster goes live immediately: the person
@@ -233,6 +242,29 @@ export function disasterSlug(name: string, openedOn: Date): string {
 }
 
 export const REPORT_DAY_WINDOW = 2;
+
+// What the public live feed may show. Mirrors audit_is_public() in migration 0016,
+// which is where it is actually enforced — this copy exists so the in-memory local
+// mode behaves like production instead of teaching a laxer rule. Allow-list, not
+// deny-list: an action nobody listed stays coordinator-only.
+const PUBLIC_AUDIT_ACTIONS = new Set([
+  'İhtiyaç oluşturuldu', 'Miktar güncellendi', 'İhtiyaç tamamlandı', 'Need completed',
+  'Teslimat bildirildi', 'Teslimat doğrulandı', 'Teslimat kısmen doğrulandı', 'Teslimat reddedildi',
+  'Delivery verified', 'Delivery partially verified', 'Delivery rejected',
+  'Duyuru yayınlandı', 'Duyuru güncellendi', 'Duyuru kaldırıldı',
+  'Teslim noktası eklendi', 'Teslim noktası güncellendi', 'Teslim noktası kaldırıldı',
+  'Afet oluşturuldu', 'Afet durumu güncellendi', 'Operasyon açıldı', 'Afet kaydı güncellendi',
+  'Topluluk afeti oluşturuldu', 'Topluluk afeti doğrulandı',
+  'Kurum eklendi', 'Kurum doğrulandı',
+  'Afet bildirimi gönderildi', 'Afet bildirimi birleştirildi', 'Afet bildirimi doğrulandı',
+]);
+
+export const isPublicAuditAction = (action: string): boolean => PUBLIC_AUDIT_ACTIONS.has(action);
+
+// How many people must report the same event before an operation opens by itself.
+// Mirrors community_report_threshold() in migration 0016 — change both together, or
+// the card will promise a number the database does not act on.
+export const COMMUNITY_THRESHOLD = 10;
 
 const norm = (v: string) => v.trim().toLocaleLowerCase('tr');
 const dayDiff = (a: string, b: string): number => {

@@ -58,6 +58,9 @@ export function Disaster() {
   // may be named: an id pointing at a pending (or removed) organization falls back to
   // AfetHUB's own team rather than publishing an unchecked affiliation.
   const startedBy = a.orgs.find((o) => o.id === a.snap!.disaster.openedByOrgId && o.status === 'Verified');
+  // An operation opened by corroborated citizen reports has no institution behind it:
+  // the initiator is the crowd, and that is stated rather than left blank.
+  const byCommunity = a.snap.disaster.openedByCommunity === true;
   const needs = enrichSorted(a.snap.needs);
   const pendingSubs = a.snap.subs.filter((s) => s.status === 'Pending verification');
   const pendingUnits = pendingSubs.reduce((x, s) => x + s.qty, 0);
@@ -209,11 +212,29 @@ export function Disaster() {
                 printing an unchecked affiliation on a public page (rules/03 §Legal and
                 Safety Disclaimer). */}
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 9, background: G.chip, border: `1px solid ${C.borderFaint}`, borderRadius: 20, padding: '4px 11px 4px 9px' }}>
-              <Ico n={startedBy ? 'org' : 'shield'} size={13} color={C.muted2} />
+              <Ico n={byCommunity ? 'people' : startedBy ? 'org' : 'shield'} size={13} color={C.muted2} />
               <span style={{ fontSize: 12.5, color: C.muted }}>
-                {tr.disaster.startedBy}: <strong style={{ color: C.navy, fontWeight: 600 }}>{startedBy?.name ?? tr.disaster.startedByAfethub}</strong>
+                {tr.disaster.startedBy}: <strong style={{ color: C.navy, fontWeight: 600 }}>
+                  {byCommunity ? tr.disaster.startedByCommunity : startedBy?.name ?? tr.disaster.startedByAfethub}
+                </strong>
               </span>
             </div>
+            {/* An operation the crowd opened is published, but it rests on unverified
+                claims until a coordinator confirms it. Saying so here is the whole
+                reason it may be published at all (rules/01 §Clear Operational States;
+                rules/07 §Critical Distinctions). */}
+            {byCommunity && !a.snap.disaster.communityConfirmed && (
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 9,
+                background: '#FFFDF4', border: '1px solid #F2DFA8', borderLeft: `3px solid ${C.warning}`,
+                borderRadius: 10, padding: '9px 12px', maxWidth: '68ch',
+              }}>
+                <span style={{ paddingTop: 1 }}><Ico n="critical" size={14} color={C.warningText} /></span>
+                <span style={{ fontSize: 12.5, color: C.heading2 }}>
+                  <b style={{ color: C.warningText }}>{tr.disaster.communityPendingTitle}</b> {tr.disaster.communityPendingBody}
+                </span>
+              </div>
+            )}
           </div>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#FEF3F2', color: C.emergency, border: '1px solid #F6C9C9', borderRadius: 20, padding: '5px 11px', fontSize: 12.5, fontWeight: 700 }}>
             <LiveDot size={6} />{tr.disaster.active}

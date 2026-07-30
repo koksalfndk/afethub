@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { repo, fallbackToLocal, type Snapshot, type Overview } from './data';
 import type {
   Submission, VerifyKind, Organization, OrganizationInput, DisasterReport, DisasterReportInput,
+  ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
   BannerSlide, BannerSlideInput, OrgEditRequestInput, OrgEditRequest, DisasterInput,
   OrganizationSave, OrgStatus, VolunteerInput, VolunteerApplication, VolunteerStatus,
   AnnouncementInput, LocationInput,
@@ -16,7 +17,7 @@ import { sendStaffInvite } from './data/sendEmail';
 export type Route =
   | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
   | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog' | 'coordSlider' | 'coordDisasters'
-  | 'coordOrgEdits' | 'coordOrgs' | 'coordStaff' | 'volunteer' | 'coordOps'
+  | 'coordOrgEdits' | 'coordOrgs' | 'coordStaff' | 'volunteer' | 'coordOps' | 'coordReports'
   | 'components' | 'system';
 export type Tab = 'overview' | 'needs' | 'locations' | 'announcements' | 'activity';
 export type Device = 'desktop' | 'mobile';
@@ -50,6 +51,7 @@ function toPath(route: Route, tab: Tab, slug: string): string {
     case 'coordDisasters': return '/koordinasyon/afetler';
     case 'coordOrgEdits': return '/koordinasyon/kurum-duzeltmeleri';
     case 'coordOrgs': return '/koordinasyon/kurumlar';
+    case 'coordReports': return '/koordinasyon/bildirimler';
     case 'coordStaff': return '/koordinasyon/ekip';
     case 'coordOps': return '/koordinasyon/operasyon';
     case 'volunteer': return '/gonullu';
@@ -86,6 +88,7 @@ function fromPath(pathname: string): ParsedPath {
         : s === 'afetler' ? 'coordDisasters'
         : s === 'kurum-duzeltmeleri' ? 'coordOrgEdits'
         : s === 'kurumlar' ? 'coordOrgs'
+        : s === 'bildirimler' ? 'coordReports'
         : s === 'ekip' ? 'coordStaff'
         : s === 'operasyon' ? 'coordOps' : 'coordHome';
       return { route: r, role: 'coordinator' };
@@ -198,7 +201,14 @@ export interface AppApi {
   submitOrgEditRequest: (input: OrgEditRequestInput) => Promise<boolean>;
   findSimilarReports: (input: DisasterReportInput) => Promise<DisasterReport[]>;
   submitDisasterReport: (input: DisasterReportInput) => Promise<{ report: DisasterReport; merged: boolean } | null>;
-  confirmDisasterReport: (reportId: string) => Promise<boolean>;
+  // Confirming carries the contact details the modal collects. Returns the server's
+  // answer so the caller can tell "sayıldı" from "zaten doğrulamıştınız".
+  confirmDisasterReport: (reportId: string, who: ReportConfirmInput) => Promise<ReportConfirmResult | null>;
+  // Coordinator queue for community reports.
+  reportQueue: ReportQueueItem[]; reportQueueLoading: boolean; reportQueueError: string;
+  reloadReportQueue: () => void;
+  reviewDisasterReport: (reportId: string, action: 'publish' | 'reject', reason: string) => Promise<boolean>;
+  confirmCommunityDisaster: (disasterId: string) => Promise<boolean>;
 }
 
 const Ctx = createContext<AppApi | null>(null);
@@ -254,6 +264,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [orgEditsLoading, setOrgEditsLoading] = useState(false);
   const [orgEditsError, setOrgEditsError] = useState('');
   const [orgEditsPending, setOrgEditsPending] = useState(0);
+  const [reportQueue, setReportQueue] = useState<ReportQueueItem[]>([]);
+  const [reportQueueLoading, setReportQueueLoading] = useState(false);
+  const [reportQueueError, setReportQueueError] = useState('');
   const [volunteers, setVolunteers] = useState<VolunteerApplication[]>([]);
   const [volunteersLoading, setVolunteersLoading] = useState(false);
   const [volunteersError, setVolunteersError] = useState('');
@@ -332,6 +345,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setOrgEditsError(tr.coordOrgEdits.loadFailed);
     } finally {
       setOrgEditsLoading(false);
+    }
+  };
+
+  // Same reasoning as the correction queue: the rows carry moderation fields and
+  // confirmation counts, so they are fetched only when the panel screen asks.
+  const loadReportQueue = async () => {
+    setReportQueueLoading(true); setReportQueueError('');
+    try {
+      setReportQueue(await withTimeout(repo.listReportQueue()));
+    } catch {
+      setReportQueueError(tr.coordReports.loadFailed);
+    } finally {
+      setReportQueueLoading(false);
     }
   };
 
@@ -442,6 +468,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     modal, toast, trackedSub, trackError, wizardMode, disasterFormOpen, deliveryOpen,
     mySubs, mySubsLoading, mySubsError,
     orgEdits, orgEditsLoading, orgEditsError, orgEditsPending,
+    reportQueue, reportQueueLoading, reportQueueError,
     volunteers, volunteersLoading, volunteersError,
     volunteersPending: volunteers.filter((v) => v.status === 'Pending review').length,
     staff, invites, staffLoading, staffError,
@@ -710,16 +737,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return null;
       }
     },
-    confirmDisasterReport: async (reportId) => {
+    confirmDisasterReport: async (reportId, who) => {
       try {
-        const r = await repo.confirmDisasterReport(reportId);
+        const res = await repo.confirmDisasterReport(reportId, who);
         setOverview(await repo.getOverview());
-        showToast(tr.reportDisaster.confirmedToast(r.reportCount));
-        return true;
+        // Three different outcomes, three different sentences. Saying "doğrulandı"
+        // when the counter did not move would tell the person something untrue.
+        if (res.already) showToast(tr.reportDisaster.alreadyToast);
+        else if (res.createdSlug) showToast(tr.reportDisaster.openedToast);
+        else showToast(tr.reportDisaster.confirmedToast(res.report.reportCount));
+        return res;
       } catch {
         showToast(tr.reportDisaster.sendError);
-        return false;
+        return null;
       }
+    },
+    reloadReportQueue: () => { void loadReportQueue(); },
+    reviewDisasterReport: async (reportId, action, reason) => {
+      try {
+        await withTimeout(repo.reviewDisasterReport(reportId, action, reason));
+        await loadReportQueue();
+        setOverview(await repo.getOverview());
+        setSnap(await repo.getSnapshot(currentSlug || undefined));
+        showToast(action === 'publish' ? tr.coordReports.publishedToast : tr.coordReports.rejectedToast);
+        return true;
+      } catch { showToast(tr.coordReports.actionFailed); return false; }
+    },
+    confirmCommunityDisaster: async (disasterId) => {
+      try {
+        await withTimeout(repo.confirmCommunityDisaster(disasterId));
+        await loadReportQueue();
+        setOverview(await repo.getOverview());
+        setSnap(await repo.getSnapshot(currentSlug || undefined));
+        showToast(tr.coordReports.confirmedToast);
+        return true;
+      } catch { showToast(tr.coordReports.actionFailed); return false; }
     },
     // Slide writes are authorised server-side (RLS). A rejected write surfaces as a
     // toast and the list is left untouched — never optimistically "saved".
@@ -765,7 +817,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Every piece of state exposed on `api` must be listed here, or consumers keep the
   // previous value: `deliveryOpen` and `slides` were missing, so the delivery overlay
   // never appeared and the slide list could go stale after a save.
-  }), [snap, loadError, overview, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
+  }), [snap, loadError, overview, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

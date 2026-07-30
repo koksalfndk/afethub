@@ -10,6 +10,9 @@ export function Sidebar() {
   // Correction requests waiting. Comes from a count query, not from the loaded list —
   // the badge must be right before the screen has ever been opened.
   const openOrgEdits = a.orgEditsPending;
+  // Community reports still awaiting a decision. Comes from the public overview, which
+  // is already loaded, so the badge is right before the screen is ever opened.
+  const openReports = a.overview?.reports.length ?? 0;
 
   const item = (label: string, route: Route, badge: number | null, tone: 'red' | 'grey', onClick: () => void) => {
     const active = a.route === route;
@@ -54,6 +57,7 @@ export function Sidebar() {
           {item(tr.nav.disasterAdmin, 'coordDisasters', snap?.disasters.length ?? 0, 'grey', () => a.go('coordDisasters'))}
           {item(tr.nav.reviewQueue, 'coordQueue', pending, 'red', () => a.go('coordQueue'))}
           {item(tr.nav.orgEdits, 'coordOrgEdits', openOrgEdits, openOrgEdits > 0 ? 'red' : 'grey', () => a.go('coordOrgEdits'))}
+          {item(tr.nav.communityReports, 'coordReports', openReports || null, openReports > 0 ? 'red' : 'grey', () => a.go('coordReports'))}
           {item(tr.nav.staff, 'coordStaff', a.volunteersPending || null, a.volunteersPending > 0 ? 'red' : 'grey', () => a.go('coordStaff'))}
           {item(tr.nav.needs, 'coordNeeds', snap?.needs.length ?? 0, 'grey', () => a.go('coordNeeds'))}
           {item(tr.nav.ops, 'coordOps', (snap?.announcements.length ?? 0) + (snap?.locations.length ?? 0), 'grey', () => a.go('coordOps'))}

@@ -6,7 +6,9 @@ import { C, G, PRI, D, type PriorityKey } from '../theme';
 import { LiveDot, Ico, DISASTER_ICON, PriorityBadge, MetricCell, ProgressBar, eyebrow, srOnly } from '../ui';
 import { agoMinutes, clockLabel, formatDate } from '../util';
 import { HeroBanner } from '../components/HeroBanner';
-import type { DisasterType } from '../types';
+import { ReportConfirmModal } from '../components/ReportConfirmModal';
+import { COMMUNITY_THRESHOLD } from '../data/repo';
+import type { DisasterType, DisasterReport } from '../types';
 import type { DisasterCard } from '../data/repo';
 
 // Icon per disaster kind — a colour-coded category marker, never decoration.
@@ -49,6 +51,9 @@ export function Home() {
   const [onlyActive, setOnlyActive] = useState(true);
   const [q, setQ] = useState('');
   const [feedOpen, setFeedOpen] = useState(false);
+  // The report being confirmed, if any. Confirming is a form, not a click: see
+  // ReportConfirmModal for why the counter cannot be anonymous.
+  const [confirming, setConfirming] = useState<DisasterReport | null>(null);
 
   if (!ov) return <div style={{ padding: 40, color: C.muted }}>{tr.common.loading}</div>;
 
@@ -373,8 +378,10 @@ export function Home() {
             <div style={{ fontSize: 11.5, color: C.muted2, padding: '10px 14px', borderTop: '1px solid #F6E7E7' }}>{tr.common.remainingUnchanged}</div>
           </section>
 
-          {/* Citizen reports: a claim count, not a verified fact. Duplicates about
-              the same event are merged, so this is "n kişi bildirdi", not n rows. */}
+          {/* Community reports: a claim count, not a verified fact. Duplicates about
+              the same event are merged, so this is "n kişi bildirdi", not n rows.
+              At COMMUNITY_THRESHOLD confirmations the report opens an operation by
+              itself — which is exactly why confirming asks who you are. */}
           <section style={{ ...panel, border: '1px solid #F2DFA8' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '12px 14px', borderBottom: '1px solid #F2DFA8', background: '#FFFDF4' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -384,28 +391,39 @@ export function Home() {
               <span className="tnum" style={{ fontSize: 11.5, color: C.muted2 }}>{ov.reports.length}</span>
             </div>
             <div style={{ fontSize: 11.5, color: C.muted2, padding: '8px 14px 0' }}>{tr.dashReports.note}</div>
-            {ov.reports.length > 0 ? ov.reports.slice(0, 3).map((r) => (
-              <div key={r.id} style={{ padding: '10px 14px', borderTop: `1px solid ${C.borderFaint}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                  <span style={{ minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700, color: C.navy }}>
-                      {[r.province, r.district].filter(Boolean).join(' / ')}
+            {ov.reports.length > 0 ? ov.reports.slice(0, 3).map((r) => {
+              const left = Math.max(0, COMMUNITY_THRESHOLD - r.reportCount);
+              return (
+                <div key={r.id} style={{ padding: '10px 14px', borderTop: `1px solid ${C.borderFaint}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700, color: C.navy }}>
+                        {[r.province, r.district].filter(Boolean).join(' / ')}
+                      </span>
+                      <span className="tnum" style={{ display: 'block', fontSize: 11.5, color: C.muted2, marginTop: 1 }}>
+                        {disasterTypeLabel[r.type]} · {formatDate(r.occurredOn)}
+                      </span>
                     </span>
-                    <span className="tnum" style={{ display: 'block', fontSize: 11.5, color: C.muted2, marginTop: 1 }}>
-                      {disasterTypeLabel[r.type]} · {formatDate(r.occurredOn)}
+                    <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <span className="tnum" style={{ display: 'block', fontSize: 17, fontWeight: 700, color: C.warning }}>{r.reportCount}</span>
+                      <span style={{ display: 'block', fontSize: 11, color: C.muted }}>{tr.dashReports.reportedWord}</span>
                     </span>
-                  </span>
-                  <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    <span className="tnum" style={{ display: 'block', fontSize: 17, fontWeight: 700, color: C.warning }}>{r.reportCount}</span>
-                    <span style={{ display: 'block', fontSize: 11, color: C.muted }}>{tr.dashReports.reportedWord}</span>
-                  </span>
+                  </div>
+                  {/* How far the report is from opening an operation by itself. Stated in
+                      reports, not as a progress bar without a figure (rules/04). */}
+                  {left > 0 && (
+                    <span className="tnum" style={{ fontSize: 11.5, color: C.muted2 }}>{tr.dashReports.toThreshold(left)}</span>
+                  )}
+                  <button onClick={() => setConfirming(r)} className="hv-navy" style={{
+                    alignSelf: 'flex-start', background: C.surface, border: `1px solid ${C.borderSoft}`,
+                    color: C.navy, borderRadius: 8, padding: '0 12px', height: 38, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                  }}>{tr.dashReports.confirm}</button>
                 </div>
-                <button onClick={() => void a.confirmDisasterReport(r.id)} className="hv-navy" style={{
-                  alignSelf: 'flex-start', background: C.surface, border: `1px solid ${C.borderSoft}`,
-                  color: C.navy, borderRadius: 8, padding: '0 12px', height: 38, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                }}>{tr.dashReports.confirm}</button>
-              </div>
-            )) : <div style={{ fontSize: 13, color: C.muted, padding: '10px 14px' }}>{tr.dashReports.empty}</div>}
+              );
+            }) : <div style={{ fontSize: 13, color: C.muted, padding: '10px 14px' }}>{tr.dashReports.empty}</div>}
+            <div style={{ fontSize: 11.5, color: C.muted2, padding: '9px 14px 0', borderTop: `1px solid ${C.borderFaint}` }}>
+              {tr.dashReports.thresholdNote(COMMUNITY_THRESHOLD)}
+            </div>
             <div style={{ padding: '11px 14px', borderTop: `1px solid ${C.borderFaint}` }}>
               <button onClick={a.openDisasterForm} style={{
                 background: G.emergencyBtn, border: '1px solid #BE2A31', color: '#fff', borderRadius: 10,
@@ -430,6 +448,8 @@ export function Home() {
       <p style={{ fontSize: 11.5, lineHeight: 1.5, color: C.muted2, margin: 0, paddingTop: 10, borderTop: `1px solid ${C.borderFaint}` }}>
         {tr.home.disclaimer}
       </p>
+
+      {confirming && <ReportConfirmModal report={confirming} onClose={() => setConfirming(null)} />}
     </div>
   );
 }

@@ -27,6 +27,7 @@ import { CoordSlider } from './screens/CoordSlider';
 import { CoordDisasters } from './screens/CoordDisasters';
 import { CoordOrgEdits } from './screens/CoordOrgEdits';
 import { CoordOrgs } from './screens/CoordOrgs';
+import { CoordReports } from './screens/CoordReports';
 import { CoordStaff } from './screens/CoordStaff';
 import { CoordOps } from './screens/CoordOps';
 import { Volunteer } from './screens/Volunteer';
@@ -49,7 +50,7 @@ export function App() {
 
   const screens: Record<string, () => ReactElement | null> = {
     home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About, howItWorks: HowItWorks, account: Account, volunteer: Volunteer,
-    coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider, coordDisasters: CoordDisasters, coordOrgEdits: CoordOrgEdits, coordOrgs: CoordOrgs, coordStaff: CoordStaff, coordOps: CoordOps,
+    coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider, coordDisasters: CoordDisasters, coordOrgEdits: CoordOrgEdits, coordOrgs: CoordOrgs, coordStaff: CoordStaff, coordOps: CoordOps, coordReports: CoordReports,
     components: Components, system: System,
   };
   const isReport = a.route === 'report';

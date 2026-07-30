@@ -1,12 +1,14 @@
 import type {
   LogEntry, Need, Submission, VerifyKind, DeliveryInput, Organization, OrganizationInput,
-  DisasterReport, DisasterReportInput, BannerSlide, BannerSlideInput, OrgEditRequestInput,
+  DisasterReport, DisasterReportInput, ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
+  BannerSlide, BannerSlideInput, OrgEditRequestInput,
   OrgEditRequest, Disaster, DisasterInput, OrganizationSave, OrgStatus,
   VolunteerInput, VolunteerApplication, VolunteerStatus, StaffMember, StaffRole, RoleInvite,
   Announcement, AnnouncementInput, Location, LocationInput,
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
-import { genCode, genNrq, remaining, isSameEvent, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS } from './repo';
+import { genCode, genNrq, remaining, isSameEvent, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS, COMMUNITY_THRESHOLD, isPublicAuditAction } from './repo';
+import { disasterTypeLabel } from '../i18n/strings';
 import { agoMinutes } from '../util';
 import { PRI } from '../theme';
 import type { NeedPayload } from '../needForm';
@@ -37,6 +39,10 @@ let locations: Location[] = seed.locations.map((x) => ({ ...x }));
 // would misrepresent who can act on the platform (rules/07 §Seed Content).
 let volunteerApps: VolunteerApplication[] = [];
 let roleInvites: RoleInvite[] = [];
+// Who confirmed which report. The pair is what makes one e-mail count once, exactly
+// as the unique constraint does in migration 0016.
+let confirmations: { reportId: string; email: string }[] = [];
+const rejectReasons: Record<string, string> = {};
 
 let uid = 0;
 const nextId = (p: string) => `${p}_${Date.now()}_${uid++}`;
@@ -51,6 +57,46 @@ function addLog(
     id: nextId('l'), disasterId, disasterName: d?.name ?? '',
     user: 'Elif Kaya', time: NOW, ...entry,
   }, ...log];
+}
+
+// Turning a report into an operation. Mirrors open_disaster_from_report() in
+// migration 0016: same name, same slug shape, same "waiting for verification" wording,
+// so local mode does not teach a behaviour the database will not repeat.
+function openFromReport(r: DisasterReport, community: boolean): string {
+  if (r.disasterSlug) return r.disasterSlug;
+  const place = r.district.trim() || r.province.trim();
+  const name = `${place} ${disasterTypeLabel[r.type]}`;
+  let slug = disasterSlug(name, new Date());
+  let n = 1;
+  while (seed.disasters.some((d) => d.slug === slug)) {
+    n += 1;
+    slug = `${disasterSlug(name, new Date())}-${n}`;
+  }
+  const created: Disaster = {
+    id: nextId('d'), slug, legacySlugs: [],
+    name, region: [r.district, r.province].filter(Boolean).join(', ') + ' · Türkiye',
+    province: r.province, type: r.type, status: 'Active',
+    situation: community
+      ? `Bu operasyon, aynı olayı bildiren en az ${COMMUNITY_THRESHOLD} kişinin doğrulamasıyla otomatik açıldı. Koordinatör doğrulaması bekleniyor.${r.description ? `\n\n${r.description}` : ''}`
+      : r.description,
+    openedAt: new Date().toISOString().slice(0, 10), updatedLabel: NOW,
+    volunteers: 0, onShift: 0, openedByOrgId: null,
+    openedByCommunity: community, communityConfirmed: false,
+  };
+  seed.disasters.unshift(created);
+  reports = reports.map((x) => (x.id === r.id ? { ...x, status: 'Published', disasterSlug: slug } : x));
+  if (community) {
+    addLog(created.id, {
+      user: 'Topluluk', action: 'Topluluk afeti oluşturuldu',
+      detail: `${name} · ${r.reportCount} kişi bildirdi`,
+      oldValue: 'Topluluk bildirimi', newValue: 'Afet · koordinatör doğrulaması bekleniyor', color: '#E6A700',
+    });
+  } else {
+    addLog(created.id, {
+      action: 'Afet oluşturuldu', detail: name, oldValue: '—', newValue: 'Active', color: '#D9363E',
+    });
+  }
+  return slug;
 }
 
 // A retired slug must keep resolving, so a shared link never 404s after a
@@ -85,7 +131,9 @@ function snap(slug?: string): Snapshot {
     // Submissions and audit entries are scoped to the current operation so one
     // disaster page never shows another operation's traffic.
     subs: subs.filter((s) => mine(disasterOfNeed(s.needId))).map((s) => ({ ...s })),
-    log: log.filter((l) => mine(l.disasterId)).slice().sort(byRecency).map((l) => ({ ...l })),
+    // Same allow-list the database applies to the public feed (migration 0016), so
+    // local mode cannot show a row production would withhold.
+    log: log.filter((l) => mine(l.disasterId) && isPublicAuditAction(l.action)).slice().sort(byRecency).map((l) => ({ ...l })),
     announcements: announcements.filter((x) => mine(x.disasterId)).map((x) => ({ ...x })),
     verifiedTotal: verifiedTotals[current.id] ?? 0,
   };
@@ -144,7 +192,7 @@ export class LocalRepo implements Repo {
         volunteers: active.reduce((x, c) => x + c.disaster.volunteers, 0),
         deliveryPoints: active.reduce((x, c) => x + c.deliveryPoints, 0),
       },
-      log: log.slice().sort(byRecency).slice(0, 12).map((l) => ({ ...l })),
+      log: log.filter((l) => isPublicAuditAction(l.action)).slice().sort(byRecency).slice(0, 12).map((l) => ({ ...l })),
       reports: reports
         .filter((r) => r.status === 'Pending verification')
         .slice()
@@ -548,19 +596,78 @@ export class LocalRepo implements Repo {
     return { report: { ...created }, merged: false };
   }
 
-  // "Ben de bildiriyorum" on an existing report.
-  async confirmDisasterReport(reportId: string): Promise<DisasterReport> {
+  // "Bildirimi Doğrula" on an existing report. Mirrors migration 0016: one e-mail
+  // counts once, and the threshold opens an operation whose initiator is the crowd.
+  async confirmDisasterReport(reportId: string, who: ReportConfirmInput): Promise<ReportConfirmResult> {
     const r = reports.find((x) => x.id === reportId);
     if (!r) throw new Error('report not found');
+    if (r.status !== 'Pending verification') throw new Error('report not open');
+    const email = who.email.trim().toLowerCase();
+    if (who.name.trim().length < 3) throw new Error('name required');
+    if (email.indexOf('@') < 1) throw new Error('email required');
+    if (who.province.trim().length < 2) throw new Error('province required');
+
+    if (confirmations.some((c) => c.reportId === reportId && c.email === email)) {
+      return { report: { ...r }, already: true, createdSlug: '' };
+    }
+    confirmations = [...confirmations, { reportId, email }];
+
     const next = { ...r, reportCount: r.reportCount + 1, lastReportLabel: NOW };
     reports = reports.map((x) => (x.id === reportId ? next : x));
     addLog(activeDisasterId(), {
-      user: 'Misafir', action: 'Afet bildirimi doğrulandı',
-      detail: `${next.province}${next.district ? ' / ' + next.district : ''} · ${next.type}`,
+      user: 'Topluluk', action: 'Afet bildirimi doğrulandı',
+      detail: `${next.province}${next.district ? ' / ' + next.district : ''} · ${disasterTypeLabel[next.type]}`,
       oldValue: `${r.reportCount} kişi bildirdi`, newValue: `${next.reportCount} kişi bildirdi`,
       color: '#E6A700',
     });
-    return { ...next };
+
+    let createdSlug = '';
+    if (next.reportCount >= COMMUNITY_THRESHOLD && !next.disasterSlug) {
+      createdSlug = openFromReport(next, true);
+    }
+    const after = reports.find((x) => x.id === reportId)!;
+    return { report: { ...after }, already: false, createdSlug };
+  }
+
+  async listReportQueue(): Promise<ReportQueueItem[]> {
+    return reports
+      .slice()
+      .sort((x, y) => y.reportCount - x.reportCount)
+      .map((r) => {
+        const d = r.disasterSlug ? seed.disasters.find((x) => x.slug === r.disasterSlug) : undefined;
+        return {
+          ...r,
+          rejectReason: rejectReasons[r.id] ?? '',
+          disasterId: d?.id ?? '',
+          confirmations: confirmations.filter((c) => c.reportId === r.id).length,
+          contacts: 0,
+          openedByCommunity: d?.openedByCommunity === true,
+          communityConfirmed: d?.communityConfirmed === true,
+        };
+      });
+  }
+
+  async reviewDisasterReport(reportId: string, action: 'publish' | 'reject', reason: string): Promise<string> {
+    const r = reports.find((x) => x.id === reportId);
+    if (!r) throw new Error('report not found');
+    if (action === 'publish') return openFromReport(r, false);
+    if (reason.trim().length < 5) throw new Error('reason required');
+    if (r.disasterSlug) throw new Error('report already published');
+    rejectReasons[reportId] = reason.trim();
+    reports = reports.map((x) => (x.id === reportId ? { ...x, status: 'Rejected' } : x));
+    return '';
+  }
+
+  async confirmCommunityDisaster(disasterId: string): Promise<void> {
+    const i = seed.disasters.findIndex((d) => d.id === disasterId);
+    if (i < 0) throw new Error('disaster not found');
+    const d = seed.disasters[i];
+    if (!d.openedByCommunity || d.communityConfirmed) throw new Error('not a pending community operation');
+    seed.disasters[i] = { ...d, communityConfirmed: true, updatedLabel: NOW };
+    addLog(disasterId, {
+      action: 'Topluluk afeti doğrulandı', detail: d.name,
+      oldValue: 'Doğrulama bekliyor', newValue: 'Koordinatör doğruladı', color: '#159947',
+    });
   }
 
   async submitOrganization(input: OrganizationInput): Promise<Organization> {

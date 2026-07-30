@@ -62,6 +62,7 @@ const ROUTE_META: Record<Route, RouteMeta> = {
   coordDisasters: { title: 'Afet yönetimi', index: false },
   coordOrgEdits: { title: 'Kurum düzeltme talepleri', index: false },
   coordOrgs: { title: 'Kurum yönetimi', index: false },
+  coordReports: { title: 'Topluluk bildirimleri', index: false },
   coordStaff: { title: 'Ekip ve gönüllüler', index: false },
   coordOps: { title: 'Duyuru ve teslim noktaları', index: false },
   volunteer: {

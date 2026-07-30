@@ -3,7 +3,8 @@ import type {
   Disaster, Location, Need, Submission, LogEntry, Announcement,
   VerifyKind, DeliveryInput, PriorityKey, StatusKey, DisasterType,
   Organization, OrganizationInput, OrgStatus, OrgKind, OrgScope,
-  DisasterReport, DisasterReportInput, ReportStatus, BannerSlide, BannerSlideInput, SlideAction,
+  DisasterReport, DisasterReportInput, ReportStatus, ReportConfirmInput, ReportConfirmResult,
+  ReportQueueItem, BannerSlide, BannerSlideInput, SlideAction,
   OrgEditRequestInput, OrgEditRequest, OrgEditable, EditRequestStatus, DisasterInput,
   OrganizationSave, VolunteerInput, VolunteerApplication, VolunteerStatus,
   AnnouncementInput, LocationInput,
@@ -53,6 +54,8 @@ export class SupabaseRepo implements Repo {
       volunteers: Number(r.volunteers ?? 0), onShift: Number(r.on_shift ?? 0),
       demo: r.is_demo === true,
       openedByOrgId: r.opened_by_org_id ? String(r.opened_by_org_id) : null,
+      openedByCommunity: r.opened_by_community === true,
+      communityConfirmed: r.community_confirmed_at != null,
     });
     const disasters: Disaster[] = (ds.data ?? []).map(mapDisaster);
     const disaster = disasters.find((x) => x.slug === slug)
@@ -130,6 +133,8 @@ export class SupabaseRepo implements Repo {
       volunteers: Number(r.volunteers ?? 0), onShift: Number(r.on_shift ?? 0),
       demo: r.is_demo === true,
       openedByOrgId: r.opened_by_org_id ? String(r.opened_by_org_id) : null,
+      openedByCommunity: r.opened_by_community === true,
+      communityConfirmed: r.community_confirmed_at != null,
     });
 
     const disasters: Disaster[] = (rows ?? ds.data ?? []).map(mapDisaster);
@@ -585,10 +590,53 @@ export class SupabaseRepo implements Repo {
     return { report: this.mapReport(row), merged: row.merged === true };
   }
 
-  async confirmDisasterReport(reportId: string): Promise<DisasterReport> {
-    const { data, error } = await this.db.rpc('confirm_disaster_report', { p_report: reportId }).single();
+  // The RPC records WHO confirmed and refuses a second confirmation from the same
+  // address (unique constraint, migration 0016). `already` is not an error: the person
+  // is told the count did not move, rather than being shown a failure they cannot fix.
+  async confirmDisasterReport(reportId: string, who: ReportConfirmInput): Promise<ReportConfirmResult> {
+    const { data, error } = await this.db.rpc('confirm_disaster_report', {
+      p_report: reportId,
+      p_name: who.name.trim(), p_email: who.email.trim(),
+      p_province: who.province.trim(), p_district: who.district.trim(),
+    }).single();
     if (error) throw error;
-    return this.mapReport(data as Record<string, unknown>);
+    const row = data as Record<string, unknown>;
+    return {
+      report: this.mapReport(row),
+      already: row.already === true,
+      createdSlug: String(row.created_slug ?? ''),
+    };
+  }
+
+  // Coordinator queue. Reads the admin view, which applies the caller's own RLS —
+  // a visitor's token returns nothing rather than the moderation fields.
+  async listReportQueue(): Promise<ReportQueueItem[]> {
+    const { data, error } = await this.db.from('disaster_reports_admin').select('*')
+      .order('report_count', { ascending: false })
+      .order('last_report_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((r: Record<string, unknown>) => ({
+      ...this.mapReport(r),
+      rejectReason: String(r.reject_reason ?? ''),
+      disasterId: r.disaster_id ? String(r.disaster_id) : '',
+      confirmations: Number(r.confirmations ?? 0),
+      contacts: Number(r.contacts ?? 0),
+      openedByCommunity: r.opened_by_community === true,
+      communityConfirmed: r.community_confirmed_at != null,
+    }));
+  }
+
+  async reviewDisasterReport(reportId: string, action: 'publish' | 'reject', reason: string): Promise<string> {
+    const { data, error } = await this.db.rpc('review_disaster_report', {
+      p_report: reportId, p_action: action, p_reason: reason.trim(),
+    });
+    if (error) throw error;
+    return String(data ?? '');
+  }
+
+  async confirmCommunityDisaster(disasterId: string): Promise<void> {
+    const { error } = await this.db.rpc('confirm_community_disaster', { p_disaster: disasterId });
+    if (error) throw error;
   }
 
   async createDelivery(f: DeliveryInput): Promise<CreateDeliveryResult> {

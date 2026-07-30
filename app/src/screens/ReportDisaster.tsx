@@ -126,7 +126,12 @@ export function ReportDisasterForm({ onClose }: { onClose?: () => void }) {
             <div className="tnum" style={{ fontSize: 11.5, color: C.muted2 }}>
               {tr.reportDisaster.observedOn(formatDate(r.occurredOn))} · {tr.reportDisaster.lastReport(r.lastReportLabel)}
             </div>
-            <button onClick={() => void a.confirmDisasterReport(r.id).then((ok) => ok && setDone({ report: { ...r, reportCount: r.reportCount + 1 }, merged: true }))}
+            {/* The reporter has already given their name, e-mail and location in this
+                form, so confirming an existing report reuses them instead of asking
+                again (rules/01 §Registration Must Be Optional). */}
+            <button onClick={() => void a.confirmDisasterReport(r.id, {
+              name: byName, email: byEmail, province, district,
+            }).then((res) => res && setDone({ report: res.report, merged: true }))}
               style={{ ...btn(true), alignSelf: 'flex-start' }}>{tr.reportDisaster.similarConfirm}</button>
           </div>
         ))}

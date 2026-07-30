@@ -27,6 +27,15 @@ export interface Disaster {
   // "started by X" line on a public page would be a claim of affiliation
   // (rules/03 §Legal and Safety Disclaimer).
   openedByOrgId: string | null;
+  // Opened automatically once enough people confirmed the same citizen report. The
+  // initiator is then the crowd — shown as "Topluluk" — and NOT an organization.
+  // Optional so seed and local records keep their current shape.
+  openedByCommunity?: boolean;
+  // A community-opened operation rests on unverified claims until a coordinator
+  // confirms it. False means every public surface must say so; hiding that would let
+  // ten clicks publish something that reads exactly like a verified operation
+  // (rules/01 §Clear Operational States).
+  communityConfirmed?: boolean;
   // True while the record is sample content. The UI must label it visibly so it is
   // never mistaken for verified live disaster data (rules/07, rules/08).
   demo?: boolean;
@@ -402,4 +411,35 @@ export interface DisasterReportInput {
   occurredOn: string;
   description: string;
   name: string; email: string; phone: string;
+}
+
+// Confirming someone else's report ("Bildirimi Doğrula"). The contact details are
+// required: an anonymous counter can be driven to any number by one person, and the
+// threshold that opens an operation would then mean nothing. The e-mail is not
+// verified — it de-duplicates, it does not prove identity — which is why the public
+// figure stays "n kişi bildirdi" and never "doğrulandı".
+export interface ReportConfirmInput {
+  name: string;
+  email: string;
+  province: string;
+  district: string;
+}
+
+export interface ReportConfirmResult {
+  report: DisasterReport;
+  // True when this address had already confirmed: the counter did not move.
+  already: boolean;
+  // Slug of the operation this confirmation just opened, '' when none was opened.
+  createdSlug: string;
+}
+
+// The coordinator's view of the queue. Carries the moderation fields the public
+// projection deliberately omits.
+export interface ReportQueueItem extends DisasterReport {
+  rejectReason: string;
+  disasterId: string;      // '' until the report became an operation
+  confirmations: number;   // rows in disaster_report_confirmations
+  contacts: number;        // people who left contact details
+  openedByCommunity: boolean;
+  communityConfirmed: boolean;
 }
