@@ -97,7 +97,7 @@ export function Header() {
   // need is meaningless without an operation, so those two live on the disaster
   // page only.
   const reportCta = (
-    <button onClick={goAnd(() => a.go('reportDisaster'))} className="hv-emergency" style={{
+    <button onClick={goAnd(a.openDisasterForm)} className="hv-emergency" style={{
       background: G.emergencyBtn, border: '1px solid #BE2A31', borderRadius: 20, padding: '0 17px',
       height: 38, fontSize: 13.5, fontWeight: 600, color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap',
       boxShadow: 'inset 0 1px 0 rgba(255,255,255,.18), 0 2px 6px rgba(191,42,49,.26)',
@@ -133,7 +133,7 @@ export function Header() {
         <div style={{ fontSize: 12, color: C.muted }}>{loggedIn ? (auth.user?.email ?? '') : tr.header.guest}</div>
       </div>
       {menuRow('track', tr.header.track, () => a.go('track'))}
-      {menuRow('critical', tr.reportDisaster.title, () => a.go('reportDisaster'))}
+      {menuRow('critical', tr.reportDisaster.title, a.openDisasterForm)}
       <div style={{ height: 1, background: C.borderFaint, margin: '6px 2px' }} />
       {loggedIn
         ? [
@@ -191,7 +191,7 @@ export function Header() {
       )}
       {[...navItems,
         { label: tr.header.track, active: a.route === 'track', onClick: () => a.go('track') },
-        { label: tr.reportDisaster.title, active: a.route === 'reportDisaster', onClick: () => a.go('reportDisaster') },
+        { label: tr.reportDisaster.title, active: a.route === 'reportDisaster', onClick: a.openDisasterForm },
       ].map((n) => (
         <button key={n.label} onClick={goAnd(n.onClick)} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',

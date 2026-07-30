@@ -20,6 +20,7 @@ import { NeedRequest } from './screens/NeedRequest';
 import { Organizations } from './screens/Organizations';
 import { ReportDisaster } from './screens/ReportDisaster';
 import { About } from './screens/About';
+import { DisasterReportModal } from './components/DisasterReportModal';
 import { Footer } from './components/Footer';
 import { CoordHome } from './screens/CoordHome';
 import { CoordQueue } from './screens/CoordQueue';
@@ -69,6 +70,7 @@ export function App() {
           <Footer />
           {mob && <BottomNav />}
           {isReport && <ReportModal />}
+          <DisasterReportModal />
           <NeedWizard />
           <Modal />
           <AuthModal />

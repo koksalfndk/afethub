@@ -196,6 +196,16 @@ export const tr = {
     ],
   },
 
+  banner: {
+    label: 'Bilgilendirme',
+    reportTitle: 'Bir olay gördüyseniz bildirin',
+    reportBody: 'Yangın, sel, deprem veya şiddetli hava olayını hesap açmadan bildirin. Aynı olaya ait bildirimler birleştirilir ve koordinatör incelemesine tek kayıt olarak düşer.',
+    verifyTitle: 'Kalan miktar yalnızca doğrulamayla düşer',
+    verifyBody: 'Bildirilen teslimat, koordinatör teslim noktasında sayıp onaylayana kadar kalan miktarı değiştirmez. Bekleyen ve doğrulanan asla tek bir sayıda birleştirilmez.',
+    orgsTitle: 'Sahadaki kurumları tek yerde görün',
+    orgsBody: 'Kamu kurumları, belediyeler, dernekler, vakıflar ve gönüllü grupları; iletişim bilgileriyle ve doğrulama durumuyla listelenir.',
+  },
+
   footer: {
     blurb: 'AfetHUB, afetlerde doğrulanmış ihtiyaçları, gelen fiziksel yardımı, gönüllüleri ve teslim noktalarını tek yerde koordine eden bağımsız bir sivil platformdur.',
     emergency: 'Acil ve hayati tehlike durumlarında 112’yi arayın. Orman yangını ihbarı: 177.',
@@ -266,6 +276,8 @@ export const tr = {
     intro: 'Gördüğünüz olayı bildirin. Hesap gerekmez. Aynı yerde ve aynı günlerde bildirilen benzer olaylar tek bildirimde birleştirilir; bildirim sayısı dashboard’da “n kişi bildirdi” olarak görünür.',
     notAuthority: 'Bu form bir acil çağrı değildir. Hayati tehlike varsa 112’yi, orman yangını için 177’yi arayın.',
     chooseType: 'Ne oluyor?',
+    modalIntro: 'Aynı yerde ve aynı günlerde bildirilen benzer olaylar tek bildirimde birleştirilir.',
+    stepNames: ['Olay türü', 'Konum ve zaman', 'Açıklama ve iletişim'],
     fProvince: 'İl', fDistrict: 'İlçe',
     fLocation: 'Konum tarifi', fLocationPh: 'Mahalle, sokak veya bilinen bir nokta',
     fDate: 'Gözlem tarihi',

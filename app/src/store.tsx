@@ -100,6 +100,7 @@ export interface AppApi {
   modal: ModalState | null; toast: string | null;
   trackedSub: Submission | null; trackError: string;
   wizardMode: WizardMode | null;
+  disasterFormOpen: boolean;
 
   go: (r: Route, extra?: Partial<{ tab: Tab }>) => void;
   openDisaster: (slug: string, tab?: Tab) => void;
@@ -114,6 +115,7 @@ export interface AppApi {
   prefillReport: (needId: string, unit: string, loc: string) => void;
   submitDelivery: () => void; copyCode: () => void; reportAnother: () => void;
   openWizard: (mode: WizardMode) => void; closeWizard: () => void;
+  openDisasterForm: () => void; closeDisasterForm: () => void;
   publishNeed: (p: NeedPayload) => Promise<boolean>;
   requestNeed: (p: NeedPayload, contact: { name: string; email: string; phone: string; city: string }) => Promise<string | null>;
   bumpNeed: (id: string) => void; togglePause: (id: string) => void;
@@ -167,6 +169,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [formError, setFormError] = useState('');
   const [copied, setCopied] = useState(false);
   const [wizardMode, setWizardMode] = useState<WizardMode | null>(null);
+  const [disasterFormOpen, setDisasterFormOpen] = useState(false);
   const [modal, setModal] = useState<ModalState | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [trackedSub, setTrackedSub] = useState<Submission | null>(null);
@@ -265,7 +268,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     route, tab, device, role, currentSlug, frame, showToolbar: IS_DEV, query, filter, subFilter,
     catFilter, locFilter, onlyCritical, updatedToday,
     form, track, reportStage, lastCode, formError, copied,
-    modal, toast, trackedSub, trackError, wizardMode,
+    modal, toast, trackedSub, trackError, wizardMode, disasterFormOpen,
 
     go: (r, extra) => { setRoute(r); if (extra?.tab) setTab(extra.tab); },
     openDisaster: (slug, t) => { setCurrentSlug(slug); setRoute('disaster'); setTab(t ?? 'needs'); if (slug !== currentSlug) loadSnapshot(slug); },
@@ -312,6 +315,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     reportAnother: () => { setReportStage('form'); setCopied(false); setFormState((s) => ({ ...s, qty: '', notes: '', confirm: false, photoUrl: '' })); },
 
     openWizard: (mode) => setWizardMode(mode),
+    openDisasterForm: () => setDisasterFormOpen(true),
+    closeDisasterForm: () => setDisasterFormOpen(false),
     closeWizard: () => setWizardMode(null),
     publishNeed: async (p) => {
       if (unverified) { showToast(tr.auth.verifyFirst); return false; }
@@ -400,7 +405,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [snap, loadError, overview, orgs, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, modal, toast, trackedSub, trackError]);
+  }), [snap, loadError, overview, orgs, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

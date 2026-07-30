@@ -59,7 +59,7 @@ export function BottomNav() {
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             {/* One tap, one destination: the disaster report form opens on its
                 type picker. No intermediate action sheet to read under stress. */}
-            <button onClick={() => a.go('reportDisaster')} aria-label={tr.reportDisaster.title} style={{
+            <button onClick={a.openDisasterForm} aria-label={tr.reportDisaster.title} style={{
               width: 56, height: 56, borderRadius: '50%', marginTop: -22, cursor: 'pointer',
               background: G.emergencyBtn, border: '3px solid #fff', color: '#fff',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
