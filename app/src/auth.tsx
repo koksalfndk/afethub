@@ -39,13 +39,13 @@ async function loadProfile(userId: string): Promise<Profile | null> {
   if (!supabase) return null;
   const { data } = await supabase
     .from('profiles')
-    .select('id, full_name, role, avatar_url, phone, city, organization_id, org_title, org_verified')
+    .select('id, full_name, role, avatar_url, phone, city, district, organization_id, org_title, org_verified')
     .eq('id', userId).maybeSingle();
   if (!data) return null;
   return {
     id: String(data.id), fullName: String(data.full_name ?? ''),
     role: (data.role as UserRole) ?? 'volunteer', avatarUrl: data.avatar_url ?? null,
-    phone: String(data.phone ?? ''), city: String(data.city ?? ''),
+    phone: String(data.phone ?? ''), city: String(data.city ?? ''), district: String(data.district ?? ''),
     orgId: data.organization_id ? String(data.organization_id) : null,
     orgTitle: String(data.org_title ?? ''),
     // Membership verification is coordinator-set; the client only reads it.
@@ -127,7 +127,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Only these five columns are sent. `role` and `org_verified` are absent by
       // design and RLS forbids them regardless of what the client asks for.
       const { error: e } = await supabase.from('profiles').update({
-        full_name: input.fullName.trim(), phone: input.phone.trim(), city: input.city.trim(),
+        full_name: input.fullName.trim(), phone: input.phone.trim(),
+        city: input.city.trim(), district: input.district.trim(),
         organization_id: input.orgId, org_title: input.orgTitle.trim(),
       }).eq('id', user.id);
       setWorking(false);
@@ -135,7 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // A changed membership drops back to unverified: a coordinator confirmed the
       // previous organization, not this one.
       setProfile((p) => (p ? {
-        ...p, fullName: input.fullName.trim(), phone: input.phone.trim(), city: input.city.trim(),
+        ...p, fullName: input.fullName.trim(), phone: input.phone.trim(),
+        city: input.city.trim(), district: input.district.trim(),
         orgId: input.orgId, orgTitle: input.orgTitle.trim(),
         orgVerified: p.orgId === input.orgId ? p.orgVerified : false,
       } : p));

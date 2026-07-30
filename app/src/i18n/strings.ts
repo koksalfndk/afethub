@@ -476,6 +476,14 @@ export const tr = {
   },
 
   report: {
+    // Step-by-step delivery report.
+    stepOf: (n: number, total: number) => `Adım ${n} / ${total}`,
+    stepNames: { delivery: 'Teslimat', note: 'Not ve fotoğraf', contact: 'İletişim' },
+    pickNeed: 'İhtiyaç seçin',
+    pickLoc: 'Teslim noktası seçin',
+    errNeed: 'Lütfen hangi ihtiyaç için teslimat yaptığınızı seçin.',
+    errLoc: 'Lütfen teslim noktasını seçin.',
+    contactWhy: 'İletişim bilgileriniz yalnızca koordinatörün teslimatı doğrulaması ve size takip bilgisi ulaştırması için istenir; herkese açık hiçbir ekranda görünmez.',
     backToNeeds: '← İhtiyaçlara dön',
     title: 'Teslimat bildir',
     intro: 'Hesap gerekmez. Bir koordinatör teslimatınızı teslim noktasında doğrular, ardından kalan miktar güncellenir.',
@@ -547,11 +555,21 @@ export const tr = {
   },
 
   wizard: {
+    // Step 1 (coordinator only): which operation is this need for. Without it the data
+    // layer had to guess, and it guessed "the first active disaster".
+    chooseDisaster: 'Bu ihtiyaç hangi afet için?',
+    disasterHint: 'İhtiyaç, seçtiğiniz operasyonun herkese açık sayfasında yayınlanır.',
+    disasterFor: (name: string) => `Operasyon: ${name}`,
+    errDisaster: 'Lütfen ihtiyacın hangi afet için olduğunu seçin.',
+    noDisasters: 'Yayınlanabilecek aktif operasyon yok.',
+    disasterResolved: 'Çözüldü',
+    unitPick: 'Birim seçin',
     coordTitle: 'Yeni ihtiyaç oluştur',
     coordIntro: 'Adım adım ilerleyin. Yayınlanan ihtiyaç, herkese açık afet sayfasında anında görünür.',
     publicTitle: 'İhtiyaç bildir',
     publicIntro: 'Sahadaki herkes bir eksikliği bildirebilir. Bir koordinatör inceler, birleştirebilir ve yayınlar.',
-    steps: { category: 'Kategori', details: 'Detaylar', location: 'Konum ve zaman', contact: 'İletişim', review: 'Özet' },
+    steps: {
+      disaster: 'Afet', category: 'Kategori', details: 'Detaylar', location: 'Konum ve zaman', contact: 'İletişim', review: 'Özet' },
     stepOf: (n: number, total: number) => `Adım ${n} / ${total}`,
     chooseCategory: 'Ne tür bir ihtiyaç?',
     // standard supply fields

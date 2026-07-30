@@ -1,7 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react';
 import {
-  Activity, Check, ChevronDown, ChevronRight, CircleCheck, Clock, House, LogOut, MapPin, Menu,
-  Package, PackageSearch, Plus, Search, TriangleAlert, User, Users, X, type LucideIcon,
+  Activity, BatteryCharging, Bus, Check, ChevronDown, ChevronRight, CircleCheck, Clock, House,
+  LogOut, MapPin, Menu, Package, PackageSearch, PawPrint, Plus, Search, Shirt, Soup, SprayCan,
+  Stethoscope, TriangleAlert, Truck, User, Users, Wrench, X, type LucideIcon,
 } from 'lucide-react';
 import { C, G, PRI, STATUS, barFill, ribbon, wash, type PriorityKey, type StatusKey } from './theme';
 import { priorityLabel, statusLabel } from './i18n/strings';
@@ -129,7 +130,11 @@ export function LiveDot({ color = C.emergency, size = 7, still }: { color?: stri
 // swapped in one place and screens never import icon components directly.
 export type IcoName =
   | 'need' | 'verified' | 'pending' | 'completed' | 'pin' | 'people' | 'critical' | 'activity' | 'search'
-  | 'user' | 'menu' | 'close' | 'chev' | 'down' | 'home' | 'track' | 'plus' | 'logout';
+  | 'user' | 'menu' | 'close' | 'chev' | 'down' | 'home' | 'track' | 'plus' | 'logout'
+  // Need categories (wizard step 2). Kept in the same semantic map so a category's
+  // icon is chosen once, here, and never hard-coded at a call site.
+  | 'catHealth' | 'catEquipment' | 'catHygiene' | 'catClothing' | 'catEnergy'
+  | 'catFood' | 'catTransport' | 'catHaulage' | 'catPets';
 
 const ICO: Record<IcoName, LucideIcon> = {
   need: Package,
@@ -150,6 +155,15 @@ const ICO: Record<IcoName, LucideIcon> = {
   track: PackageSearch,
   plus: Plus,
   logout: LogOut,
+  catHealth: Stethoscope,
+  catEquipment: Wrench,
+  catHygiene: SprayCan,
+  catClothing: Shirt,
+  catEnergy: BatteryCharging,
+  catFood: Soup,
+  catTransport: Bus,
+  catHaulage: Truck,
+  catPets: PawPrint,
 };
 
 export function Ico({ n, size = 17, color }: { n: IcoName; size?: number; color?: string }) {

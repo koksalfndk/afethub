@@ -140,7 +140,7 @@ export function Disaster() {
             <div className="tnum" style={{ fontSize: 11.5, color: C.muted, marginTop: 6 }}>
               {a.snap.disaster.province} · {tr.common.updated(a.snap.disaster.updatedLabel)}
             </div>
-            <button onClick={() => a.go('report')} className="hv-emergency" style={{ ...opBtn(true), width: '100%', marginTop: 10 }}>{tr.home.reportAid}</button>
+            <button onClick={a.openDelivery} className="hv-emergency" style={{ ...opBtn(true), width: '100%', marginTop: 10 }}>{tr.home.reportAid}</button>
             <button onClick={() => a.openWizard('public')} className="hv-navy" style={{ ...opBtn(false), width: '100%', marginTop: 7 }}>{tr.header.reportNeed}</button>
           </div>
           {SECTION_GROUPS.map(([group, keys]) => (
@@ -202,7 +202,7 @@ export function Disaster() {
           <div style={{ ...cardBase, background: G.heroCard, padding: 14 }}>
             <i style={{ position: 'absolute', inset: '0 0 auto 0', height: 3, background: G.heroRibbon }} />
             <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-              <button onClick={() => a.go('report')} className="hv-emergency" style={{ ...opBtn(true), flex: '1 1 150px' }}>{tr.home.reportAid}</button>
+              <button onClick={a.openDelivery} className="hv-emergency" style={{ ...opBtn(true), flex: '1 1 150px' }}>{tr.home.reportAid}</button>
               <button onClick={() => a.openWizard('public')} className="hv-navy" style={{ ...opBtn(false), flex: '1 1 130px' }}>{tr.header.reportNeed}</button>
             </div>
           </div>

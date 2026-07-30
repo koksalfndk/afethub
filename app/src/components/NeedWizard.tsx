@@ -3,7 +3,7 @@ import { useApp, type WizardMode } from '../store';
 import { useAuth } from '../auth';
 import { tr, priorityLabel } from '../i18n/strings';
 import { C } from '../theme';
-import { Field, inputStyle, Btn, Chip } from '../ui';
+import { Field, inputStyle, Btn, Chip, Ico } from '../ui';
 import { UNIT_PRESETS } from '../util';
 import { PROVINCES } from '../data/trLocations';
 import {
@@ -30,19 +30,26 @@ function WizardInner({ mode }: { mode: WizardMode }) {
   const defaultLoc = mode === 'coord'
     ? (a.snap?.locations[0]?.name ?? '')
     : '';
-  const [v, setV] = useState<WizardValues>(() => emptyWizard(defaultLoc));
+  // Prefill with the operation that is currently open — that is almost always the one
+  // meant — but still make it an explicit, visible step the coordinator can change.
+  const defaultSlug = a.snap?.disaster.slug ?? '';
+  const [v, setV] = useState<WizardValues>(() => emptyWizard(defaultLoc, defaultSlug));
   const [step, setStep] = useState(0);
   const [err, setErr] = useState('');
   const [doneCode, setDoneCode] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // A coordinator may be managing several operations at once, so which one the need
+  // belongs to is asked first and explicitly. The public flow is already scoped: the
+  // visitor opened the wizard from one disaster's page, so that step is skipped.
   const steps = useMemo(() => {
-    const s: Array<'category' | 'details' | 'location' | 'contact' | 'review'> =
-      ['category', 'details', 'location'];
+    const s: Array<'disaster' | 'category' | 'details' | 'location' | 'contact' | 'review'> = [];
+    if (mode === 'coord') s.push('disaster');
+    s.push('category', 'details', 'location');
     if (needContact) s.push('contact');
     s.push('review');
     return s;
-  }, [needContact]);
+  }, [needContact, mode]);
 
   const cat = CATEGORIES.find((c) => c.key === v.category);
   const set = (k: keyof WizardValues, val: string | string[]) =>
@@ -53,6 +60,7 @@ function WizardInner({ mode }: { mode: WizardMode }) {
   const close = () => a.closeWizard();
 
   const validate = (which: string): string => {
+    if (which === 'disaster' && !v.disasterSlug) return tr.wizard.errDisaster;
     if (which === 'category' && !v.category) return tr.wizard.errCategory;
     if (which === 'details') {
       if (v.category === 'Ulaşım') { if (!(parseInt(v.capacity, 10) > 0)) return tr.wizard.errCapacity; }
@@ -129,12 +137,21 @@ function WizardInner({ mode }: { mode: WizardMode }) {
               <h3 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 700, color: C.successText }}>{tr.wizard.doneTitle}</h3>
               <p style={{ margin: 0, fontSize: 14, color: C.heading2 }}>{tr.wizard.doneBody(doneCode)}</p>
             </div>
+          ) : current === 'disaster' ? (
+            <DisasterStep value={v.disasterSlug} onPick={(slug) => { set('disasterSlug', slug); setErr(''); }} />
           ) : current === 'category' ? (
             <CategoryStep value={v.category} onPick={(k) => { set('category', k); setErr(''); }} />
           ) : current === 'details' ? (
             <DetailsStep v={v} set={set} togglePetNeed={togglePetNeed} cat={cat} />
           ) : current === 'location' ? (
-            <LocationStep v={v} set={set} coordLocs={mode === 'coord' ? (a.snap?.locations.map((l) => l.name) ?? []) : []} />
+            <LocationStep v={v} set={set} coordLocs={
+              // Delivery points belong to an operation. Only offer the open snapshot's
+              // list when the coordinator is publishing into that same operation —
+              // otherwise a free-text value is safer than a list from the wrong disaster.
+              mode === 'coord' && v.disasterSlug === a.snap?.disaster.slug
+                ? (a.snap?.locations.map((l) => l.name) ?? [])
+                : []
+            } />
           ) : current === 'contact' ? (
             <ContactStep v={v} set={set} />
           ) : (
@@ -169,6 +186,53 @@ function WizardInner({ mode }: { mode: WizardMode }) {
   );
 }
 
+// Step 1 for coordinators: which operation. All operations are listed, not just the
+// open one, because a coordinator may hold several at once — but a resolved operation is
+// marked so a need is not published onto a closed one by accident.
+function DisasterStep({ value, onPick }: { value: string; onPick: (slug: string) => void }) {
+  const a = useApp();
+  const list = (a.snap?.disasters ?? []).slice().sort((x, y) => {
+    const rank = (s: string) => (s === 'Active' ? 0 : 1);
+    return rank(x.status) - rank(y.status) || x.name.localeCompare(y.name, 'tr');
+  });
+
+  if (list.length === 0) {
+    return <p style={{ margin: 0, fontSize: 14, color: C.muted }}>{tr.wizard.noDisasters}</p>;
+  }
+
+  return (
+    <div>
+      <p style={{ margin: '0 0 4px', fontSize: 14.5, fontWeight: 600, color: C.heading2 }}>{tr.wizard.chooseDisaster}</p>
+      <p style={{ margin: '0 0 12px', fontSize: 12.5, color: C.muted }}>{tr.wizard.disasterHint}</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {list.map((d) => {
+          const active = d.slug === value;
+          const live = d.status === 'Active';
+          return (
+            <button key={d.id} onClick={() => onPick(d.slug)} aria-pressed={active} style={{
+              display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr) auto', gap: 10, alignItems: 'center',
+              background: active ? C.chipNavyBg : C.surface,
+              border: `1.5px solid ${active ? C.navy : C.borderSoft}`,
+              borderRadius: 11, padding: '11px 13px', cursor: 'pointer', textAlign: 'left', minHeight: 56,
+            }}>
+              <Ico n={live ? 'critical' : 'completed'} size={17} color={live ? C.emergency : C.success} />
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: C.navy }}>{d.name}</span>
+                <span style={{ display: 'block', fontSize: 12, color: C.muted2 }}>{d.region}</span>
+              </span>
+              {/* Status is spelled out, not only coloured (rules/04 §Accessibility). */}
+              <span style={{
+                fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap',
+                color: live ? C.emergency : C.successText,
+              }}>{live ? tr.home.active : tr.wizard.disasterResolved}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function CategoryStep({ value, onPick }: { value: string; onPick: (k: string) => void }) {
   return (
     <div>
@@ -177,14 +241,14 @@ function CategoryStep({ value, onPick }: { value: string; onPick: (k: string) =>
         {CATEGORIES.map((c) => {
           const active = c.key === value;
           return (
-            <button key={c.key} onClick={() => onPick(c.key)} style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6,
+            <button key={c.key} onClick={() => onPick(c.key)} aria-pressed={active} style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
               background: active ? C.chipNavyBg : C.surface,
               border: `1.5px solid ${active ? C.navy : C.borderSoft}`,
-              borderRadius: 12, padding: 14, cursor: 'pointer', textAlign: 'left', minHeight: 74,
+              borderRadius: 12, padding: 14, cursor: 'pointer', textAlign: 'center', minHeight: 86,
             }}>
-              <span style={{ fontSize: 24, lineHeight: 1 }}>{c.icon}</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>{c.label}</span>
+              <Ico n={c.icon} size={22} color={active ? C.navy : C.muted} />
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: C.navy, lineHeight: 1.25 }}>{c.label}</span>
             </button>
           );
         })}
@@ -212,9 +276,6 @@ function PrioritySelect({ v, set }: { v: WizardValues; set: SetFn }) {
 function DetailsStep({ v, set, togglePetNeed, cat }: {
   v: WizardValues; set: SetFn; togglePetNeed: (n: string) => void; cat?: { key: string };
 }) {
-  const unitList = (
-    <datalist id="unit-presets-wz">{UNIT_PRESETS.map((u) => <option key={u} value={u} />)}</datalist>
-  );
 
   if (cat?.key === 'Ulaşım') {
     return (
@@ -290,8 +351,13 @@ function DetailsStep({ v, set, togglePetNeed, cat }: {
         <input value={v.required} onChange={(e) => set('required', e.target.value)} type="number" placeholder="100" style={inputStyle} />
       </Field>
       <Field label={tr.wizard.fUnit}>
-        <input value={v.unit} onChange={(e) => set('unit', e.target.value)} placeholder="paket" list="unit-presets-wz" style={inputStyle} />
-        {unitList}
+        {/* A closed list keeps units comparable across needs: "kutu" and "Kutu" and
+            "kutular" are three different units to a coordinator adding up deliveries
+            (rules/05 §Quantities — store a numeric quantity and an explicit unit). */}
+        <select value={v.unit} onChange={(e) => set('unit', e.target.value)} style={inputStyle}>
+          <option value="">{tr.wizard.unitPick}</option>
+          {UNIT_PRESETS.map((u) => <option key={u} value={u}>{u}</option>)}
+        </select>
       </Field>
       <PrioritySelect v={v} set={set} />
     </Grid>

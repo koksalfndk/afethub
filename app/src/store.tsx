@@ -79,7 +79,7 @@ function fromPath(pathname: string): ParsedPath {
 const emptyForm = {
   // loc/needId are replaced by prefillReport() as soon as a need is picked.
   needId: '', qty: '', unit: 'kutu', loc: '', date: new Date().toISOString().slice(0, 10),
-  eta: '16:30', notes: '', name: '', email: '', phone: '', city: '', confirm: false, photoUrl: '',
+  eta: '16:30', notes: '', name: '', email: '', phone: '', city: '', district: '', confirm: false, photoUrl: '',
 };
 
 const isMobileWidth = () => typeof window !== 'undefined' && window.innerWidth < 768;
@@ -109,6 +109,9 @@ export interface AppApi {
   trackedSub: Submission | null; trackError: string;
   wizardMode: WizardMode | null;
   disasterFormOpen: boolean;
+  // "Yardım Bildir" opens over whatever page the visitor is on. It used to navigate to
+  // /bildir, which threw them out of the disaster they were reading.
+  deliveryOpen: boolean;
 
   go: (r: Route, extra?: Partial<{ tab: Tab }>) => void;
   openDisaster: (slug: string, tab?: Tab) => void;
@@ -124,6 +127,7 @@ export interface AppApi {
   submitDelivery: () => void; copyCode: () => void; reportAnother: () => void;
   openWizard: (mode: WizardMode) => void; closeWizard: () => void;
   openDisasterForm: () => void; closeDisasterForm: () => void;
+  openDelivery: () => void; closeDelivery: () => void;
   publishNeed: (p: NeedPayload) => Promise<boolean>;
   requestNeed: (p: NeedPayload, contact: { name: string; email: string; phone: string; city: string }) => Promise<string | null>;
   bumpNeed: (id: string) => void; togglePause: (id: string) => void;
@@ -182,6 +186,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [copied, setCopied] = useState(false);
   const [wizardMode, setWizardMode] = useState<WizardMode | null>(null);
   const [disasterFormOpen, setDisasterFormOpen] = useState(false);
+  const [deliveryOpen, setDeliveryOpen] = useState(false);
   const [modal, setModal] = useState<ModalState | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [trackedSub, setTrackedSub] = useState<Submission | null>(null);
@@ -290,7 +295,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     route, tab, device, role, currentSlug, frame, showToolbar: IS_DEV, query, filter, subFilter,
     catFilter, locFilter, onlyCritical, updatedToday,
     form, track, reportStage, lastCode, formError, copied,
-    modal, toast, trackedSub, trackError, wizardMode, disasterFormOpen,
+    modal, toast, trackedSub, trackError, wizardMode, disasterFormOpen, deliveryOpen,
 
     go: (r, extra) => { setRoute(r); if (extra?.tab) setTab(extra.tab); },
     openDisaster: (slug, t) => { setCurrentSlug(slug); setRoute('disaster'); setTab(t ?? 'needs'); if (slug !== currentSlug) loadSnapshot(slug); },
@@ -314,7 +319,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTrack: (k, v) => setTrackState((s) => ({ ...s, [k]: v })),
     prefillReport: (needId, unit, loc) => {
       setFormState((s) => ({ ...s, needId, unit, loc }));
-      setFormError(''); setReportStage('form'); setRoute('report');
+      // Open as an overlay instead of routing to /bildir: the visitor keeps the
+      // operation they were reading behind the form. /bildir still works as a page for
+      // a direct link.
+      setFormError(''); setReportStage('form'); setDeliveryOpen(true);
     },
 
     submitDelivery: () => {
@@ -329,7 +337,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setFormError('');
       repo.createDelivery({
         needId: form.needId, qty, unit: form.unit, loc: form.loc, date: form.date, eta: form.eta,
-        notes: form.notes, name, email, phone: form.phone, city: form.city,
+        notes: form.notes, name, email, phone: form.phone,
+        city: form.district ? `${form.city} / ${form.district}` : form.city,
         photoUrl: form.photoUrl || null,
       }).then(({ snapshot, code }) => { setSnap(snapshot); setLastCode(code); setCopied(false); setReportStage('done'); });
     },
@@ -338,6 +347,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     openWizard: (mode) => setWizardMode(mode),
     openDisasterForm: () => setDisasterFormOpen(true),
+    // Opens over the current page; the route is untouched so the disaster stays behind it.
+    openDelivery: () => { setFormError(''); setReportStage('form'); setDeliveryOpen(true); },
+    closeDelivery: () => setDeliveryOpen(false),
     closeDisasterForm: () => setDisasterFormOpen(false),
     closeWizard: () => setWizardMode(null),
     publishNeed: async (p) => {
@@ -449,7 +461,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [snap, loadError, overview, orgs, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, modal, toast, trackedSub, trackError]);
+  // Every piece of state exposed on `api` must be listed here, or consumers keep the
+  // previous value: `deliveryOpen` and `slides` were missing, so the delivery overlay
+  // never appeared and the slide list could go stale after a save.
+  }), [snap, loadError, overview, orgs, slides, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

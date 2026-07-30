@@ -46,6 +46,13 @@ function currentDisaster(slug?: string) {
     ?? seed.disasters[0];
 }
 
+function currentDisasterOrThrow(slug: string) {
+  const d = seed.disasters.find((x) => x.slug === slug)
+    ?? seed.disasters.find((x) => (x.legacySlugs ?? []).includes(slug));
+  if (!d) throw new Error(`unknown disaster slug: ${slug}`);
+  return d;
+}
+
 const needOf = (id: string) => needs.find((n) => n.id === id);
 const disasterOfNeed = (needId: string) => needOf(needId)?.disasterId ?? seed.disasters[0].id;
 const activeDisasterId = () => (seed.disasters.find((d) => d.status === 'Active') ?? seed.disasters[0]).id;
@@ -342,13 +349,20 @@ export class LocalRepo implements Repo {
 
   async publishNeed(p: NeedPayload): Promise<Snapshot> {
     const id = nextId('n');
-    const target = seed.disasters.find((d) => d.id === activeDisasterId())!;
+    // The need belongs to the operation the coordinator picked. A slug that does not
+    // resolve is an error, not a reason to fall back to "the first active disaster" —
+    // that silent fallback let a need land on the wrong operation.
+    const target = p.disasterSlug
+      ? currentDisasterOrThrow(p.disasterSlug)
+      : seed.disasters.find((d) => d.id === activeDisasterId())!;
     needs = [
       { id, disasterId: target.id, disasterName: target.name, disasterSlug: target.slug, name: p.title, cat: p.category, priority: p.priority, required: p.required, verified: 0, pending: 0, unit: p.unit || 'adet', updated: NOW, loc: p.loc, details: p.details },
       ...needs,
     ];
     addLog(target.id, { action: 'İhtiyaç oluşturuldu', detail: `${p.title} · ${p.priority}`, oldValue: '—', newValue: `${p.required} ${p.unit || 'adet'} gerekli`, color: '#102A43' });
-    return snap();
+    // Return the snapshot of the operation that was actually written to, so the UI
+    // cannot show a success while looking at a different disaster.
+    return snap(target.slug);
   }
 
   async bumpNeed(needId: string): Promise<Snapshot> {

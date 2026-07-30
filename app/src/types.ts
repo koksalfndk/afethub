@@ -122,6 +122,7 @@ export interface Profile {
   // §Registration Must Be Optional). Never rendered on a public surface.
   phone: string;
   city: string;
+  district: string;
   // Which institution / association / volunteer group the person belongs to.
   // A self-declared membership is NOT proof of affiliation: it stays
   // "Doğrulama bekliyor" until a coordinator confirms it, exactly like an
@@ -134,7 +135,8 @@ export interface Profile {
 // What the account form may write. Role, verification and id are excluded on
 // purpose: a user cannot promote themselves or self-verify a membership.
 export interface ProfileInput {
-  fullName: string; phone: string; city: string; orgId: string | null; orgTitle: string;
+  fullName: string; phone: string; city: string; district: string;
+  orgId: string | null; orgTitle: string;
 }
 
 // ---------------------------------------------------------------------------

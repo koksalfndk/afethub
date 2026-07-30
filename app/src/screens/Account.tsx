@@ -4,30 +4,11 @@ import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Ico, inputStyle, eyebrow, Field } from '../ui';
-import { PROVINCES } from '../data/trLocations';
+import { PROVINCES, districtsOf } from '../data/trLocations';
 import { supabase } from '../data/supabaseClient';
 import { toWebp, AVATAR_MAX_EDGE, ImageError } from '../imageUpload';
+import { DIAL_CODES, DEFAULT_DIAL, splitPhone, joinPhone } from '../util';
 import type { ProfileInput } from '../types';
-
-// Dial codes offered as a prefix. Kept short on purpose: this is a Turkish civil
-// platform, and the list covers Türkiye plus the countries volunteers most often call
-// from. The stored value is always the full "+<code> <number>" string, so nothing about
-// the split leaks into the database.
-const DIAL_CODES = ['+90', '+1', '+30', '+31', '+32', '+33', '+39', '+41', '+43', '+44', '+45', '+46', '+49', '+7', '+971', '+972', '+994'];
-const DEFAULT_DIAL = '+90';
-
-// Split a stored phone into (dial code, national part). An unrecognised or missing
-// prefix falls back to +90 with the digits left untouched — never silently rewritten.
-function splitPhone(value: string): { dial: string; rest: string } {
-  const v = (value ?? '').trim();
-  const match = DIAL_CODES
-    .slice()
-    .sort((a, b) => b.length - a.length)   // longest prefix first: +994 before +9
-    .find((c) => v.startsWith(c));
-  if (!match) return { dial: DEFAULT_DIAL, rest: v };
-  return { dial: match, rest: v.slice(match.length).trim() };
-}
-const joinPhone = (dial: string, rest: string): string => (rest.trim() ? `${dial} ${rest.trim()}` : '');
 
 function initials(name: string): string {
   const p = name.trim().split(/\s+/).filter(Boolean);
@@ -51,7 +32,7 @@ export function Account() {
   const p = auth.profile;
 
   const [form, setForm] = useState<ProfileInput>({
-    fullName: '', phone: '', city: '', orgId: null, orgTitle: '',
+    fullName: '', phone: '', city: '', district: '', orgId: null, orgTitle: '',
   });
   const [dial, setDial] = useState(DEFAULT_DIAL);
   const [err, setErr] = useState('');
@@ -67,7 +48,7 @@ export function Account() {
     const split = splitPhone(p.phone);
     setDial(split.dial);
     setForm({
-      fullName: p.fullName, phone: split.rest, city: p.city,
+      fullName: p.fullName, phone: split.rest, city: p.city, district: p.district,
       orgId: p.orgId, orgTitle: p.orgTitle,
     });
   }, [p?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -226,13 +207,28 @@ export function Account() {
                 placeholder="5xx xxx xx xx" style={inputStyle} />
             </div>
           </div>
-          <Field label={tr.account.fCity}>
-            <select value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-              name="profile-city" style={inputStyle}>
-              <option value="">—</option>
-              {PROVINCES.map((v) => <option key={v} value={v}>{v}</option>)}
-            </select>
-          </Field>
+          {/* City splits into il + ilçe once a province is picked — the district list
+              only exists after the province is known. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.heading2 }}>{tr.account.fCity}</span>
+            <div style={{ display: 'grid', gap: 8, gridTemplateColumns: form.city ? 'minmax(0,1fr) minmax(0,1fr)' : '1fr' }}>
+              <select value={form.city}
+                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value, district: '' }))}
+                name="profile-city" autoComplete="address-level1" style={inputStyle}>
+                <option value="">{tr.orgs.pickProvince}</option>
+                {PROVINCES.map((v) => <option key={v} value={v}>{v}</option>)}
+              </select>
+              {form.city && (
+                <select value={form.district}
+                  onChange={(e) => setForm((f) => ({ ...f, district: e.target.value }))}
+                  name="profile-district" autoComplete="address-level2"
+                  aria-label={tr.orgs.fDistrict} style={inputStyle}>
+                  <option value="">{tr.orgs.allDistricts}</option>
+                  {districtsOf(form.city).map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              )}
+            </div>
+          </div>
         </div>
       </section>
 

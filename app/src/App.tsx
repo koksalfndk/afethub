@@ -78,7 +78,7 @@ export function App() {
           </div>
           <Footer />
           {mob && <BottomNav />}
-          {isReport && <ReportModal />}
+          {(isReport || a.deliveryOpen) && <ReportModal />}
           <DisasterReportModal />
           <NeedWizard />
           <Modal />

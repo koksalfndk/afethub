@@ -3,14 +3,21 @@ import { tr } from '../i18n/strings';
 import { C } from '../theme';
 import { Report } from '../screens/Report';
 
-// "Teslimat bildir" as a modal overlay (over the current page).
+// "Teslimat bildir" as a modal overlay over the current page.
+//
+// Two ways in: the overlay state (a button on a disaster page — the visitor must not
+// lose the operation they were reading) and the /bildir route (a direct link). Closing
+// has to undo whichever one opened it.
 export function ReportModal() {
   const a = useApp();
-  const close = () => a.go('home');
+  const close = () => {
+    if (a.deliveryOpen) a.closeDelivery();
+    if (a.route === 'report') a.go('home');
+  };
 
   return (
     <div onClick={close} style={{ position: 'fixed', inset: 0, background: 'rgba(11,30,48,.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 16px', zIndex: 75, overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} className="anim-in" style={{ background: C.surface, borderRadius: 14, width: '100%', maxWidth: 720, boxShadow: '0 18px 48px rgba(11,30,48,.28)', overflow: 'hidden', margin: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} className="anim-in" role="dialog" aria-modal="true" aria-label={tr.report.title} style={{ background: C.surface, borderRadius: 14, width: '100%', maxWidth: 720, boxShadow: '0 18px 48px rgba(11,30,48,.28)', overflow: 'hidden', margin: 'auto' }}>
         {a.reportStage === 'form' && (
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '20px 24px 0' }}>
             <div>

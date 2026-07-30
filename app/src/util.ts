@@ -96,3 +96,27 @@ export function formatDate(value: string): string {
 
 // Date part of a disaster slug: "…-21-07-2026".
 export const slugDate = (iso: string): string => formatDate(iso);
+
+// ---- Phone dial codes --------------------------------------------------------
+// Shared by every contact form so the split/join rule exists once. The stored value is
+// always one string ("+90 5xx …"): the split is a UI affordance, not a data model.
+export const DIAL_CODES = [
+  '+90', '+1', '+7', '+30', '+31', '+32', '+33', '+39', '+41', '+43', '+44',
+  '+45', '+46', '+49', '+971', '+972', '+994',
+];
+export const DEFAULT_DIAL = '+90';
+
+// An unrecognised or missing prefix falls back to +90 with the digits left exactly as
+// typed — a phone number is never silently rewritten.
+export function splitPhone(value: string): { dial: string; rest: string } {
+  const v = (value ?? '').trim();
+  const match = DIAL_CODES
+    .slice()
+    .sort((a, b) => b.length - a.length)   // longest first so +994 wins over +9
+    .find((c) => v.startsWith(c));
+  if (!match) return { dial: DEFAULT_DIAL, rest: v };
+  return { dial: match, rest: v.slice(match.length).trim() };
+}
+
+export const joinPhone = (dial: string, rest: string): string =>
+  (rest.trim() ? `${dial} ${rest.trim()}` : '');

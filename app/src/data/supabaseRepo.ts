@@ -351,12 +351,18 @@ export class SupabaseRepo implements Repo {
   }
 
   async publishNeed(p: NeedPayload): Promise<Snapshot> {
-    const snap0 = await this.getSnapshot();
+    // Target the operation the coordinator chose, not whichever one getSnapshot()
+    // happens to default to. An unresolvable slug throws rather than writing somewhere.
+    const snap0 = await this.getSnapshot(p.disasterSlug || undefined);
+    if (p.disasterSlug && snap0.disaster.slug !== p.disasterSlug
+      && !(snap0.disaster.legacySlugs ?? []).includes(p.disasterSlug)) {
+      throw new Error(`unknown disaster slug: ${p.disasterSlug}`);
+    }
     await this.db.from('needs').insert({
       disaster_id: snap0.disaster.id, name: p.title, category: p.category, priority: p.priority,
       required_qty: p.required, unit: p.unit || 'adet', location_name: p.loc, details: p.details,
     });
-    return this.getSnapshot();
+    return this.getSnapshot(snap0.disaster.slug);
   }
 
   async bumpNeed(needId: string): Promise<Snapshot> {
