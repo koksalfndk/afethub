@@ -3,7 +3,8 @@ import { useApp } from '../store';
 import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
-import { Ico, inputStyle, eyebrow } from '../ui';
+import { Ico, eyebrow } from '../ui';
+import { Picker, toOptions } from '../components/Picker';
 import { isPublicAuditAction } from '../data/repo';
 
 // The system log — every action the platform recorded, in one place.
@@ -86,11 +87,11 @@ export function CoordLog() {
             placeholder={tr.coordLog.searchPh} aria-label={tr.coordLog.searchPh}
             style={{ border: 0, background: 'none', outline: 'none', fontSize: 13.5, color: C.navy, width: '100%', minWidth: 0 }} />
         </label>
-        <select value={action} onChange={(e) => setAction(e.target.value)}
-          aria-label={tr.coordLog.allActions} style={{ ...inputStyle, width: 'auto', minWidth: 200 }}>
-          <option value="">{tr.coordLog.allActions}</option>
-          {actions.map((x) => <option key={x} value={x}>{x}</option>)}
-        </select>
+        <span style={{ minWidth: 220 }}>
+          <Picker value={action} onChange={setAction} ariaLabel={tr.coordLog.allActions}
+            placeholder={tr.coordLog.allActions}
+            options={[{ value: '', label: tr.coordLog.allActions }, ...toOptions(actions)]} />
+        </span>
         <span className="tnum" style={{ fontSize: 12.5, color: C.muted2 }}>
           {tr.coordLog.countLabel(rows.length, a.systemLog.length)}
         </span>

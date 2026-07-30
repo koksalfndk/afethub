@@ -4,6 +4,7 @@ import { useAuth } from '../auth';
 import { tr, disasterTypeLabel } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Field, Ico, inputStyle } from '../ui';
+import { Picker, toOptions } from './Picker';
 import { PROVINCES, districtsOf } from '../data/trLocations';
 import { COMMUNITY_THRESHOLD } from '../data/repo';
 import { formatDate } from '../util';
@@ -180,18 +181,15 @@ export function ReportConfirmModal({ report, onClose }: { report: DisasterReport
                     </>
                   )}
                   <Field label={tr.confirmReport.fProvince}>
-                    <select name="confirm-province" value={province} autoFocus={loggedIn}
-                      onChange={(e) => { setProvince(e.target.value); setDistrict(''); }} style={inputStyle}>
-                      <option value="">{tr.orgs.pickProvince}</option>
-                      {PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
-                    </select>
+                    <Picker value={province} ariaLabel={tr.confirmReport.fProvince}
+                      onChange={(x) => { setProvince(x); setDistrict(''); }}
+                      placeholder={tr.orgs.pickProvince} options={toOptions(PROVINCES)} />
                   </Field>
                   <Field label={tr.confirmReport.fDistrict}>
-                    <select name="confirm-district" value={district} onChange={(e) => setDistrict(e.target.value)}
-                      disabled={!province} style={{ ...inputStyle, opacity: province ? 1 : .6 }}>
-                      <option value="">{province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}</option>
-                      {districtsOf(province).map((d) => <option key={d} value={d}>{d}</option>)}
-                    </select>
+                    <Picker value={district} ariaLabel={tr.confirmReport.fDistrict}
+                      onChange={setDistrict} disabled={!province}
+                      placeholder={province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}
+                      options={toOptions(districtsOf(province))} />
                   </Field>
                 </div>
 

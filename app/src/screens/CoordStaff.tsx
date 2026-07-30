@@ -4,6 +4,7 @@ import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Ico, inputStyle, labelText, eyebrow, Field } from '../ui';
+import { Picker } from '../components/Picker';
 import { maskEmail, maskPhone } from '../util';
 import type { StaffRole, VolunteerApplication, VolunteerStatus } from '../types';
 
@@ -252,19 +253,17 @@ export function CoordStaff() {
               placeholder={tr.coordStaff.fEmailPh} style={inputStyle} />
           </Field>
           <Field label={tr.coordStaff.fRole}>
-            <select value={role} onChange={(e) => setRole(e.target.value as StaffRole)} style={inputStyle}>
-              {ROLES.map((r) => <option key={r} value={r}>{tr.coordStaff.roleLabels[r]}</option>)}
-            </select>
+            <Picker value={role} onChange={(x) => setRole(x as StaffRole)} ariaLabel={tr.coordStaff.fRole}
+              options={ROLES.map((r) => ({ value: r, label: tr.coordStaff.roleLabels[r] }))} />
           </Field>
           {/* Only verified records: assigning a membership marks it verified on the
               person's profile, so it must not point at a record nobody has checked. */}
           <Field label={tr.coordStaff.fOrg} hint={tr.coordStaff.orgHint} full>
-            <select value={orgId} onChange={(e) => setOrgId(e.target.value)} style={inputStyle}>
-              <option value="">{tr.coordStaff.fOrgNone}</option>
-              {verifiedOrgs.map((o) => (
-                <option key={o.id} value={o.id}>{[o.name, o.province].filter(Boolean).join(' · ')}</option>
-              ))}
-            </select>
+            <Picker value={orgId} onChange={setOrgId} ariaLabel={tr.coordStaff.fOrg}
+              options={[
+                { value: '', label: tr.coordStaff.fOrgNone },
+                ...verifiedOrgs.map((o) => ({ value: o.id, label: [o.name, o.province].filter(Boolean).join(' · ') })),
+              ]} />
           </Field>
           {verifiedOrgs.length === 0 && (
             <div style={{ gridColumn: '1 / -1', fontSize: 12.5, color: C.muted3 }}>{tr.coordStaff.orgNoneAvailable}</div>

@@ -1,3 +1,4 @@
+import { DIAL_CODE_LIST } from './data/dialCodes';
 // Small shared helpers.
 
 // Estimated arrival default: now + 30 min, rounded UP to the next half hour.
@@ -100,10 +101,9 @@ export const slugDate = (iso: string): string => formatDate(iso);
 // ---- Phone dial codes --------------------------------------------------------
 // Shared by every contact form so the split/join rule exists once. The stored value is
 // always one string ("+90 5xx …"): the split is a UI affordance, not a data model.
-export const DIAL_CODES = [
-  '+90', '+1', '+7', '+30', '+31', '+32', '+33', '+39', '+41', '+43', '+44',
-  '+45', '+46', '+49', '+971', '+972', '+994',
-];
+// The full country list lives in data/dialCodes.ts; this stays the flat set of codes
+// so splitPhone() keeps one source of truth for the prefix rule.
+export const DIAL_CODES = DIAL_CODE_LIST;
 export const DEFAULT_DIAL = '+90';
 
 // An unrecognised or missing prefix falls back to +90 with the digits left exactly as

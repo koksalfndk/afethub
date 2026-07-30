@@ -764,6 +764,12 @@ export const tr = {
     bumpToast: (n: string, q: number, u: string) => `${n} artık ${q} ${u} gerektiriyor`,
   },
 
+  // Shared dropdown (components/Picker).
+  picker: {
+    searchPh: 'Ara…',
+    noMatch: 'Eşleşen kayıt yok.',
+  },
+
   // Panel → Sistem Kaydı (admin only).
   coordLog: {
     title: 'Sistem Kaydı',
@@ -1133,6 +1139,13 @@ export const tr = {
     fPhone: 'Telefon',
     fEmail: 'E-posta',
     contactHint: 'Telefon veya e-postadan en az birini yazın; koordinatör size buradan ulaşır.',
+    emailLocked: 'Hesabınıza kayıtlı adres. Değiştirmek için Hesabım sayfasını kullanın.',
+    // Step-by-step flow.
+    steps: ['Nerede', 'İletişim', 'Yetkinlik ve onay'],
+    stepOf: (i: number, n: number) => `Adım ${i} / ${n}`,
+    next: 'Devam',
+    back: 'Geri',
+    errProvince: 'Lütfen bulunduğunuz ili seçin.',
     fProvince: 'İl',
     fDistrict: 'İlçe',
     fSkills: 'Neyle destek olabilirsiniz?',

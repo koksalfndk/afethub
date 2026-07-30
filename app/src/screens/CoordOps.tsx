@@ -4,6 +4,7 @@ import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Ico, inputStyle, labelText, eyebrow, Field } from '../ui';
+import { Picker } from '../components/Picker';
 import { supabase } from '../data/supabaseClient';
 import {
   toWebp, ImageError, ACCEPTED_TYPES,
@@ -168,13 +169,12 @@ export function CoordOps() {
       <section style={{ ...card, padding: mob ? 14 : 16, display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 320px', minWidth: 0 }}>
           <Field label={tr.coordOps.fOperation} full>
-            <select value={current.slug} onChange={(e) => a.openDisaster(e.target.value, 'overview')} style={inputStyle}>
-              {disasters.map((d) => (
-                <option key={d.id} value={d.slug}>
-                  {d.name}{d.status !== 'Active' ? ` · ${tr.coordDisasters.statusLabels[d.status]}` : ''}
-                </option>
-              ))}
-            </select>
+            <Picker value={current.slug} onChange={(x) => a.openDisaster(x, 'overview')}
+              ariaLabel={tr.coordOps.fOperation}
+              options={disasters.map((d) => ({
+                value: d.slug,
+                label: d.name + (d.status !== 'Active' ? ` · ${tr.coordDisasters.statusLabels[d.status]}` : ''),
+              }))} />
           </Field>
         </div>
         <button onClick={() => a.openDisaster(current.slug, 'announcements')} style={{ ...ghost, height: 46 }}>
@@ -205,12 +205,12 @@ export function CoordOps() {
             </h3>
             <div style={{ display: 'grid', gap: 12, gridTemplateColumns: mob ? '1fr' : '220px minmax(0,1fr)', alignItems: 'start' }}>
               <Field label={tr.coordOps.annFKind}>
-                <select value={annDraft.kind} onChange={(e) => {
-                  const found = ANN_KINDS.find((k) => k.kind === e.target.value) ?? ANN_KINDS[2];
-                  setAnnDraft((d) => ({ ...d, kind: found.kind, accent: found.accent }));
-                }} style={inputStyle}>
-                  {ANN_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.kind}</option>)}
-                </select>
+                <Picker value={annDraft.kind} ariaLabel={tr.coordOps.annFKind}
+                  onChange={(x) => {
+                    const found = ANN_KINDS.find((k) => k.kind === x) ?? ANN_KINDS[2];
+                    setAnnDraft((d) => ({ ...d, kind: found.kind, accent: found.accent }));
+                  }}
+                  options={ANN_KINDS.map((k) => ({ value: k.kind, label: k.kind }))} />
               </Field>
               <Field label={tr.coordOps.annFTitle}>
                 <input value={annDraft.title} onChange={(e) => setAnn('title', e.target.value)}

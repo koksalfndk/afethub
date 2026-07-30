@@ -6,8 +6,10 @@ import { PROVINCES, districtsOf } from '../data/trLocations';
 import { C } from '../theme';
 import { enrichSorted, cols } from '../select';
 import { Field, inputStyle, eyebrow, StatusBadge } from '../ui';
+import { Picker, toOptions } from '../components/Picker';
+import { DIAL_COUNTRIES, dialLabel } from '../data/dialCodes';
 import { PhotoUploader } from '../components/PhotoUploader';
-import { defaultEta, halfHourSlots, UNIT_PRESETS, DIAL_CODES, splitPhone, joinPhone } from '../util';
+import { defaultEta, halfHourSlots, UNIT_PRESETS, splitPhone, joinPhone } from '../util';
 
 export function Report({ inModal = false }: { inModal?: boolean }) {
   const a = useApp();
@@ -134,35 +136,30 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
         {stepKey === 'delivery' && (
           <div style={{ display: 'grid', gap: 12, gridTemplateColumns: L.form }}>
             <Field label={tr.report.fields.need} full>
-              <select value={f.needId} onChange={(e) => a.setForm('needId', e.target.value)} style={inputStyle}>
-                <option value="">{tr.report.pickNeed}</option>
-                {needOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </select>
+              <Picker value={f.needId} onChange={(x) => a.setForm('needId', x)} ariaLabel={tr.report.pickNeed}
+                placeholder={tr.report.pickNeed}
+                options={needOptions.map((o) => ({ value: o.id, label: o.label }))} />
             </Field>
             <Field label={tr.report.fields.quantity}>
               <input value={f.qty} onChange={(e) => a.setForm('qty', e.target.value)} type="number" min={1} inputMode="numeric" placeholder="30" style={inputStyle} />
             </Field>
             <Field label={tr.report.fields.unit}>
               {/* Closed list: mixed spellings of the same unit cannot be added up. */}
-              <select value={f.unit} onChange={(e) => a.setForm('unit', e.target.value)} style={inputStyle}>
-                <option value="">{tr.wizard.unitPick}</option>
-                {UNIT_PRESETS.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
+              <Picker value={f.unit} onChange={(x) => a.setForm('unit', x)} ariaLabel={tr.wizard.unitPick}
+                placeholder={tr.wizard.unitPick} options={toOptions(UNIT_PRESETS)} />
             </Field>
             <Field label={tr.report.fields.location} full>
-              <select value={f.loc} onChange={(e) => a.setForm('loc', e.target.value)} style={inputStyle}>
-                <option value="">{tr.report.pickLoc}</option>
-                {/* Delivery points follow the loaded operation instead of a fixed list. */}
-                {(a.snap?.locations ?? []).map((l) => <option key={l.id} value={l.name}>{l.name}</option>)}
-              </select>
+              {/* Delivery points follow the loaded operation instead of a fixed list. */}
+              <Picker value={f.loc} onChange={(x) => a.setForm('loc', x)} ariaLabel={tr.report.pickLoc}
+                placeholder={tr.report.pickLoc}
+                options={(a.snap?.locations ?? []).map((l) => ({ value: l.name, label: l.name }))} />
             </Field>
             <Field label={tr.report.fields.date}>
               <input value={f.date} onChange={(e) => a.setForm('date', e.target.value)} type="date" style={inputStyle} />
             </Field>
             <Field label={tr.report.fields.eta}>
-              <select value={f.eta} onChange={(e) => a.setForm('eta', e.target.value)} style={inputStyle}>
-                {halfHourSlots().map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <Picker value={f.eta} onChange={(x) => a.setForm('eta', x)} ariaLabel={tr.report.fields.eta}
+                options={toOptions(halfHourSlots())} />
             </Field>
           </div>
         )}
@@ -202,9 +199,8 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
                 <span style={{ fontSize: 13, fontWeight: 600, color: C.heading2 }}>{loggedIn ? tr.report.onBehalfPhone : tr.report.fields.phone}</span>
                 {/* Dial code as a prefix so the number field holds digits only. */}
                 <div style={{ display: 'grid', gridTemplateColumns: '104px minmax(0,1fr)', gap: 8 }}>
-                  <select value={dial} onChange={(e) => setDial(e.target.value)} aria-label={tr.account.fPhoneCode} className="tnum" style={{ ...inputStyle, padding: '11px 8px' }}>
-                    {DIAL_CODES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <Picker value={dial} onChange={setDial} ariaLabel={tr.account.fPhoneCode} searchable
+                    options={DIAL_COUNTRIES.map((c) => ({ value: c.dial, label: dialLabel(c) }))} />
                   <input value={phoneRest} onChange={(e) => setPhoneRest(e.target.value)} name="contact-phone" autoComplete="tel-national" inputMode="tel" placeholder="5xx xxx xx xx" style={inputStyle} />
                 </div>
               </div>
@@ -213,17 +209,13 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <span style={{ fontSize: 13, fontWeight: 600, color: C.heading2 }}>{tr.report.fields.city}</span>
                 <div style={{ display: 'grid', gap: 8, gridTemplateColumns: f.city ? 'minmax(0,1fr) minmax(0,1fr)' : '1fr' }}>
-                  <select name="contact-city" autoComplete="address-level1" value={f.city}
-                    onChange={(e) => { a.setForm('city', e.target.value); a.setForm('district', ''); }} style={inputStyle}>
-                    <option value="">{tr.orgs.pickProvince}</option>
-                    {PROVINCES.map((pr) => <option key={pr} value={pr}>{pr}</option>)}
-                  </select>
+                  <Picker value={f.city} ariaLabel={tr.orgs.fProvince}
+                    onChange={(x) => { a.setForm('city', x); a.setForm('district', ''); }}
+                    placeholder={tr.orgs.pickProvince} options={toOptions(PROVINCES)} />
                   {f.city && (
-                    <select name="contact-district" autoComplete="address-level2" value={f.district}
-                      onChange={(e) => a.setForm('district', e.target.value)} aria-label={tr.orgs.fDistrict} style={inputStyle}>
-                      <option value="">{tr.orgs.allDistricts}</option>
-                      {districtsOf(f.city).map((d) => <option key={d} value={d}>{d}</option>)}
-                    </select>
+                    <Picker value={f.district} onChange={(x) => a.setForm('district', x)}
+                      ariaLabel={tr.orgs.fDistrict} placeholder={tr.orgs.allDistricts}
+                      options={toOptions(districtsOf(f.city))} />
                   )}
                 </div>
               </div>

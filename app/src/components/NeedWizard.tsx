@@ -4,6 +4,7 @@ import { useAuth } from '../auth';
 import { tr, priorityLabel } from '../i18n/strings';
 import { C } from '../theme';
 import { Field, inputStyle, Btn, Chip, Ico } from '../ui';
+import { Picker, toOptions } from './Picker';
 import { UNIT_PRESETS } from '../util';
 import { PROVINCES } from '../data/trLocations';
 import {
@@ -274,9 +275,8 @@ type SetFn = (k: keyof WizardValues, val: string | string[]) => void;
 function PrioritySelect({ v, set }: { v: WizardValues; set: SetFn }) {
   return (
     <Field label={tr.wizard.fPriority}>
-      <select value={v.priority} onChange={(e) => set('priority', e.target.value)} style={inputStyle}>
-        {PRIORITIES.map((p) => <option key={p} value={p}>{priorityLabel[p]}</option>)}
-      </select>
+      <Picker value={v.priority} onChange={(x) => set('priority', x)} ariaLabel={tr.wizard.fPriority}
+        options={PRIORITIES.map((p) => ({ value: p, label: priorityLabel[p] }))} />
     </Field>
   );
 }
@@ -289,10 +289,8 @@ function DetailsStep({ v, set, togglePetNeed, cat }: {
     return (
       <Grid>
         <Field label={tr.wizard.fVehicle}>
-          <select value={v.vehicle} onChange={(e) => set('vehicle', e.target.value)} style={inputStyle}>
-            <option value="">{tr.wizard.none}</option>
-            {PASSENGER_VEHICLES.map((x) => <option key={x}>{x}</option>)}
-          </select>
+          <Picker value={v.vehicle} onChange={(x) => set('vehicle', x)} ariaLabel={tr.wizard.fVehicle}
+            placeholder={tr.wizard.none} options={toOptions(PASSENGER_VEHICLES)} />
         </Field>
         <Field label={tr.wizard.fCapacity}>
           <input value={v.capacity} onChange={(e) => set('capacity', e.target.value)} type="number" placeholder="45" style={inputStyle} />
@@ -308,10 +306,8 @@ function DetailsStep({ v, set, togglePetNeed, cat }: {
     return (
       <Grid>
         <Field label={tr.wizard.fVehicle}>
-          <select value={v.vehicle} onChange={(e) => set('vehicle', e.target.value)} style={inputStyle}>
-            <option value="">{tr.wizard.none}</option>
-            {CARGO_VEHICLES.map((x) => <option key={x}>{x}</option>)}
-          </select>
+          <Picker value={v.vehicle} onChange={(x) => set('vehicle', x)} ariaLabel={tr.wizard.fVehicle}
+            placeholder={tr.wizard.none} options={toOptions(CARGO_VEHICLES)} />
         </Field>
         <Field label={tr.wizard.fTrips}>
           <input value={v.required} onChange={(e) => set('required', e.target.value)} type="number" placeholder="1" style={inputStyle} />
@@ -330,10 +326,8 @@ function DetailsStep({ v, set, togglePetNeed, cat }: {
     return (
       <Grid>
         <Field label={tr.wizard.fAnimal}>
-          <select value={v.animal} onChange={(e) => set('animal', e.target.value)} style={inputStyle}>
-            <option value="">{tr.wizard.none}</option>
-            {ANIMALS.map((x) => <option key={x}>{x}</option>)}
-          </select>
+          <Picker value={v.animal} onChange={(x) => set('animal', x)} ariaLabel={tr.wizard.fAnimal}
+            placeholder={tr.wizard.none} options={toOptions(ANIMALS)} />
         </Field>
         <Field label={tr.wizard.fCount}>
           <input value={v.count} onChange={(e) => set('count', e.target.value)} type="number" placeholder="3" style={inputStyle} />
@@ -362,10 +356,8 @@ function DetailsStep({ v, set, togglePetNeed, cat }: {
         {/* A closed list keeps units comparable across needs: "kutu" and "Kutu" and
             "kutular" are three different units to a coordinator adding up deliveries
             (rules/05 §Quantities — store a numeric quantity and an explicit unit). */}
-        <select value={v.unit} onChange={(e) => set('unit', e.target.value)} style={inputStyle}>
-          <option value="">{tr.wizard.unitPick}</option>
-          {UNIT_PRESETS.map((u) => <option key={u} value={u}>{u}</option>)}
-        </select>
+        <Picker value={v.unit} onChange={(x) => set('unit', x)} ariaLabel={tr.wizard.unitPick}
+          placeholder={tr.wizard.unitPick} options={toOptions(UNIT_PRESETS)} />
       </Field>
       <PrioritySelect v={v} set={set} />
     </Grid>
@@ -377,9 +369,8 @@ function LocationStep({ v, set, coordLocs }: { v: WizardValues; set: SetFn; coor
     <Grid>
       <Field label={tr.wizard.fLocation} full>
         {coordLocs.length > 0 ? (
-          <select value={v.loc} onChange={(e) => set('loc', e.target.value)} style={inputStyle}>
-            {coordLocs.map((l) => <option key={l}>{l}</option>)}
-          </select>
+          <Picker value={v.loc} onChange={(x) => set('loc', x)} ariaLabel={tr.wizard.fLocation}
+            options={toOptions(coordLocs)} />
         ) : (
           <input value={v.loc} onChange={(e) => set('loc', e.target.value)} placeholder="Saha kliniği, kuzey sırtı" style={inputStyle} />
         )}
@@ -400,10 +391,8 @@ function ContactStep({ v, set }: { v: WizardValues; set: SetFn }) {
         <Field label={tr.wizard.fEmail}><input value={v.email} onChange={(e) => set('email', e.target.value)} type="email" style={inputStyle} /></Field>
         <Field label={tr.wizard.fPhone}><input value={v.phone} onChange={(e) => set('phone', e.target.value)} style={inputStyle} /></Field>
         <Field label={tr.wizard.fCity}>
-          <select name="city" autoComplete="address-level1" value={v.city} onChange={(e) => set('city', e.target.value)} style={inputStyle}>
-            <option value="">{tr.orgs.pickProvince}</option>
-            {PROVINCES.map((pr) => <option key={pr} value={pr}>{pr}</option>)}
-          </select>
+          <Picker value={v.city} onChange={(x) => set('city', x)} ariaLabel={tr.wizard.fCity}
+            placeholder={tr.orgs.pickProvince} options={toOptions(PROVINCES)} />
         </Field>
       </Grid>
     </>

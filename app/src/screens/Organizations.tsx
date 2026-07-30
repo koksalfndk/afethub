@@ -5,7 +5,8 @@ import { PROVINCES, districtsOf } from '../data/trLocations';
 import { tr, orgStatusLabel, ORG_KINDS, ORG_SCOPES } from '../i18n/strings';
 import { C, G } from '../theme';
 import { cols } from '../select';
-import { Chip, Field, Ico, filterSelectStyle, inputStyle, labelText, eyebrow, type IcoName } from '../ui';
+import { Chip, Field, Ico, filterPickerStyle, inputStyle, labelText, eyebrow, type IcoName } from '../ui';
+import { Picker, toOptions } from '../components/Picker';
 import type { OrgKind, OrgScope, Organization, OrgEditable } from '../types';
 import { changedOrgFields } from '../data/repo';
 
@@ -274,14 +275,12 @@ export function Organizations() {
                   </Field>
                   <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
                     <Field label={tr.orgs.fKind}>
-                      <select value={draft.kind} onChange={(e) => set('kind', e.target.value as OrgKind)} style={inputStyle}>
-                        {ORG_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-                      </select>
+                      <Picker value={draft.kind} onChange={(x) => set('kind', x as OrgKind)}
+                        ariaLabel={tr.orgs.fKind} options={toOptions(ORG_KINDS)} />
                     </Field>
                     <Field label={tr.orgs.fScope}>
-                      <select value={draft.scope} onChange={(e) => set('scope', e.target.value as OrgScope)} style={inputStyle}>
-                        {ORG_SCOPES.map((k) => <option key={k} value={k}>{k}</option>)}
-                      </select>
+                      <Picker value={draft.scope} onChange={(x) => set('scope', x as OrgScope)}
+                        ariaLabel={tr.orgs.fScope} options={toOptions(ORG_SCOPES)} />
                     </Field>
                   </div>
                   <div style={{ fontSize: 12, color: C.muted2 }}>{tr.orgs.errOfficialClaim}</div>
@@ -292,16 +291,15 @@ export function Organizations() {
                 <>
                   <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
                     <Field label={tr.orgs.fProvince}>
-                      <select name="organization-province" autoComplete="off" value={draft.province} onChange={(e) => { set('province', e.target.value); set('district', ''); }} autoFocus style={inputStyle}>
-                        <option value="">{tr.orgs.pickProvince}</option>
-                        {PROVINCES.map((pr) => <option key={pr} value={pr}>{pr}</option>)}
-                      </select>
+                      <Picker value={draft.province} ariaLabel={tr.orgs.fProvince}
+                        onChange={(x) => { set('province', x); set('district', ''); }}
+                        placeholder={tr.orgs.pickProvince} options={toOptions(PROVINCES)} />
                     </Field>
                     <Field label={tr.orgs.fDistrict}>
-                      <select name="organization-district" autoComplete="off" value={draft.district} onChange={(e) => set('district', e.target.value)} disabled={!draft.province} style={{ ...inputStyle, opacity: draft.province ? 1 : .6 }}>
-                        <option value="">{draft.province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}</option>
-                        {districtsOf(draft.province).map((d) => <option key={d} value={d}>{d}</option>)}
-                      </select>
+                      <Picker value={draft.district} ariaLabel={tr.orgs.fDistrict}
+                        onChange={(x) => set('district', x)} disabled={!draft.province}
+                        placeholder={draft.province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}
+                        options={toOptions(districtsOf(draft.province))} />
                     </Field>
                   </div>
                   <div>
@@ -423,14 +421,12 @@ export function Organizations() {
                           onChange={(e) => setFix('name', e.target.value)} style={inputStyle} />
                       </FixField>
                       <FixField label={tr.orgs.fKind} changed={fixChanged.includes('kind')}>
-                        <select value={fixDraft.kind} onChange={(e) => setFix('kind', e.target.value as OrgKind)} style={inputStyle}>
-                          {ORG_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-                        </select>
+                        <Picker value={fixDraft.kind} onChange={(x) => setFix('kind', x as OrgKind)}
+                          ariaLabel={tr.orgs.fKind} options={toOptions(ORG_KINDS)} />
                       </FixField>
                       <FixField label={tr.orgs.fScope} changed={fixChanged.includes('scope')}>
-                        <select value={fixDraft.scope} onChange={(e) => setFix('scope', e.target.value as OrgScope)} style={inputStyle}>
-                          {ORG_SCOPES.map((k) => <option key={k} value={k}>{k}</option>)}
-                        </select>
+                        <Picker value={fixDraft.scope} onChange={(x) => setFix('scope', x as OrgScope)}
+                          ariaLabel={tr.orgs.fScope} options={toOptions(ORG_SCOPES)} />
                       </FixField>
                     </div>
                   </section>
@@ -439,19 +435,15 @@ export function Organizations() {
                     <div style={eyebrow}>{tr.orgs.fixSectionPlace}</div>
                     <div style={{ display: 'grid', gap: 12, gridTemplateColumns: mob ? '1fr' : 'repeat(2, minmax(0,1fr))', marginTop: 9 }}>
                       <FixField label={tr.orgs.fProvince} changed={fixChanged.includes('province')}>
-                        <select name="fix-organization-province" autoComplete="off" value={fixDraft.province}
-                          onChange={(e) => { setFix('province', e.target.value); setFix('district', ''); }} style={inputStyle}>
-                          <option value="">{tr.orgs.pickProvince}</option>
-                          {PROVINCES.map((pr) => <option key={pr} value={pr}>{pr}</option>)}
-                        </select>
+                        <Picker value={fixDraft.province} ariaLabel={tr.orgs.fProvince}
+                          onChange={(x) => { setFix('province', x); setFix('district', ''); }}
+                          placeholder={tr.orgs.pickProvince} options={toOptions(PROVINCES)} />
                       </FixField>
                       <FixField label={tr.orgs.fDistrict} changed={fixChanged.includes('district')}>
-                        <select name="fix-organization-district" autoComplete="off" value={fixDraft.district}
-                          onChange={(e) => setFix('district', e.target.value)} disabled={!fixDraft.province}
-                          style={{ ...inputStyle, opacity: fixDraft.province ? 1 : .6 }}>
-                          <option value="">{fixDraft.province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}</option>
-                          {districtsOf(fixDraft.province).map((d) => <option key={d} value={d}>{d}</option>)}
-                        </select>
+                        <Picker value={fixDraft.district} ariaLabel={tr.orgs.fDistrict}
+                          onChange={(x) => setFix('district', x)} disabled={!fixDraft.province}
+                          placeholder={fixDraft.province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}
+                          options={toOptions(districtsOf(fixDraft.province))} />
                       </FixField>
                     </div>
                     <div style={{ marginTop: 12 }}>
@@ -593,18 +585,21 @@ export function Organizations() {
             style={{ border: 0, background: 'none', outline: 'none', fontSize: 14, color: C.navy, padding: '11px 0', width: '100%', minWidth: 0 }} />
         </label>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-          <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label={tr.orgs.allKinds} style={filterSelectStyle}>
-            <option value="">{tr.orgs.allKinds}</option>
-            {ORG_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-          </select>
-          <select value={service} onChange={(e) => setService(e.target.value)} aria-label={tr.orgs.allServices} style={filterSelectStyle}>
-            <option value="">{tr.orgs.allServices}</option>
-            {serviceOptions.map((sv) => <option key={sv} value={sv}>{sv}</option>)}
-          </select>
-          <select value={province} onChange={(e) => setProvince(e.target.value)} aria-label={tr.orgs.allProvinces} style={filterSelectStyle}>
-            <option value="">{tr.orgs.allProvinces}</option>
-            {provinces.map((k) => <option key={k} value={k}>{k}</option>)}
-          </select>
+          <span style={{ minWidth: 170 }}>
+            <Picker value={kind} onChange={setKind} ariaLabel={tr.orgs.allKinds}
+              placeholder={tr.orgs.allKinds} style={filterPickerStyle}
+              options={[{ value: '', label: tr.orgs.allKinds }, ...toOptions(ORG_KINDS)]} />
+          </span>
+          <span style={{ minWidth: 170 }}>
+            <Picker value={service} onChange={setService} ariaLabel={tr.orgs.allServices}
+              placeholder={tr.orgs.allServices} style={filterPickerStyle}
+              options={[{ value: '', label: tr.orgs.allServices }, ...toOptions(serviceOptions)]} />
+          </span>
+          <span style={{ minWidth: 150 }}>
+            <Picker value={province} onChange={setProvince} ariaLabel={tr.orgs.allProvinces}
+              placeholder={tr.orgs.allProvinces} style={filterPickerStyle}
+              options={[{ value: '', label: tr.orgs.allProvinces }, ...toOptions(provinces)]} />
+          </span>
           <Chip label={tr.orgs.onlyVerified} active={onlyVerified} onClick={() => setOnlyVerified((v) => !v)} accent={C.success} />
           <span style={{ flex: 1, minWidth: 4 }} />
           <span className="tnum" style={{ fontSize: 12.5, color: C.muted2, fontWeight: 500 }}>{tr.orgs.countLabel(visible.length, a.orgs.length)}</span>

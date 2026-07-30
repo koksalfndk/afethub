@@ -113,12 +113,11 @@ export function Chip({ label, active, onClick, disabled, accent }: {
   );
 }
 
-// Lightweight select used by the needs filter bar — same footprint as a Chip so
-// the filter row stays visually calm.
-export const filterSelectStyle: CSSProperties = {
-  background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.heading2,
-  borderRadius: 20, padding: '9px 12px', fontSize: 13, fontWeight: 600, minHeight: 40,
-  cursor: 'pointer', maxWidth: 200,
+// Footprint for a Picker sitting in a filter row — same shape as a Chip, so the filter
+// row stays visually calm. (The old `filterSelectStyle` went away with the last native
+// <select>: every dropdown is components/Picker now.)
+export const filterPickerStyle: CSSProperties = {
+  borderRadius: 20, minHeight: 40, padding: '0 12px', fontSize: 13, fontWeight: 600,
 };
 
 // ---- Operational primitives ------------------------------------------------

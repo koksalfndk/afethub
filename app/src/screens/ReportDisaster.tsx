@@ -5,6 +5,7 @@ import { tr, disasterTypeLabel } from '../i18n/strings';
 import { C, G } from '../theme';
 import { cols } from '../select';
 import { Field, Ico, inputStyle, eyebrow, type IcoName } from '../ui';
+import { Picker, toOptions } from '../components/Picker';
 import { PROVINCES, districtsOf } from '../data/trLocations';
 import { formatDate } from '../util';
 import type { DisasterReport, DisasterReportInput, DisasterType } from '../types';
@@ -182,16 +183,15 @@ export function ReportDisasterForm({ onClose }: { onClose?: () => void }) {
       {step === 1 && (
         <div style={{ display: 'grid', gap: 12, gridTemplateColumns: L.form }}>
           <Field label={tr.reportDisaster.fProvince}>
-            <select name="report-province" autoComplete="off" value={province} onChange={(e) => { setProvince(e.target.value); setDistrict(''); }} autoFocus style={inputStyle}>
-              <option value="">{tr.orgs.pickProvince}</option>
-              {PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
+            <Picker value={province} ariaLabel={tr.reportDisaster.fProvince}
+              onChange={(x) => { setProvince(x); setDistrict(''); }}
+              placeholder={tr.orgs.pickProvince} options={toOptions(PROVINCES)} />
           </Field>
           <Field label={tr.reportDisaster.fDistrict}>
-            <select name="report-district" autoComplete="off" value={district} onChange={(e) => setDistrict(e.target.value)} disabled={!province} style={{ ...inputStyle, opacity: province ? 1 : .6 }}>
-              <option value="">{province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}</option>
-              {districtsOf(province).map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
+            <Picker value={district} ariaLabel={tr.reportDisaster.fDistrict}
+              onChange={setDistrict} disabled={!province}
+              placeholder={province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}
+              options={toOptions(districtsOf(province))} />
           </Field>
           <Field label={tr.reportDisaster.fLocation} full>
             <input name="report-location" autoComplete="off" value={locationNote} onChange={(e) => setLocationNote(e.target.value)} placeholder={tr.reportDisaster.fLocationPh} style={inputStyle} />

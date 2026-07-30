@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { useApp } from '../store';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
-import { Chip, Ico, filterSelectStyle, srOnly } from '../ui';
+import { Chip, Ico, filterPickerStyle, srOnly } from '../ui';
+import { Picker, toOptions } from './Picker';
 import type { Filter } from '../store';
 
 // Mobile filter sheet for the needs list.
@@ -102,16 +103,12 @@ export function NeedFilterSheet({ open, onClose, categories, dropOffs, shown, to
 
           <Group label={tr.disaster.filtersMore.groupScope} hint={tr.disaster.filtersMore.groupScopeHint}>
             <div style={{ display: 'grid', gap: 8 }}>
-              <select value={a.catFilter} onChange={(e) => a.setCatFilter(e.target.value)}
-                aria-label={tr.disaster.filtersMore.allCategories} style={{ ...filterSelectStyle, width: '100%' }}>
-                <option value="">{tr.disaster.filtersMore.allCategories}</option>
-                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <select value={a.locFilter} onChange={(e) => a.setLocFilter(e.target.value)}
-                aria-label={tr.disaster.filtersMore.allLocations} style={{ ...filterSelectStyle, width: '100%' }}>
-                <option value="">{tr.disaster.filtersMore.allLocations}</option>
-                {dropOffs.map((l) => <option key={l} value={l}>{l}</option>)}
-              </select>
+              <Picker value={a.catFilter} onChange={a.setCatFilter} style={filterPickerStyle}
+                ariaLabel={tr.disaster.filtersMore.allCategories} placeholder={tr.disaster.filtersMore.allCategories}
+                options={[{ value: '', label: tr.disaster.filtersMore.allCategories }, ...toOptions(categories)]} />
+              <Picker value={a.locFilter} onChange={a.setLocFilter} style={filterPickerStyle}
+                ariaLabel={tr.disaster.filtersMore.allLocations} placeholder={tr.disaster.filtersMore.allLocations}
+                options={[{ value: '', label: tr.disaster.filtersMore.allLocations }, ...toOptions(dropOffs)]} />
               <div><Chip label={tr.disaster.filtersMore.myArea} active={false} onClick={() => {}} disabled /></div>
             </div>
           </Group>

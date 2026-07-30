@@ -4,7 +4,8 @@ import { useAuth } from '../auth';
 import { tr, disasterTypeLabel } from '../i18n/strings';
 import { C, G, wash, MOBILE_HEADER_H, DESKTOP_HEADER_H } from '../theme';
 import { enrichSorted, cols } from '../select';
-import { PriorityBadge, ProgressBar, Chip, StatCard, LiveDot, Ico, DISASTER_ICON, eyebrow, filterSelectStyle, washCard, type IcoName } from '../ui';
+import { PriorityBadge, ProgressBar, Chip, StatCard, LiveDot, Ico, DISASTER_ICON, eyebrow, filterPickerStyle, washCard, type IcoName } from '../ui';
+import { Picker, toOptions } from '../components/Picker';
 import { detailPairs, categoryIcon } from '../needForm';
 import { LocationMap } from '../components/LocationMap';
 import { NeedFilterSheet, activeFilterCount } from '../components/NeedFilterSheet';
@@ -383,14 +384,16 @@ export function Disaster() {
                 of them was for. */}
             {!mob && (
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-              <select value={a.catFilter} onChange={(e) => a.setCatFilter(e.target.value)} aria-label={tr.disaster.filtersMore.allCategories} style={filterSelectStyle}>
-                <option value="">{tr.disaster.filtersMore.allCategories}</option>
-                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <select value={a.locFilter} onChange={(e) => a.setLocFilter(e.target.value)} aria-label={tr.disaster.filtersMore.allLocations} style={filterSelectStyle}>
-                <option value="">{tr.disaster.filtersMore.allLocations}</option>
-                {dropOffs.map((l) => <option key={l} value={l}>{l}</option>)}
-              </select>
+              <span style={{ minWidth: 168 }}>
+                <Picker value={a.catFilter} onChange={a.setCatFilter} style={filterPickerStyle}
+                  ariaLabel={tr.disaster.filtersMore.allCategories} placeholder={tr.disaster.filtersMore.allCategories}
+                  options={[{ value: '', label: tr.disaster.filtersMore.allCategories }, ...toOptions(categories)]} />
+              </span>
+              <span style={{ minWidth: 168 }}>
+                <Picker value={a.locFilter} onChange={a.setLocFilter} style={filterPickerStyle}
+                  ariaLabel={tr.disaster.filtersMore.allLocations} placeholder={tr.disaster.filtersMore.allLocations}
+                  options={[{ value: '', label: tr.disaster.filtersMore.allLocations }, ...toOptions(dropOffs)]} />
+              </span>
               <Chip label={tr.disaster.filtersMore.onlyCritical} active={a.onlyCritical} onClick={a.toggleOnlyCritical} accent={C.emergency} />
               <Chip label={tr.disaster.filtersMore.updatedToday} active={a.updatedToday} onClick={a.toggleUpdatedToday} />
               <Chip label={tr.disaster.filtersMore.myArea} active={false} onClick={() => {}} disabled />

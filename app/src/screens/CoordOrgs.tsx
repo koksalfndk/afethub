@@ -4,6 +4,7 @@ import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Ico, inputStyle, labelText, eyebrow, Field } from '../ui';
+import { Picker, toOptions } from '../components/Picker';
 import { PROVINCES, districtsOf } from '../data/trLocations';
 import { orgEditableFrom } from '../data/repo';
 import type { Organization, OrganizationSave, OrgKind, OrgScope, OrgStatus } from '../types';
@@ -153,27 +154,22 @@ export function CoordOrgs() {
               <input value={draft.name} onChange={(e) => set('name', e.target.value)} style={inputStyle} />
             </Field>
             <Field label={tr.orgs.fKind}>
-              <select value={draft.kind} onChange={(e) => set('kind', e.target.value as OrgKind)} style={inputStyle}>
-                {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-              </select>
+              <Picker value={draft.kind} onChange={(x) => set('kind', x as OrgKind)}
+                ariaLabel={tr.orgs.fKind} options={toOptions(KINDS)} />
             </Field>
             <Field label={tr.orgs.fScope}>
-              <select value={draft.scope} onChange={(e) => set('scope', e.target.value as OrgScope)} style={inputStyle}>
-                {SCOPES.map((k) => <option key={k} value={k}>{k}</option>)}
-              </select>
+              <Picker value={draft.scope} onChange={(x) => set('scope', x as OrgScope)}
+                ariaLabel={tr.orgs.fScope} options={toOptions(SCOPES)} />
             </Field>
             <Field label={tr.orgs.fProvince}>
-              <select value={draft.province} onChange={(e) => { set('province', e.target.value); set('district', ''); }} style={inputStyle}>
-                <option value="">{tr.coordOrgs.filterAll}</option>
-                {PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
+              <Picker value={draft.province} ariaLabel={tr.orgs.fProvince}
+                onChange={(x) => { set('province', x); set('district', ''); }}
+                placeholder={tr.coordOrgs.filterAll} options={toOptions(PROVINCES)} />
             </Field>
             <Field label={tr.orgs.fDistrict}>
-              <select value={draft.district} onChange={(e) => set('district', e.target.value)}
-                disabled={!draft.province} style={{ ...inputStyle, color: draft.province ? C.navy : C.muted3 }}>
-                <option value="">—</option>
-                {districtsOf(draft.province).map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
+              <Picker value={draft.district} ariaLabel={tr.orgs.fDistrict}
+                onChange={(x) => set('district', x)} disabled={!draft.province}
+                options={toOptions(districtsOf(draft.province))} />
             </Field>
             <Field label={tr.orgs.fServices} hint={tr.orgs.fServicesHint} full>
               <input value={draft.services.join(', ')}

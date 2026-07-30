@@ -4,6 +4,7 @@ import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Ico, inputStyle, labelText, eyebrow, Field } from '../ui';
+import { Picker } from '../components/Picker';
 import { SLIDE_ACTIONS, isLocalSlideImage } from '../data/repo';
 import { supabase } from '../data/supabaseClient';
 import {
@@ -183,11 +184,9 @@ export function CoordSlider() {
                 autoComplete="off" style={inputStyle} />
             </Field>
             <Field label={tr.slider.fAction}>
-              <select value={draft.action} onChange={(e) => set('action', e.target.value as SlideAction)} style={inputStyle}>
-                {SLIDE_ACTIONS.map((v) => (
-                  <option key={v} value={v}>{tr.slider.actionLabels[v]}</option>
-                ))}
-              </select>
+              <Picker value={draft.action} onChange={(x) => set('action', x as SlideAction)}
+                ariaLabel={tr.slider.fAction}
+                options={SLIDE_ACTIONS.map((v) => ({ value: v, label: tr.slider.actionLabels[v] }))} />
             </Field>
             <Field label={tr.slider.fImage} hint={`· ${tr.slider.fImageHint}`} full>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -199,13 +198,11 @@ export function CoordSlider() {
                     : `color-mix(in srgb, ${draft.tint} 12%, #EAF0F5)`,
                 }} />
                 <div style={{ flex: '1 1 220px', minWidth: 200, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <select value={isUploadRef(draft.image) ? draft.image : draft.image}
-                    onChange={(e) => set('image', e.target.value)} style={inputStyle}>
-                    {isUploadRef(draft.image) && (
-                      <option value={draft.image}>{tr.slider.fImageUploaded}</option>
-                    )}
-                    {IMAGE_CHOICES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                  </select>
+                  <Picker value={draft.image} onChange={(x) => set('image', x)} ariaLabel={tr.slider.fImage}
+                    options={[
+                      ...(isUploadRef(draft.image) ? [{ value: draft.image, label: tr.slider.fImageUploaded }] : []),
+                      ...IMAGE_CHOICES.map((c) => ({ value: c.value, label: c.label })),
+                    ]} />
                   <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/avif"
                     style={{ display: 'none' }} onChange={(e) => void onPickFile(e.target.files?.[0])} />
                   <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="hv-navy" style={{
@@ -221,9 +218,8 @@ export function CoordSlider() {
               </div>
             </Field>
             <Field label={tr.slider.fTint}>
-              <select value={draft.tint} onChange={(e) => set('tint', e.target.value)} style={inputStyle}>
-                {TINTS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-              </select>
+              <Picker value={draft.tint} onChange={(x) => set('tint', x)} ariaLabel={tr.slider.fTint}
+                options={TINTS.map((c) => ({ value: c.value, label: c.label }))} />
             </Field>
             <Field label={tr.slider.fOrder}>
               <input type="number" min={1} max={99} value={draft.sortOrder}

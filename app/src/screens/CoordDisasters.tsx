@@ -3,6 +3,7 @@ import { useApp } from '../store';
 import { tr, disasterTypeLabel } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Ico, DISASTER_ICON, inputStyle, labelText, eyebrow, Field, LiveDot } from '../ui';
+import { Picker, toOptions } from '../components/Picker';
 import { PROVINCES, districtsOf } from '../data/trLocations';
 import { agoMinutes } from '../util';
 import type { Disaster, DisasterInput, DisasterType } from '../types';
@@ -132,27 +133,25 @@ export function CoordDisasters() {
                 placeholder={tr.coordDisasters.fNamePh} autoComplete="off" style={inputStyle} />
             </Field>
             <Field label={tr.coordDisasters.fType}>
-              <select value={draft.type} onChange={(e) => set('type', e.target.value as DisasterType)} style={inputStyle}>
-                {TYPES.map((t) => <option key={t} value={t}>{disasterTypeLabel[t]}</option>)}
-              </select>
+              <Picker value={draft.type} onChange={(x) => set('type', x as DisasterType)}
+                ariaLabel={tr.coordDisasters.fType}
+                options={TYPES.map((t) => ({ value: t, label: disasterTypeLabel[t] }))} />
             </Field>
             <Field label={tr.coordDisasters.fStatus}>
-              <select value={draft.status} onChange={(e) => set('status', e.target.value as Disaster['status'])} style={inputStyle}>
-                {STATUSES.map((v) => <option key={v} value={v}>{tr.coordDisasters.statusLabels[v]}</option>)}
-              </select>
+              <Picker value={draft.status} onChange={(x) => set('status', x as Disaster['status'])}
+                ariaLabel={tr.coordDisasters.fStatus}
+                options={STATUSES.map((v) => ({ value: v, label: tr.coordDisasters.statusLabels[v] }))} />
             </Field>
             <Field label={tr.coordDisasters.fProvince}>
-              <select value={draft.province} onChange={(e) => { set('province', e.target.value); set('district', ''); }} style={inputStyle}>
-                <option value="">{tr.orgs.pickProvince}</option>
-                {PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
+              <Picker value={draft.province} ariaLabel={tr.coordDisasters.fProvince}
+                onChange={(x) => { set('province', x); set('district', ''); }}
+                placeholder={tr.orgs.pickProvince} options={toOptions(PROVINCES)} />
             </Field>
             <Field label={tr.coordDisasters.fDistrict}>
-              <select value={draft.district} onChange={(e) => set('district', e.target.value)} disabled={!draft.province}
-                style={{ ...inputStyle, opacity: draft.province ? 1 : .6 }}>
-                <option value="">{draft.province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}</option>
-                {districtsOf(draft.province).map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
+              <Picker value={draft.district} ariaLabel={tr.coordDisasters.fDistrict}
+                onChange={(x) => set('district', x)} disabled={!draft.province}
+                placeholder={draft.province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}
+                options={toOptions(districtsOf(draft.province))} />
             </Field>
             <Field label={tr.coordDisasters.fSituation} full>
               <textarea value={draft.situation} onChange={(e) => set('situation', e.target.value)} rows={3}
@@ -171,12 +170,12 @@ export function CoordDisasters() {
               cta={tr.coordDisasters.openOnShift}
               onOpen={() => a.openVolunteers(editing || null, 'onShift')} />
             <Field label={tr.coordDisasters.fOpenedBy} hint={`· ${tr.coordDisasters.openedByHint}`} full>
-              <select value={draft.openedByOrgId ?? ''} onChange={(e) => set('openedByOrgId', e.target.value || null)} style={inputStyle}>
-                <option value="">
-                  {editingDisaster?.openedByCommunity ? tr.coordDisasters.fOpenedByCommunity : tr.coordDisasters.fOpenedBySelf}
-                </option>
-                {orgOptions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-              </select>
+              <Picker value={draft.openedByOrgId ?? ''} ariaLabel={tr.coordDisasters.fOpenedBy}
+                onChange={(x) => set('openedByOrgId', x || null)}
+                options={[
+                  { value: '', label: editingDisaster?.openedByCommunity ? tr.coordDisasters.fOpenedByCommunity : tr.coordDisasters.fOpenedBySelf },
+                  ...orgOptions.map((o) => ({ value: o.id, label: o.name })),
+                ]} />
             </Field>
           </div>
 

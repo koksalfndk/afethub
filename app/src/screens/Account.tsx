@@ -4,10 +4,12 @@ import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Ico, inputStyle, eyebrow, Field } from '../ui';
+import { Picker, toOptions } from '../components/Picker';
+import { DIAL_COUNTRIES, dialLabel } from '../data/dialCodes';
 import { PROVINCES, districtsOf } from '../data/trLocations';
 import { supabase } from '../data/supabaseClient';
 import { toWebp, AVATAR_MAX_EDGE, ImageError } from '../imageUpload';
-import { DIAL_CODES, DEFAULT_DIAL, splitPhone, joinPhone } from '../util';
+import { DEFAULT_DIAL, splitPhone, joinPhone } from '../util';
 import type { ProfileInput } from '../types';
 
 function initials(name: string): string {
@@ -198,10 +200,8 @@ export function Account() {
             {/* Dial code is a separate control so the number field holds only digits.
                 Stored value stays one string: "+90 5xx …". */}
             <div style={{ display: 'grid', gridTemplateColumns: '104px minmax(0,1fr)', gap: 8 }}>
-              <select value={dial} onChange={(e) => setDial(e.target.value)} aria-label={tr.account.fPhoneCode}
-                className="tnum" style={{ ...inputStyle, padding: '11px 8px' }}>
-                {DIAL_CODES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <Picker value={dial} onChange={setDial} ariaLabel={tr.account.fPhoneCode} searchable
+                options={DIAL_COUNTRIES.map((c) => ({ value: c.dial, label: dialLabel(c) }))} />
               <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                 name="profile-phone" autoComplete="tel-national" inputMode="tel"
                 placeholder="5xx xxx xx xx" style={inputStyle} />
@@ -212,20 +212,13 @@ export function Account() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: C.heading2 }}>{tr.account.fCity}</span>
             <div style={{ display: 'grid', gap: 8, gridTemplateColumns: form.city ? 'minmax(0,1fr) minmax(0,1fr)' : '1fr' }}>
-              <select value={form.city}
-                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value, district: '' }))}
-                name="profile-city" autoComplete="address-level1" style={inputStyle}>
-                <option value="">{tr.orgs.pickProvince}</option>
-                {PROVINCES.map((v) => <option key={v} value={v}>{v}</option>)}
-              </select>
+              <Picker value={form.city} ariaLabel={tr.account.fCity}
+                onChange={(x) => setForm((f) => ({ ...f, city: x, district: '' }))}
+                placeholder={tr.orgs.pickProvince} options={toOptions(PROVINCES)} />
               {form.city && (
-                <select value={form.district}
-                  onChange={(e) => setForm((f) => ({ ...f, district: e.target.value }))}
-                  name="profile-district" autoComplete="address-level2"
-                  aria-label={tr.orgs.fDistrict} style={inputStyle}>
-                  <option value="">{tr.orgs.allDistricts}</option>
-                  {districtsOf(form.city).map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
+                <Picker value={form.district} ariaLabel={tr.orgs.fDistrict}
+                  onChange={(x) => setForm((f) => ({ ...f, district: x }))}
+                  placeholder={tr.orgs.allDistricts} options={toOptions(districtsOf(form.city))} />
               )}
             </div>
           </div>
@@ -237,13 +230,9 @@ export function Account() {
         <p style={{ fontSize: 13, color: C.muted, margin: '6px 0 0' }}>{tr.account.orgNote}</p>
         <div style={{ display: 'grid', gap: 12, gridTemplateColumns: mob ? '1fr' : 'repeat(2, minmax(0,1fr))', marginTop: 12 }}>
           <Field label={tr.account.fOrg} full>
-            <select value={form.orgId ?? ''} onChange={(e) => setForm((f) => ({ ...f, orgId: e.target.value || null }))}
-              name="profile-organization" style={inputStyle}>
-              <option value="">{tr.account.fOrgNone}</option>
-              {a.orgs.map((o) => (
-                <option key={o.id} value={o.id}>{o.name}</option>
-              ))}
-            </select>
+            <Picker value={form.orgId ?? ''} ariaLabel={tr.account.fOrg}
+              onChange={(x) => setForm((f) => ({ ...f, orgId: x || null }))}
+              options={[{ value: '', label: tr.account.fOrgNone }, ...a.orgs.map((o) => ({ value: o.id, label: o.name }))]} />
           </Field>
           {form.orgId && (
             <Field label={tr.account.fOrgTitle} full>
