@@ -205,6 +205,11 @@ export function CoordStaff() {
           <p style={{ fontSize: 12.5, color: C.muted3, margin: '6px 0 0', maxWidth: '78ch' }}>
             {a.backend === 'local' ? tr.coordStaff.mailLocalNote : tr.coordStaff.mailNote}
           </p>
+          {a.backend !== 'local' && (
+            <p style={{ fontSize: 12.5, color: C.muted3, margin: '4px 0 0', maxWidth: '78ch' }}>
+              {tr.coordStaff.mailDeliveryNote}
+            </p>
+          )}
           {!isAdmin && (
             <p style={{ fontSize: 12.5, color: C.warningText, background: '#FFFBEF', border: '1px solid #F2DFA8', borderRadius: 8, padding: '8px 10px', margin: '8px 0 0' }}>
               {tr.coordStaff.adminOnly}
