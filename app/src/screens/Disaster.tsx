@@ -2,7 +2,7 @@ import { useApp } from '../store';
 import { tr } from '../i18n/strings';
 import { C } from '../theme';
 import { enrichSorted, cols } from '../select';
-import { PriorityBadge, ProgressBar, Chip, StatCard, LiveDot, Ico, filterSelectStyle, type IcoName } from '../ui';
+import { PriorityBadge, ProgressBar, Chip, StatCard, LiveDot, Ico, filterSelectStyle, washCard, type IcoName } from '../ui';
 import { detailPairs } from '../needForm';
 import { LocationMap } from '../components/LocationMap';
 import { isToday } from '../util';
@@ -168,7 +168,7 @@ export function Disaster() {
             <div style={{ display: 'grid', gap: 14, gridTemplateColumns: L.need }}>
               {visibleNeeds.map((n) => (
                 // Priority is carried by the top border AND the badge — never colour alone (rule 04).
-                <div key={n.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderTop: `3px solid ${n.barColor}`, borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div key={n.id} style={{ ...washCard(n.barColor), padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div>
                     <div style={{ fontSize: 16.5, fontWeight: 700, color: C.navy }}>{n.name}</div>
                     <div style={{ fontSize: 12.5, color: C.muted2, marginTop: 2 }}>{n.cat} · {tr.common.updated(n.updated)}</div>

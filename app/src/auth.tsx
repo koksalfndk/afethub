@@ -13,7 +13,8 @@ export interface AuthApi {
   working: boolean;
   error: string;
   modalOpen: boolean;
-  openModal: () => void;
+  modalMode: 'signIn' | 'signUp';   // which tab the modal opens on
+  openModal: (mode?: 'signIn' | 'signUp') => void;
   closeModal: () => void;
   signIn: (email: string, password: string) => Promise<boolean>;
   signUp: (email: string, password: string, fullName: string) => Promise<'ok' | 'confirm' | 'error'>;
@@ -45,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'signIn' | 'signUp'>('signIn');
 
   useEffect(() => {
     if (!supabase) return;
@@ -66,8 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isCoordinator: profile?.role === 'coordinator' || profile?.role === 'admin',
     emailVerified: !!user?.email_confirmed_at,
     working, error,
-    modalOpen,
-    openModal: () => { setError(''); setModalOpen(true); },
+    modalOpen, modalMode,
+    openModal: (mode) => { setError(''); setModalMode(mode ?? 'signIn'); setModalOpen(true); },
     closeModal: () => setModalOpen(false),
     clearError: () => setError(''),
     signIn: async (email, password) => {
@@ -104,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.from('profiles').update({ avatar_url: url }).eq('id', user.id);
       setProfile((p) => (p ? { ...p, avatarUrl: url } : p));
     },
-  }), [enabled, ready, user, profile, working, error, modalOpen]);
+  }), [enabled, ready, user, profile, working, error, modalOpen, modalMode]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

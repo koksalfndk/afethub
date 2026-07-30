@@ -35,13 +35,22 @@ export const tr = {
   },
 
   header: {
-    track: 'Gönderi takibi',
-    login: 'Giriş yap',
-    logout: 'Çıkış yap',
+    track: 'Gönderi Takibi',
+    login: 'Giriş Yap',
+    logout: 'Çıkış Yap',
     awaiting: (n: number) => `${n} inceleme bekliyor`,
-    reportAid: 'Yardım bildir',
-    search: 'İhtiyaç, kategori veya nokta ara…',
+    reportAid: 'Yardım Bildir',
+    register: 'Kayıt Ol',
+    search: 'İhtiyaç ara…',
     searchLabel: 'İhtiyaçlarda ara',
+    // Compact header: account/secondary actions live in the profile menu.
+    profileMenu: 'Hesap ve işlemler',
+    guest: 'Oturum açık değil · misafir',
+    openMenu: 'Menüyü aç',
+    closeMenu: 'Menüyü kapat',
+    reportNeed: 'İhtiyaç Bildir',
+    signOut: 'Çıkış Yap',
+    account: 'Hesabım',
   },
 
   auth: {
@@ -84,28 +93,29 @@ export const tr = {
     volunteerNote: 'Gönüllü olarak giriş yaptın. Koordinatör yetkisi bir yönetici tarafından verilir.',
   },
 
+  // Menu labels are Title Case (each word capitalised).
   nav: {
-    activeDisasters: 'Aktif afetler',
+    activeDisasters: 'Aktif Afetler',
     needs: 'İhtiyaçlar',
-    deliveryLocations: 'Teslim noktaları',
-    howItWorks: 'Nasıl çalışır',
+    deliveryLocations: 'Teslim Noktaları',
+    howItWorks: 'Nasıl Çalışır',
     dashboard: 'Panel',
-    reviewQueue: 'İnceleme kuyruğu',
-    auditLog: 'Denetim kaydı',
-    publicSite: 'Herkese açık site',
+    reviewQueue: 'İnceleme Kuyruğu',
+    auditLog: 'Denetim Kaydı',
+    publicSite: 'Herkese Açık Site',
     operations: 'Operasyonlar',
   },
 
   bottomNav: {
-    home: 'Ana sayfa', needs: 'İhtiyaçlar', report: 'Bildir', track: 'Takip', request: 'Talep',
+    home: 'Ana Sayfa', needs: 'İhtiyaçlar', report: 'Bildir', track: 'Takip', request: 'Talep',
     dashboard: 'Panel', queue: 'Kuyruk', log: 'Kayıt',
   },
 
   common: {
     details: 'Detaylar',
     cancel: 'Vazgeç',
-    openMap: 'Haritada aç',
-    viewNeeds: 'İhtiyaçları gör',
+    openMap: 'Haritada Aç',
+    viewNeeds: 'İhtiyaçları Gör',
     updated: (t: string) => `${t} güncellendi`,
     remainingUnchanged: 'Bekleyen bildirimler kalan miktarı asla değiştirmez.',
     dropOff: (l: string) => `Teslim noktası: ${l}`,
@@ -119,23 +129,23 @@ export const tr = {
     heroTitle1: 'İhtiyacı gör.',
     heroTitle2: 'Yardımı ulaştır.',
     heroBody: 'Gerçek zamanlı afet ihtiyaçlarını takip et, teslimatlarını bildir ve yardımın etkin biçimde koordine edilmesine katkı sun. Hesap gerekmez.',
-    viewNeeds: 'Aktif ihtiyaçları gör',
-    reportAid: 'Yardım bildir',
+    viewNeeds: 'Aktif İhtiyaçları Gör',
+    reportAid: 'Yardım Bildir',
     heroStats: { activeNeeds: 'Aktif ihtiyaç', verifiedDeliveries: 'Doğrulanan teslimat', awaiting: 'Doğrulama bekliyor' },
-    mostUrgent: 'Şu an en acil',
+    mostUrgent: 'Şu An En Acil',
     stillNeeded: (n: number, u: string) => `${n} ${u} hâlâ gerekli`,
     verifiedOf: (v: number, r: number) => `${v}/${r} doğrulandı`,
-    activeDisasters: 'Aktif afetler',
+    activeDisasters: 'Aktif Afetler',
     active: 'Aktif',
-    openCoordination: 'Koordinasyonu aç',
+    openCoordination: 'Koordinasyonu Aç',
     noOtherTitle: 'Başka aktif afet yok',
     noOtherBody: 'Çözülen operasyonlar tam denetim kaydıyla arşivlenir. Koordinatörler, bir durum saha ekibince doğrulandığında yeni bir operasyon açar.',
-    howVerification: 'Doğrulama nasıl işler',
-    howItWorks: 'Nasıl çalışır',
+    howVerification: 'Doğrulama Nasıl İşler',
+    howItWorks: 'Nasıl Çalışır',
     howItWorksBody: 'Yalnızca koordinatörce doğrulanan teslimatlar kalan miktarı düşürür. Bekleyen bildirimler sayıları asla değiştirmez.',
 
     // Live operations panel (hero, right side)
-    liveOps: 'Aktif operasyon',
+    liveOps: 'Aktif Operasyon',
     activeNeedsCount: (n: number) => `${n} aktif ihtiyaç`,
     lastVerification: 'Son doğrulama',
     left: (n: number) => `${n} kaldı`,
@@ -145,12 +155,14 @@ export const tr = {
     metrics: { activeNeeds: 'Aktif ihtiyaç', deliveryPoints: 'Teslim noktası', volunteers: 'Gönüllü', pendingDeliveries: 'Bekleyen teslim' },
     lastUpdate: 'Son güncelleme',
 
-    // Live activity feed (replaces the empty "no other disaster" panel)
-    feedTitle: 'Canlı hareket akışı',
+    // Live activity feed — hero'nun orta sütunu
+    feedTitle: 'Canlı Hareket Akışı',
     feedNote: 'Yalnızca gerçekleşen olaylar',
-    feedAll: 'Tüm hareketleri gör',
+    feedAll: 'Tüm Hareketleri Gör',
     feedEmpty: 'Henüz kayıtlı hareket yok.',
-
+    allNeeds: 'Tüm İhtiyaçları Gör',
+    disclaimer: 'AfetHUB bir sivil koordinasyon platformudur. Acil ve hayati tehlike durumlarında resmi acil yardım birimleriyle iletişime geçin.',
+    
     // "Nasıl çalışır" — one continuous timeline
     steps: [
       { title: 'Koordinatör ihtiyaç oluşturur', body: 'Ürün, gerekli miktar, öncelik ve teslim noktası.' },

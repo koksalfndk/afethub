@@ -1,5 +1,9 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { C, PRI, STATUS, type PriorityKey, type StatusKey } from './theme';
+import {
+  Activity, Check, ChevronDown, ChevronRight, CircleCheck, Clock, House, LogOut, MapPin, Menu,
+  Package, PackageSearch, Plus, Search, TriangleAlert, User, Users, X, type LucideIcon,
+} from 'lucide-react';
+import { C, G, PRI, STATUS, barFill, ribbon, wash, type PriorityKey, type StatusKey } from './theme';
 import { priorityLabel, statusLabel } from './i18n/strings';
 
 // Reusable style fragments ported from the prototype.
@@ -47,18 +51,23 @@ export function StatusBadge({ s }: { s: StatusKey }) {
   );
 }
 
-export function ProgressBar({ pct, color, height = 8, track = C.border }: { pct: number; color: string; height?: number; track?: string }) {
+export function ProgressBar({ pct, color, height = 8, track = C.border, flat }: {
+  pct: number; color: string; height?: number; track?: string; flat?: boolean;
+}) {
   return (
     <span style={{ display: 'block', height, borderRadius: 5, background: track, overflow: 'hidden' }}>
-      <span style={{ display: 'block', height, borderRadius: 5, background: color, width: `${pct}%` }} />
+      <span style={{ display: 'block', height, borderRadius: 5, background: flat ? color : barFill(color), width: `${pct}%` }} />
     </span>
   );
 }
 
 type BtnVariant = 'emergency' | 'primary' | 'secondary' | 'approve' | 'ghost';
 const btnStyles: Record<BtnVariant, CSSProperties> = {
-  emergency: { background: C.emergency, border: `1px solid ${C.emergency}`, color: '#fff' },
-  primary: { background: C.navy, border: `1px solid ${C.navy}`, color: '#fff' },
+  emergency: {
+    background: G.emergencyBtn, border: '1px solid #BE2A31', color: '#fff',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,.18), 0 2px 6px rgba(191,42,49,.26)',
+  },
+  primary: { background: G.navyBtn, border: `1px solid ${C.navy}`, color: '#fff' },
   secondary: { background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy },
   approve: { background: C.success, border: `1px solid ${C.success}`, color: '#fff' },
   ghost: { background: 'none', border: 0, color: C.muted },
@@ -115,29 +124,45 @@ export function LiveDot({ color = C.emergency, size = 7, still }: { color?: stri
   );
 }
 
-// Minimal stroke icon set (currentColor, 1.8px) — used only as a colour-coded
-// category marker on stat cards and headers, never as decoration.
-export type IcoName = 'need' | 'verified' | 'pending' | 'completed' | 'pin' | 'people' | 'critical' | 'activity' | 'search';
+// Icon set — Lucide (lucide-react). The `Ico` adapter keeps semantic, domain-level
+// names at the call sites ("pending", "verified", "pin") so the visual library can be
+// swapped in one place and screens never import icon components directly.
+export type IcoName =
+  | 'need' | 'verified' | 'pending' | 'completed' | 'pin' | 'people' | 'critical' | 'activity' | 'search'
+  | 'user' | 'menu' | 'close' | 'chev' | 'down' | 'home' | 'track' | 'plus' | 'logout';
 
-const ICO: Record<IcoName, ReactNode> = {
-  need: <><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z" /><path d="M3 7.5 12 12l9-4.5M12 12v9" /></>,
-  verified: <><circle cx="12" cy="12" r="9" /><path d="M8 12.5l2.6 2.5L16 9.5" /></>,
-  completed: <><path d="M20 6.5 9.5 17 4 11.5" /></>,
-  pending: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 2" /></>,
-  pin: <><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" /></>,
-  people: <><path d="M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20" /><circle cx="9.5" cy="7.5" r="3.5" /><path d="M17 4.4a3.6 3.6 0 0 1 0 7" /><path d="M21 20v-1.5a4 4 0 0 0-3-3.8" /></>,
-  critical: <><path d="M12 4.5 21 19H3z" /><path d="M12 10v4M12 16.8h.01" /></>,
-  activity: <><path d="M3 12h4l2.5-6 4 12L16 12h5" /></>,
-  search: <><circle cx="11" cy="11" r="7" /><path d="M20 20l-4.2-4.2" /></>,
+const ICO: Record<IcoName, LucideIcon> = {
+  need: Package,
+  verified: CircleCheck,
+  completed: Check,
+  pending: Clock,
+  pin: MapPin,
+  people: Users,
+  critical: TriangleAlert,
+  activity: Activity,
+  search: Search,
+  user: User,
+  menu: Menu,
+  close: X,
+  chev: ChevronRight,
+  down: ChevronDown,
+  home: House,
+  track: PackageSearch,
+  plus: Plus,
+  logout: LogOut,
 };
 
 export function Ico({ n, size = 17, color }: { n: IcoName; size?: number; color?: string }) {
+  const Cmp = ICO[n];
   return (
-    <svg
-      width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? 'currentColor'}
-      strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+    <Cmp
+      size={size}
+      color={color ?? 'currentColor'}
+      strokeWidth={1.8}
+      absoluteStrokeWidth
+      aria-hidden="true"
       style={{ display: 'block', flex: `0 0 ${size}px` }}
-    >{ICO[n]}</svg>
+    />
   );
 }
 
@@ -149,22 +174,40 @@ export function StatCard({ accent, icon, label, value, hint, onClick }: {
 }) {
   const body = (
     <>
+      {/* Gradient ribbon on the top edge carries the status colour; the surface stays white. */}
+      <i style={{ position: 'absolute', inset: '0 0 auto 0', height: 4, background: ribbon(accent) }} />
       <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
         <Ico n={icon} size={16} color={accent} />
         <span style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>{label}</span>
       </span>
-      <span style={{ fontSize: 25, fontWeight: 700, color: accent, letterSpacing: '-.02em', lineHeight: 1.1 }}>{value}</span>
+      <span className="tnum" style={{ fontSize: 25, fontWeight: 700, color: accent, letterSpacing: '-.02em', lineHeight: 1.1 }}>{value}</span>
       {hint ? <span style={{ fontSize: 11.5, color: C.muted2 }}>{hint}</span> : null}
     </>
   );
   const style: CSSProperties = {
-    textAlign: 'left', background: C.surface, border: `1px solid ${C.border}`,
-    borderTop: `3px solid ${accent}`, borderRadius: 11, padding: '12px 14px 13px',
-    display: 'flex', flexDirection: 'column', gap: 5,
+    textAlign: 'left', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
+    padding: '14px 15px 13px', display: 'flex', flexDirection: 'column', gap: 5,
+    position: 'relative', overflow: 'hidden',
   };
   return onClick
     ? <button onClick={onClick} className="hv-navy" style={{ ...style, cursor: 'pointer' }}>{body}</button>
     : <div style={style}>{body}</div>;
+}
+
+// Card surface with an accent wash — used by need cards so priority is felt before it is read.
+export const washCard = (accent: string, pct = 5): CSSProperties => ({
+  background: wash(accent, pct), border: `1px solid ${C.border}`, borderTop: `3px solid ${accent}`,
+  borderRadius: 14,
+});
+
+// Compact icon-only control (mobile hamburger / profile, header actions).
+export function IconBtn({ icon, label, onClick, size = 20 }: { icon: IcoName; label: string; onClick: () => void; size?: number }) {
+  return (
+    <button onClick={onClick} aria-label={label} title={label} className="hv-navy" style={{
+      width: 42, height: 42, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, cursor: 'pointer', flex: '0 0 42px',
+    }}><Ico n={icon} size={size} /></button>
+  );
 }
 
 // Compact metric inside a card (disaster summary). Colour lives on the left edge

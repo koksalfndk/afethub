@@ -33,6 +33,43 @@ export const C = {
   teal: '#0F766E',   // volunteers
 } as const;
 
+// ---- Gradients (design direction "Vurgu Panelleri") -------------------------
+// Gradients are used for surface depth and for the two inverted panels, never as
+// decoration and never behind body copy that has to stay readable outdoors.
+// Glassmorphism stays banned (rules/04).
+export const G = {
+  headerBar: 'linear-gradient(180deg,#FFFFFF 0%,#F9FBFD 100%)',
+  opsBar: 'linear-gradient(90deg,#0B1E30 0%,#153A5A 100%)',
+  // Hero stays light so the headline and body copy remain readable outdoors
+  // (rules/01: weak network, bright sunlight, older screens).
+  heroCard: 'linear-gradient(158deg,#FFFFFF 0%,#F8FBFD 52%,#EFF6FB 100%)',
+  heroRibbon: 'linear-gradient(90deg,#D9363E 0%,#F97316 55%,rgba(249,115,22,0) 100%)',
+  criticalPanel: 'linear-gradient(160deg,#FFFFFF 0%,#FEF7F7 55%,#FDEDED 100%)',
+  surfaceSoft: 'linear-gradient(135deg,#FFFFFF 0%,#FAFCFE 100%)',
+  navActive: 'linear-gradient(180deg,#102A43 0%,#0B1E30 100%)',
+  navyBtn: 'linear-gradient(180deg,#1C3F5F 0%,#102A43 100%)',
+  emergencyBtn: 'linear-gradient(180deg,#E1454C 0%,#D9363E 55%,#C22B33 100%)',
+  chip: 'linear-gradient(135deg,#F7FAFD 0%,#EDF2F7 100%)',
+} as const;
+
+// Very low-intensity accent wash for a white card: the surface still reads white.
+export const wash = (accent: string, pct = 6): string =>
+  `linear-gradient(170deg, color-mix(in srgb, ${accent} ${pct}%, #fff) 0%,`
+  + ` color-mix(in srgb, ${accent} 1.5%, #fff) 40%, #fff 75%)`;
+// Progress fill and the stat-card top ribbon.
+export const barFill = (accent: string): string =>
+  `linear-gradient(90deg, color-mix(in srgb, ${accent} 58%, #fff) 0%, ${accent} 100%)`;
+export const ribbon = (accent: string): string =>
+  `linear-gradient(90deg, ${accent} 0%, color-mix(in srgb, ${accent} 32%, transparent) 70%, transparent 100%)`;
+
+// Text/border tokens for the inverted (dark gradient) panels.
+export const D = {
+  fg: '#EAF1F7', fg2: '#AFC4D6', muted: '#8FA7BE', border: '#12324D',
+  rowBg: 'rgba(255,255,255,.06)', rowBd: 'rgba(255,255,255,.14)',
+  btnBg: 'rgba(255,255,255,.08)', btnBd: 'rgba(255,255,255,.24)',
+  success: '#6EE7A8', warning: '#FFD470',
+} as const;
+
 export type PriorityKey = 'Critical' | 'Urgent' | 'Normal' | 'Paused' | 'Completed';
 export type StatusKey =
   | 'Pending verification'

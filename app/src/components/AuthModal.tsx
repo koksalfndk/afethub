@@ -6,7 +6,8 @@ import { inputStyle, labelText } from '../ui';
 
 export function AuthModal() {
   const auth = useAuth();
-  const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
+  // Opened from "Kayıt Ol" → the sign-up tab is already active.
+  const [mode, setMode] = useState<'signIn' | 'signUp'>(auth.modalMode);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

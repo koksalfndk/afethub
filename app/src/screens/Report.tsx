@@ -56,7 +56,7 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
                 <div style={{ fontSize: 13, color: C.muted }}>{tr.report.createAccountBody}</div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={auth.openModal} style={{ background: C.success, border: `1px solid ${C.success}`, color: '#fff', borderRadius: 9, padding: '11px 15px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>{tr.report.createAccountBtn}</button>
+                <button onClick={() => auth.openModal('signUp')} style={{ background: C.success, border: `1px solid ${C.success}`, color: '#fff', borderRadius: 9, padding: '11px 15px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>{tr.report.createAccountBtn}</button>
               </div>
             </div>
           )}
