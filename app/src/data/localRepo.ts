@@ -58,8 +58,8 @@ function addLog(
 ) {
   const d = seed.disasters.find((x) => x.id === disasterId);
   log = [{
-    id: nextId('l'), disasterId, disasterName: d?.name ?? '',
-    user: 'Elif Kaya', time: NOW, ...entry,
+    id: nextId('l'), disasterId, disasterName: d?.name ?? '', disasterSlug: d?.slug ?? '',
+    user: 'Elif K.', time: NOW, ...entry,
   }, ...log];
 }
 

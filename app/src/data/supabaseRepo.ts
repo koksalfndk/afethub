@@ -43,7 +43,9 @@ export class SupabaseRepo implements Repo {
       this.db.from('locations').select('*'),
       this.db.from('needs').select('*'),
       this.db.from('submissions').select('*').order('submitted_at', { ascending: false }),
-      this.db.from('audit_log').select('*').order('created_at', { ascending: false }),
+      // The masked, allow-listed view — not the table. The table now answers only to an
+      // admin, so a visitor's request no longer carries anyone's surname (migration 0024).
+      this.db.from('audit_log_public').select('*').order('created_at', { ascending: false }),
       this.db.from('announcements').select('*').order('created_at', { ascending: false }),
     ]);
 
@@ -104,7 +106,9 @@ export class SupabaseRepo implements Repo {
     const log: LogEntry[] = (lg.data ?? []).filter((r: Record<string, unknown>) =>
       String(r.disaster_id) === disaster.id && isPublicAuditAction(String(r.action))).map((r: Record<string, unknown>) => ({
       id: String(r.id), disasterId: String(r.disaster_id ?? ''),
-      disasterName: byId.get(String(r.disaster_id))?.name ?? '', user: String(r.actor), action: String(r.action), detail: String(r.detail),
+      disasterName: byId.get(String(r.disaster_id))?.name ?? '',
+      disasterSlug: byId.get(String(r.disaster_id))?.slug ?? '',
+      user: String(r.actor), action: String(r.action), detail: String(r.detail),
       oldValue: String(r.old_value), newValue: String(r.new_value), time: rel(String(r.created_at)),
       color: String(r.color),
     }));
@@ -178,9 +182,9 @@ export class SupabaseRepo implements Repo {
 
     const active = cards.filter((c) => c.disaster.status === 'Active');
     const [lg, rep] = await Promise.all([
-      // Over-fetch: private rows are dropped below, and an admin would otherwise end up
-      // with a shorter feed than a visitor sees.
-      this.db.from('audit_log').select('*').order('created_at', { ascending: false }).limit(40),
+      // The masked public view (migration 0024): already filtered to the allow-list, so
+      // there is nothing here to over-fetch and drop.
+      this.db.from('audit_log_public').select('*').order('created_at', { ascending: false }).limit(40),
       this.db.from('disaster_reports_public').select('*').eq('status', 'Pending verification').limit(12),
     ]);
     const byId = new Map(disasters.map((d) => [d.id, d] as const));
@@ -199,6 +203,7 @@ export class SupabaseRepo implements Repo {
       log: (lg.data ?? []).filter((r: Record<string, unknown>) => isPublicAuditAction(String(r.action))).slice(0, 12).map((r: Record<string, unknown>) => ({
         id: String(r.id), disasterId: String(r.disaster_id ?? ''),
         disasterName: byId.get(String(r.disaster_id))?.name ?? '',
+        disasterSlug: byId.get(String(r.disaster_id))?.slug ?? '',
         user: String(r.actor), action: String(r.action), detail: String(r.detail),
         oldValue: String(r.old_value), newValue: String(r.new_value),
         time: rel(String(r.created_at)), color: String(r.color),
@@ -688,19 +693,24 @@ export class SupabaseRepo implements Repo {
     }));
   }
 
-  // The admin system log: every recorded action, nothing filtered. RLS is what decides
-  // whether the caller may see the private rows (migration 0017: is_admin()), so a
-  // coordinator calling this simply gets the public subset back rather than an error.
+  // The admin system log: every recorded action, nothing filtered, actors in full.
+  // RLS is what decides — `audit_log` answers only to is_admin() (0017, tightened in
+  // 0024), so a coordinator who reaches this call gets an empty list, not an error and
+  // not somebody's surname. The public feed comes from audit_log_public instead.
   async listSystemLog(limit: number): Promise<LogEntry[]> {
     const [lg, ds] = await Promise.all([
       this.db.from('audit_log').select('*').order('created_at', { ascending: false }).limit(limit),
-      this.db.from('disasters').select('id,name'),
+      this.db.from('disasters').select('id,name,slug'),
     ]);
     if (lg.error) throw lg.error;
-    const names = new Map((ds.data ?? []).map((d: Record<string, unknown>) => [String(d.id), String(d.name)] as const));
+    const names = new Map((ds.data ?? []).map((d: Record<string, unknown>) =>
+      [String(d.id), { name: String(d.name), slug: String(d.slug ?? '') }] as const));
     return (lg.data ?? []).map((r: Record<string, unknown>) => ({
       id: String(r.id), disasterId: String(r.disaster_id ?? ''),
-      disasterName: names.get(String(r.disaster_id)) ?? '',
+      disasterName: names.get(String(r.disaster_id))?.name ?? '',
+      disasterSlug: names.get(String(r.disaster_id))?.slug ?? '',
+      // The admin log is the one place the name is NOT masked: it is the record an
+      // administrator is accountable for reading, and it is gated by is_admin().
       user: String(r.actor), action: String(r.action), detail: String(r.detail),
       oldValue: String(r.old_value), newValue: String(r.new_value),
       time: rel(String(r.created_at)), color: String(r.color),

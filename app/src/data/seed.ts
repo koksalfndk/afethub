@@ -305,8 +305,18 @@ const rawLog: RawLog[] = [
   ['l19', 'd6', 'Nihal Aydın', 'Operasyon kapatıldı', 'Balıkesir Orman Yangını · tüm ihtiyaçlar karşılandı', 'Aktif', 'Çözüldü', '2 gün önce', COLOR.verified],
 ];
 
+// Demo names are masked here too, the same way the database masks the real ones — the
+// seed must not show a shape the live product cannot produce.
+const maskActor = (name: string): string => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return name;
+  const c = parts[parts.length - 1].slice(0, 1);
+  return `${parts[0]} ${c === 'i' ? 'İ' : c === 'ı' ? 'I' : c.toLocaleUpperCase('tr')}.`;
+};
+
 export const log: LogEntry[] = rawLog.map(([id, disasterId, user, action, detail, oldValue, newValue, time, color]) => ({
-  id, disasterId, disasterName: byId.get(disasterId)!.name, user, action, detail, oldValue, newValue, time, color,
+  id, disasterId, disasterName: byId.get(disasterId)!.name, disasterSlug: byId.get(disasterId)!.slug,
+  user: maskActor(user), action, detail, oldValue, newValue, time, color,
 }));
 
 export const announcements: Announcement[] = [

@@ -95,7 +95,8 @@ export interface LogEntry {
   id: string;
   disasterId: string;
   disasterName: string;  // denormalized for the cross-disaster activity feed
-  user: string;
+  disasterSlug: string;  // so the feed can link the entry to its operation page
+  user: string;          // masked to "Köksal F." by the database, never a full name
   action: string;        // Turkish display copy
   detail: string;
   oldValue: string;

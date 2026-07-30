@@ -337,12 +337,26 @@ export function Home() {
                     </span>
                     <span style={{ minWidth: 0 }}>
                       <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: C.navy }}>{e.action}</span>
-                      <span style={{ display: 'block', fontSize: 12.5, color: C.muted2 }}>{e.detail} · {e.time}</span>
+                      {/* The actor arrives already masked from the database ("Köksal F.");
+                          there is no full name in this response to shorten here. */}
+                      <span style={{ display: 'block', fontSize: 12.5, color: C.muted2 }}>
+                        {e.user && <span style={{ color: C.heading2, fontWeight: 600 }}>{e.user}</span>}
+                        {e.user && ' · '}{e.detail} · {e.time}
+                      </span>
                       {e.disasterName && (
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: C.heading2,
-                          background: G.chip, border: `1px solid ${C.borderFaint}`, borderRadius: 20, padding: '2px 8px', marginTop: 4,
-                        }}><Ico n="pin" size={11} color={C.muted} />{e.disasterName}</span>
+                        e.disasterSlug ? (
+                          <button onClick={() => a.openDisaster(e.disasterSlug, 'activity')}
+                            aria-label={`${e.disasterName} operasyonunu aç`} className="hv-navy" style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: C.heading2,
+                              background: G.chip, border: `1px solid ${C.borderFaint}`, borderRadius: 20, padding: '3px 9px',
+                              marginTop: 4, cursor: 'pointer', minHeight: 24,
+                            }}><Ico n="pin" size={11} color={C.muted} />{e.disasterName}</button>
+                        ) : (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: C.heading2,
+                            background: G.chip, border: `1px solid ${C.borderFaint}`, borderRadius: 20, padding: '2px 8px', marginTop: 4,
+                          }}><Ico n="pin" size={11} color={C.muted} />{e.disasterName}</span>
+                        )
                       )}
                     </span>
                   </div>
