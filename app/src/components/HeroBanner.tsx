@@ -16,12 +16,22 @@ import { slideImageSrc } from '../imageUpload';
 // informational surface where a photo is allowed).
 interface Slide { key: string; image: string; tint: string; title: string; body: string; cta: string; onClick: () => void }
 
-// Mobile geometry. The phone layout is stacked, not overlaid: the photo owns a band at
-// the top and the copy sits underneath it on plain white. Because the text no longer
+// Mobile geometry. The phone layout is stacked, not overlaid: the photo owns the top of
+// the frame and the copy sits underneath it on plain white. Because the text no longer
 // stands on the image, the white layer stops being a backing plate and becomes only the
 // seam between the two — which is why it is 180px here instead of the 448px envelope the
 // overlaid version needed (−60%).
-const MOB_PHOTO_H = 250;
+//
+// The three numbers are tied to each other on purpose:
+//   MOB_COPY_TOP  where the copy column starts (the badge)
+//   MOB_FADE_END  where the wash reaches solid white — exactly the top of the <h2>
+//   MOB_FADE_H    the length of the wash, ending at MOB_FADE_END
+// The photo runs all the way down to MOB_FADE_END, so it dissolves *behind the badge*
+// instead of stopping at a line with an empty white strip under it. Only the badge — a
+// solid pill with its own background — ever sits on the tail; every piece of running
+// text starts at or below MOB_FADE_END, on flat white.
+const MOB_COPY_TOP = 250;
+const MOB_FADE_END = 300;
 const MOB_FADE_H = 180;
 
 // Self-contained backdrop drawn under the (optional) photo. Without it a missing
@@ -127,7 +137,7 @@ export function HeroBanner() {
       {s.image && (
         <div style={{
           position: 'absolute', top: 0, right: 0,
-          ...(mob ? { left: 0, height: MOB_PHOTO_H } : { bottom: 0, width: '62%' }),
+          ...(mob ? { left: 0, height: MOB_FADE_END } : { bottom: 0, width: '62%' }),
           backgroundImage: `url(${s.image})`, backgroundSize: 'cover',
           backgroundPosition: mob ? 'center top' : 'center', backgroundRepeat: 'no-repeat',
           maskImage: mob ? undefined : 'linear-gradient(to right, transparent 0%, #000 24%)',
@@ -138,19 +148,19 @@ export function HeroBanner() {
           to sit on flat white to hold contrast outdoors — so the area below the photo is
           filled rather than left to whatever the gradient tail happens to reach. */}
       {mob && (
-        <div style={{ position: 'absolute', left: 0, right: 0, top: MOB_PHOTO_H, bottom: 0, background: '#FFFFFF' }} />
+        <div style={{ position: 'absolute', left: 0, right: 0, top: MOB_FADE_END, bottom: 0, background: '#FFFFFF' }} />
       )}
       <div style={{
         position: 'absolute', pointerEvents: 'none',
         ...(mob
-          ? { left: 0, right: 0, top: MOB_PHOTO_H - MOB_FADE_H, height: MOB_FADE_H }
+          ? { left: 0, right: 0, top: MOB_FADE_END - MOB_FADE_H, height: MOB_FADE_H }
           : { inset: 0 }),
         background: mob
           // Mobile: runs the other way now — transparent where the photo is clean, solid
-          // white where the copy begins. It is the seam between the image band and the text
-          // band, so its height is fixed to the seam (180px) and no longer has to grow with
-          // the text; the copy stands on the white sheet above, not on this.
-          ? 'linear-gradient(176deg, rgba(255,255,255,0) 0px, rgba(255,255,255,.2) 32px, rgba(255,255,255,.5) 62px, rgba(255,255,255,.82) 92px, rgba(255,255,255,.96) 122px, #FFFFFF 150px)'
+          // white where the title begins. Many close stops rather than a few wide ones: a
+          // white wash over a photograph is where Android and older panels band, and a
+          // visible step in this seam is the one thing this layer exists to avoid.
+          ? 'linear-gradient(178deg, rgba(255,255,255,0) 0px, rgba(255,255,255,.06) 22px, rgba(255,255,255,.16) 44px, rgba(255,255,255,.3) 66px, rgba(255,255,255,.46) 88px, rgba(255,255,255,.62) 110px, rgba(255,255,255,.78) 132px, rgba(255,255,255,.9) 154px, rgba(255,255,255,.97) 170px, #FFFFFF 180px)'
           // Desktop: the solid white plateau is cut from 52% to 34% of the width so the photo
           // is no longer buried under it; the copy column below is narrowed to match, so the
           // text still lands on ≥.94 white. The tail ends at 76%, leaving the right quarter
@@ -163,7 +173,7 @@ export function HeroBanner() {
         // Mobile: pushed below the photo band. A margin, not absolute positioning, so the
         // section still grows when a long slide body needs more room instead of the copy
         // running off the bottom edge.
-        marginTop: mob ? MOB_PHOTO_H : 0,
+        marginTop: mob ? MOB_COPY_TOP : 0,
         padding: mob ? '14px 20px 18px' : '30px 34px',
         display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: mob ? 9 : 10,
         // The copy column has to end inside the white plateau, which is now 34% wide.

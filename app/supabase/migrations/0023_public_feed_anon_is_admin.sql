@@ -1,0 +1,33 @@
+-- AfetHUB — migration 0023
+-- The public live feed came back empty for anyone who was not signed in.
+--
+-- Root cause, and it is mine: 0017 changed the audit policy from is_coordinator() to
+-- is_admin() to narrow who sees private rows. is_coordinator() is executable by `anon`;
+-- is_admin() never was. So the policy
+--
+--     using (audit_is_public(action) or is_admin())
+--
+-- did not evaluate to false for a visitor — it RAISED. "permission denied for function
+-- is_admin" fails the whole select, so the browser got an error instead of the 13 public
+-- rows and the card rendered "son 0 kayıt". Verified by running the query as `anon`
+-- before and after this migration.
+--
+-- The same fault hit a second, worse path: `organizations_admin_write` is a FOR ALL
+-- policy whose USING expression also serves as its INSERT check, and permissive policies
+-- are OR-ed, so a visitor submitting an organization tripped the same function and the
+-- insert failed. Adding an organization without an account is one of the actions
+-- CLAUDE.md §Primary Product Rule says must never require one.
+--
+-- The fix is the grant, not a policy rewrite: is_admin() is `select exists (… where
+-- p.id = auth.uid() and p.role = 'admin')`, which for an anonymous caller has no uid to
+-- match and returns false. Executing it tells the visitor nothing and changes nothing —
+-- exactly like is_coordinator(), which has been anon-executable since 0002. Relying on
+-- OR short-circuiting instead would be a bet on planner order, not a guarantee.
+--
+-- What this does NOT do: widen what a visitor can read. The row filter is still
+-- audit_is_public(action); the 11 private rows stay invisible.
+--
+-- Additive and idempotent.
+-- =============================================================================
+
+grant execute on function is_admin() to anon;

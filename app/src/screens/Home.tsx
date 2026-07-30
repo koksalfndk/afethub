@@ -50,7 +50,11 @@ export function Home() {
   const [type, setType] = useState<DisasterType | ''>('');
   const [onlyActive, setOnlyActive] = useState(true);
   const [q, setQ] = useState('');
-  const [feedOpen, setFeedOpen] = useState(false);
+  // Open by default. A feed of what actually happened in the last hours is the thing
+  // that tells a visitor these numbers are being kept up to date; behind a click it was
+  // read as decoration. It still collapses, and it is the same feed for everyone —
+  // signed in or not (audit_is_public in the database decides, not the session).
+  const [feedOpen, setFeedOpen] = useState(true);
   // The report being confirmed, if any. Confirming is a form, not a click: see
   // ReportConfirmModal for why the counter cannot be anonymous.
   const [confirming, setConfirming] = useState<DisasterReport | null>(null);
@@ -302,8 +306,8 @@ export function Home() {
             </div>
           )}
 
-          {/* The feed is context, not a headline: collapsed by default so the
-              operations table owns the first screen. */}
+          {/* The feed sits under the operations table — the table still owns the first
+              screen — but it is open when the page loads. */}
           <div style={panel}>
             <button onClick={() => setFeedOpen((v) => !v)} aria-expanded={feedOpen} style={{
               width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
