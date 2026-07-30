@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useApp } from '../store';
 import { useAuth } from '../auth';
 import { tr, disasterTypeLabel } from '../i18n/strings';
-import { C, G, wash, MOBILE_HEADER_H } from '../theme';
+import { C, G, wash, MOBILE_HEADER_H, DESKTOP_HEADER_H } from '../theme';
 import { enrichSorted, cols } from '../select';
 import { PriorityBadge, ProgressBar, Chip, StatCard, LiveDot, Ico, DISASTER_ICON, eyebrow, filterSelectStyle, washCard, type IcoName } from '../ui';
 import { detailPairs, categoryIcon } from '../needForm';
@@ -133,15 +133,17 @@ export function Disaster() {
           // A slightly recessed panel: the menu is a different surface from the white
           // content cards, so it reads as navigation without needing a heavy border.
           background: C.chipNavyBg, borderRight: `1px solid ${C.borderSoft}`,
-          minHeight: 'calc(100vh - 63px)',
+          minHeight: `calc(100vh - ${DESKTOP_HEADER_H}px)`,
         }}>
           {/* The rail column is as tall as the page so its edge runs the full length;
               the menu itself is what stays in view. Sticking the tall column instead
               does nothing — a sticky element taller than the viewport scrolls away. */}
           <div style={{
-            position: 'sticky', top: 0, padding: '18px 12px 22px',
+            // Offset by the header height — the header is sticky, so `top: 0` would put
+            // the rail behind it.
+            position: 'sticky', top: DESKTOP_HEADER_H, padding: '18px 12px 22px',
             display: 'flex', flexDirection: 'column', gap: 3,
-            maxHeight: '100vh', overflowY: 'auto',
+            maxHeight: `calc(100vh - ${DESKTOP_HEADER_H}px)`, overflowY: 'auto',
           }}>
           <div style={{ ...cardBase, background: C.surface, padding: 12, marginBottom: 6 }}>
             <i style={{ position: 'absolute', inset: '0 0 auto 0', height: 3, background: G.heroRibbon }} />
@@ -290,17 +292,22 @@ export function Disaster() {
           {mob && <div ref={listAnchorRef} aria-hidden style={{ height: 0 }} />}
           <div style={{
             display: 'flex', flexDirection: 'column', gap: 10,
-            // Mobile: the search + filter row stays under the header while the list
-            // scrolls, so narrowing a long list never means scrolling back to the top.
-            // `top` is the mobile header's height (9px padding + 42px controls + 1px
-            // border) — keep the two in step if that bar's padding changes.
-            ...(mob ? {
-              position: 'sticky' as const, top: MOBILE_HEADER_H, zIndex: 20,
-              // Negative margins let the bar's background span the full width of the
-              // screen; main's mobile padding is 14px.
-              margin: '-16px -14px 0', padding: '10px 14px',
-              background: C.canvas, borderBottom: `1px solid ${C.borderFaint}`,
-            } : {}),
+            // The search + filter block stays under the header while the list scrolls, so
+            // narrowing a long list never means scrolling back to the top. `top` is the
+            // header's height, taken from theme.ts rather than written here twice.
+            //
+            // zIndex 20 sits under the header (30) and over the cards, so a card scrolls
+            // behind this bar instead of through it.
+            position: 'sticky', top: mob ? MOBILE_HEADER_H : DESKTOP_HEADER_H, zIndex: 20,
+            background: C.canvas,
+            borderBottom: `1px solid ${C.borderFaint}`,
+            // The bar has to be opaque across the full width it covers, and slightly wider
+            // than the cards so their borders do not peek out at the edges while scrolling.
+            // Mobile bleeds to the screen edges (main padding 14px); desktop stays inside
+            // its grid column, because -28px there would run under the left rail.
+            ...(mob
+              ? { margin: '-16px -14px 0', padding: '10px 14px' }
+              : { margin: '0 -4px', padding: '2px 4px 12px' }),
           }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: mob ? 'nowrap' : 'wrap' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 240px', minWidth: 0, background: C.surface, border: `1px solid ${C.borderSoft}`, borderRadius: 9, padding: '0 12px', minHeight: 44 }}>

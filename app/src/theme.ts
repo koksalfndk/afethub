@@ -101,5 +101,7 @@ export const STATUS: Record<StatusKey, StatusToken> = {
 // coordinator rail, the mobile sticky filter row) cannot drift from it. Both are
 // deterministic from the header's own padding and control heights — see Header.tsx.
 // Mobile: 9px padding + 42px controls + 9px padding + 1px border.
+// Desktop: 11px padding + 42px logo + 11px padding + 1px border. Both are driven by the
+// LOGO height, so these change whenever the logo does — measured, not assumed.
 export const MOBILE_HEADER_H = 61;
-export const DESKTOP_HEADER_H = 63;
+export const DESKTOP_HEADER_H = 65;

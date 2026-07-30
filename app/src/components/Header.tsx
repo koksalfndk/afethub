@@ -215,14 +215,18 @@ export function Header() {
   );
 
   return (
-    // Sticky on mobile: a phone user scrolling a long needs list should not have to
-    // scroll back up to reach search, the menu or their account. Desktop keeps the
-    // header in flow — there the sidebar is the persistent frame.
+    // Sticky in both layouts: nobody scrolling a long needs list should have to go back
+    // to the top to reach search, navigation or their account.
+    // Sticky still establishes a containing block, so the absolutely positioned profile
+    // dropdown keeps working (it used `position: relative` for that before).
     // NOTE: this only works because the shell no longer sets `overflow: hidden`
     // (see App.tsx) — an overflow ancestor silently disables sticky.
+    // Anything that has to sit directly under the bar offsets itself by
+    // MOBILE_HEADER_H / DESKTOP_HEADER_H from theme.ts — keep those in step with the
+    // padding and control heights below.
     <header style={{
       background: G.headerBar, borderBottom: `1px solid ${C.border}`,
-      position: mob ? 'sticky' : 'relative', top: mob ? 0 : undefined, zIndex: 30,
+      position: 'sticky', top: 0, zIndex: 30,
     }}>
       {mob ? (
         <div ref={profRef} style={{ display: 'grid', gridTemplateColumns: '42px 1fr 42px', alignItems: 'center', gap: 8, padding: '9px 12px' }}>

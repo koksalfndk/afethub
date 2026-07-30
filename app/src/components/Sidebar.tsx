@@ -1,6 +1,6 @@
 import { useApp, type Route } from '../store';
 import { tr } from '../i18n/strings';
-import { C } from '../theme';
+import { C, DESKTOP_HEADER_H } from '../theme';
 
 // Coordinator operations sidebar — desktop only (see App: shown when coord && !mob).
 export function Sidebar() {
@@ -42,9 +42,11 @@ export function Sidebar() {
       minHeight: 'calc(100vh - 63px)',
     }}>
       <div style={{
-        position: 'sticky', top: 0, padding: '18px 12px 20px',
+        // Offset by the header height: the header is sticky now, so `top: 0` would slide
+        // the menu underneath it.
+        position: 'sticky', top: DESKTOP_HEADER_H, padding: '18px 12px 20px',
         display: 'flex', flexDirection: 'column', gap: 14,
-        maxHeight: '100vh', overflowY: 'auto',
+        maxHeight: `calc(100vh - ${DESKTOP_HEADER_H}px)`, overflowY: 'auto',
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: C.muted3, padding: '6px 10px' }}>{tr.nav.operations}</span>
