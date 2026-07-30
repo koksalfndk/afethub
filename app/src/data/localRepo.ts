@@ -160,6 +160,12 @@ export class LocalRepo implements Repo {
     return this.listSlides();
   }
 
+  async reorderSlides(orderedIds: string[]): Promise<BannerSlide[]> {
+    const pos = new Map(orderedIds.map((id, i) => [id, i + 1] as const));
+    slides = slides.map((sl) => ({ ...sl, sortOrder: pos.get(sl.id) ?? sl.sortOrder }));
+    return this.listSlides();
+  }
+
   async deleteSlide(id: string): Promise<BannerSlide[]> {
     slides = slides.filter((sl) => sl.id !== id);
     return this.listSlides();
@@ -387,6 +393,16 @@ export class LocalRepo implements Repo {
     const code = genNrq(Math.random());
     addLog(activeDisasterId(), { user: contact.name || 'Misafir', action: 'İhtiyaç talebi gönderildi', detail: `${p.title || 'Başlıksız ihtiyaç'} · ${code}`, oldValue: '—', newValue: 'Doğrulama bekliyor', color: '#E6A700' });
     return { snapshot: snap(), code };
+  }
+
+  // No auth in local mode, so "mine" cannot be resolved. The seed submissions are
+  // returned so the screen can be reviewed; the UI labels them as demo rather than
+  // implying they belong to the visitor.
+  async listMySubmissions(): Promise<Submission[]> {
+    return subs
+      .slice()
+      .sort((x, y) => agoMinutes(x.submitted) - agoMinutes(y.submitted))
+      .map((s) => ({ ...s }));
   }
 
   async trackSubmission(code: string, _email: string): Promise<Submission | null> {

@@ -56,6 +56,10 @@ export function CoordSlider() {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  // Drag state for reordering. Keyboard arrows do the same thing — a drag-only control
+  // is unusable without a mouse (rules/04 §Accessibility).
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   // Upload path: decode → cap at 1600 px → re-encode WebP → put in the bucket, and
@@ -112,6 +116,30 @@ export function CoordSlider() {
   };
 
   const card = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12 } as const;
+
+  const ordered = a.slides.slice().sort((x, y) => x.sortOrder - y.sortOrder);
+
+  // Reordering always writes 1..n for the whole list, so the number in the editor is
+  // the position in the list by construction.
+  const commitOrder = (ids: string[]) => { void a.reorderSlides(ids); };
+  const moveBy = (id: string, delta: number) => {
+    const ids = ordered.map((x) => x.id);
+    const from = ids.indexOf(id);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= ids.length) return;
+    ids.splice(to, 0, ids.splice(from, 1)[0]);
+    commitOrder(ids);
+  };
+  const dropOn = (targetId: string) => {
+    if (!dragId || dragId === targetId) { setDragId(null); setOverId(null); return; }
+    const ids = ordered.map((x) => x.id);
+    const from = ids.indexOf(dragId);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0) { setDragId(null); setOverId(null); return; }
+    ids.splice(to, 0, ids.splice(from, 1)[0]);
+    setDragId(null); setOverId(null);
+    commitOrder(ids);
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -235,13 +263,35 @@ export function CoordSlider() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {a.slides.slice().sort((x, y) => x.sortOrder - y.sortOrder).map((s) => (
-            <article key={s.id} style={{
+          <div style={{ fontSize: 12.5, color: C.muted2, paddingBottom: 2 }}>{tr.slider.dragHint}</div>
+          {ordered.map((s, idx) => (
+            <article key={s.id}
+              draggable
+              onDragStart={() => setDragId(s.id)}
+              onDragEnd={() => { setDragId(null); setOverId(null); }}
+              onDragOver={(e) => { e.preventDefault(); if (overId !== s.id) setOverId(s.id); }}
+              onDrop={(e) => { e.preventDefault(); dropOn(s.id); }}
+              style={{
               ...card, borderLeft: `3px solid ${s.active ? s.tint : C.muted3}`,
+              borderTop: overId === s.id && dragId && dragId !== s.id ? `2px solid ${C.navy}` : card.border,
               padding: 13, display: 'grid',
-              gridTemplateColumns: mob ? '1fr' : '92px minmax(0,1fr) auto', gap: 13, alignItems: 'center',
-              opacity: s.active ? 1 : .72,
+              gridTemplateColumns: mob ? '1fr' : '26px 92px minmax(0,1fr) auto', gap: 13, alignItems: 'center',
+              opacity: dragId === s.id ? .45 : s.active ? 1 : .72,
+              cursor: 'grab',
             }}>
+              {!mob && (
+                <span aria-hidden="true" title={tr.slider.dragHandle} style={{
+                  display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center',
+                  color: C.muted3, cursor: 'grab',
+                }}>
+                  {[0, 1, 2].map((r) => (
+                    <span key={r} style={{ display: 'flex', gap: 3 }}>
+                      <i style={{ width: 3, height: 3, borderRadius: '50%', background: C.muted3, display: 'block' }} />
+                      <i style={{ width: 3, height: 3, borderRadius: '50%', background: C.muted3, display: 'block' }} />
+                    </span>
+                  ))}
+                </span>
+              )}
               {/* Thumbnail doubles as the "which image is this" answer. */}
               <span style={{
                 width: mob ? '100%' : 92, height: 56, borderRadius: 9, overflow: 'hidden',
@@ -268,7 +318,21 @@ export function CoordSlider() {
                   {s.ctaLabel} → {tr.slider.actionLabels[s.action]}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {/* Keyboard path for the same reorder. */}
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <button onClick={() => moveBy(s.id, -1)} disabled={idx === 0} aria-label={tr.slider.moveUp} title={tr.slider.moveUp} style={{
+                    width: 30, height: 20, borderRadius: 6, border: `1px solid ${C.borderSoft}`, background: C.surface,
+                    color: idx === 0 ? C.muted3 : C.navy, cursor: idx === 0 ? 'default' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+                  }}><span style={{ display: 'block', transform: 'rotate(180deg)' }}><Ico n="down" size={13} /></span></button>
+                  <button onClick={() => moveBy(s.id, 1)} disabled={idx === ordered.length - 1} aria-label={tr.slider.moveDown} title={tr.slider.moveDown} style={{
+                    width: 30, height: 20, borderRadius: 6, border: `1px solid ${C.borderSoft}`, background: C.surface,
+                    color: idx === ordered.length - 1 ? C.muted3 : C.navy,
+                    cursor: idx === ordered.length - 1 ? 'default' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+                  }}><Ico n="down" size={13} /></button>
+                </span>
                 <button onClick={() => openEdit(s)} className="hv-navy" style={{
                   background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 9,
                   height: 40, padding: '0 13px', fontSize: 13, fontWeight: 600, cursor: 'pointer',

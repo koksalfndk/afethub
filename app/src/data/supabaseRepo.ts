@@ -218,6 +218,17 @@ export class SupabaseRepo implements Repo {
     return this.listSlides();
   }
 
+  async reorderSlides(orderedIds: string[]): Promise<BannerSlide[]> {
+    // One update per row rather than an upsert: upsert would need every NOT NULL column
+    // and could overwrite a field another coordinator just changed.
+    for (let i = 0; i < orderedIds.length; i++) {
+      const { error } = await this.db.from('banner_slides')
+        .update({ sort_order: i + 1 }).eq('id', orderedIds[i]);
+      if (error) throw error;
+    }
+    return this.listSlides();
+  }
+
   async deleteSlide(id: string): Promise<BannerSlide[]> {
     const { error } = await this.db.from('banner_slides').delete().eq('id', id);
     if (error) throw error;
@@ -396,6 +407,22 @@ export class SupabaseRepo implements Repo {
       name: contact.name, email: contact.email, phone: contact.phone, city: contact.city,
     });
     return { snapshot: snap0, code };
+  }
+
+  // Calls my_submissions(), which resolves the caller's e-mail from the session inside
+  // the database. Nothing about "whose submissions" is decided in the browser.
+  async listMySubmissions(): Promise<Submission[]> {
+    const { data, error } = await this.db.rpc('my_submissions');
+    if (error) throw error;
+    return (data ?? []).map((r: Record<string, unknown>) => ({
+      id: String(r.code), code: String(r.code), contributor: '', city: '',
+      needId: String(r.need_id ?? ''), qty: Number(r.qty ?? 0), unit: String(r.unit ?? ''),
+      loc: String(r.location_name ?? ''), submitted: r.submitted_at ? rel(String(r.submitted_at)) : '',
+      status: r.status as StatusKey,
+      verifiedQty: r.verified_qty == null ? null : Number(r.verified_qty),
+      note: String(r.note ?? ''), photoUrl: r.photo_url ? String(r.photo_url) : null,
+      needName: String(r.need_name ?? ''),
+    }));
   }
 
   async trackSubmission(code: string, email: string): Promise<Submission | null> {

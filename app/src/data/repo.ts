@@ -69,6 +69,10 @@ export interface Repo {
   listSlides(): Promise<BannerSlide[]>;
   saveSlide(id: string | null, input: BannerSlideInput): Promise<BannerSlide[]>;
   deleteSlide(id: string): Promise<BannerSlide[]>;
+  // Persist a new order. Takes the ids in their new sequence and assigns 1..n, so the
+  // number shown in the editor is always the position in the list — there is no way for
+  // the two to disagree.
+  reorderSlides(orderedIds: string[]): Promise<BannerSlide[]>;
   listOrganizations(): Promise<Organization[]>;
   submitOrganization(input: OrganizationInput): Promise<Organization>;
   submitOrgEditRequest(input: OrgEditRequestInput): Promise<void>;
@@ -85,6 +89,10 @@ export interface Repo {
   togglePause(needId: string): Promise<Snapshot>;
   submitNeedRequest(p: NeedPayload, contact: { name: string; email: string; phone: string; city: string }): Promise<{ snapshot: Snapshot; code: string }>;
   trackSubmission(code: string, email: string): Promise<Submission | null>;
+  // Every submission made with the signed-in account's e-mail. Takes no argument on
+  // purpose: the address comes from the session server-side, so one account can never
+  // list another's submissions by guessing an e-mail.
+  listMySubmissions(): Promise<Submission[]>;
 }
 
 // Shared, pure domain helpers — the invariant lives here and in schema.sql.

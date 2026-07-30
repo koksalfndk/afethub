@@ -107,6 +107,10 @@ export interface AppApi {
   reportStage: 'form' | 'done'; lastCode: string; formError: string; copied: boolean;
   modal: ModalState | null; toast: string | null;
   trackedSub: Submission | null; trackError: string;
+  // "Gönderilerim" on /takip: the signed-in account's own submissions.
+  mySubs: Submission[]; mySubsLoading: boolean; mySubsError: string;
+  reloadMySubs: () => void;
+  openTrackedSub: (s: Submission) => void;
   wizardMode: WizardMode | null;
   disasterFormOpen: boolean;
   // "Yardım Bildir" opens over whatever page the visitor is on. It used to navigate to
@@ -137,6 +141,7 @@ export interface AppApi {
   showToast: (m: string) => void;
   saveSlide: (id: string | null, input: BannerSlideInput) => Promise<boolean>;
   deleteSlide: (id: string) => Promise<boolean>;
+  reorderSlides: (orderedIds: string[]) => Promise<boolean>;
   submitOrganization: (input: OrganizationInput) => Promise<boolean>;
   submitOrgEditRequest: (input: OrgEditRequestInput) => Promise<boolean>;
   findSimilarReports: (input: DisasterReportInput) => Promise<DisasterReport[]>;
@@ -190,6 +195,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [modal, setModal] = useState<ModalState | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [trackedSub, setTrackedSub] = useState<Submission | null>(null);
+  const [mySubs, setMySubs] = useState<Submission[]>([]);
+  const [mySubsLoading, setMySubsLoading] = useState(false);
+  const [mySubsError, setMySubsError] = useState('');
   const [trackError, setTrackError] = useState('');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -241,6 +249,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .then(setSlides)
       .catch(() => fallbackToLocal().listSlides().then(setSlides).catch(() => undefined));
   }, []);
+
+  // Own submissions are loaded when a session exists and cleared when it goes away, so
+  // one account's list can never be left on screen for the next.
+  const loadMySubs = async () => {
+    if (!auth.user) { setMySubs([]); setMySubsError(''); return; }
+    setMySubsLoading(true); setMySubsError('');
+    try {
+      setMySubs(await withTimeout(repo.listMySubmissions()));
+    } catch {
+      setMySubsError(tr.track.mineFailed);
+    } finally {
+      setMySubsLoading(false);
+    }
+  };
+  useEffect(() => { void loadMySubs(); /* eslint-disable-next-line */ }, [auth.user?.id]);
 
   // Browser back/forward: re-parse the path into state.
   useEffect(() => {
@@ -296,6 +319,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     catFilter, locFilter, onlyCritical, updatedToday,
     form, track, reportStage, lastCode, formError, copied,
     modal, toast, trackedSub, trackError, wizardMode, disasterFormOpen, deliveryOpen,
+    mySubs, mySubsLoading, mySubsError,
 
     go: (r, extra) => { setRoute(r); if (extra?.tab) setTab(extra.tab); },
     openDisaster: (slug, t) => { setCurrentSlug(slug); setRoute('disaster'); setTab(t ?? 'needs'); if (slug !== currentSlug) loadSnapshot(slug); },
@@ -329,9 +353,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const qty = parseInt(form.qty, 10);
       if (!qty || qty < 1) return setFormError(tr.report.errQty);
       const loggedIn = auth.enabled && !!auth.user;
-      // Signed-in users are already identifiable — contact fields come from their profile.
-      const name = loggedIn ? (auth.profile?.fullName || 'Gönüllü') : form.name;
-      const email = loggedIn ? (auth.user?.email || '') : form.email;
+      // A signed-in reporter may record a delivery on someone else's behalf. What they
+      // type wins; the account is only the fallback. Storing the giver's own e-mail is
+      // what makes the record appear in THEIR "Gönderilerim" — and, if they have no
+      // account yet, what makes it appear the day they open one with that address
+      // (my_submissions() matches on contributor_email).
+      const name = form.name.trim() || (loggedIn ? (auth.profile?.fullName || 'Gönüllü') : '');
+      const email = form.email.trim() || (loggedIn ? (auth.user?.email || '') : '');
       if (!loggedIn && (!form.name || !form.email || !form.phone || !form.city)) return setFormError(tr.report.errContact);
       if (!form.confirm) return setFormError(tr.report.errConfirm);
       setFormError('');
@@ -390,6 +418,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
     },
 
+    reloadMySubs: () => { void loadMySubs(); },
+    // Selecting a row shows it in the same detail panel the code lookup fills, so there
+    // is one place where a submission is rendered.
+    openTrackedSub: (sub) => { setTrackedSub(sub); setTrackError(''); },
     doTrack: () => {
       repo.trackSubmission(track.code, track.email).then((sub) => {
         if (!sub) { setTrackedSub(null); setTrackError(tr.track.notFound); }
@@ -436,6 +468,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return true;
       } catch { showToast(tr.slider.saveFailed); return false; }
     },
+    reorderSlides: async (orderedIds) => {
+      try {
+        setSlides(await withTimeout(repo.reorderSlides(orderedIds)));
+        showToast(tr.slider.reordered);
+        return true;
+      } catch { showToast(tr.slider.saveFailed); return false; }
+    },
     deleteSlide: async (id) => {
       try {
         setSlides(await withTimeout(repo.deleteSlide(id)));
@@ -464,7 +503,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Every piece of state exposed on `api` must be listed here, or consumers keep the
   // previous value: `deliveryOpen` and `slides` were missing, so the delivery overlay
   // never appeared and the slide list could go stale after a save.
-  }), [snap, loadError, overview, orgs, slides, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
+  }), [snap, loadError, overview, orgs, slides, mySubs, mySubsLoading, mySubsError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

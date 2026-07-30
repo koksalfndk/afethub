@@ -109,6 +109,14 @@ function WizardInner({ mode }: { mode: WizardMode }) {
           <div>
             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: C.navy }}>{title}</h2>
             <p style={{ margin: '4px 0 0', fontSize: 13.5, color: C.muted }}>{intro}</p>
+            {/* A coordinator/admin is the reviewer, so their own need is published
+                straight away rather than queued. Say so, don't let it be a surprise. */}
+            {mode === 'coord' && (
+              <p style={{
+                margin: '9px 0 0', fontSize: 12.5, fontWeight: 600, color: C.successText,
+                background: '#EAF7EF', border: '1px solid #C9E9D6', borderRadius: 9, padding: '8px 11px',
+              }}>{tr.wizard.coordDirectNotice}</p>
+            )}
           </div>
           <button onClick={close} aria-label={tr.wizard.close} style={xBtn}>✕</button>
         </div>

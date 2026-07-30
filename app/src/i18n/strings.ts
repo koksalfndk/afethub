@@ -476,6 +476,16 @@ export const tr = {
   },
 
   report: {
+    // A signed-in coordinator often records a delivery on someone else's behalf, so the
+    // giver's own contact details are asked separately from the account's.
+    onBehalfTitle: 'Yardımı yapan kişi',
+    onBehalfHint: 'Teslimatı başka biri adına kaydediyorsanız onun bilgilerini girin. Boş bırakırsanız kayıt sizin hesabınıza işlenir.',
+    onBehalfMatch: 'Girdiğiniz e-posta bir hesapla eşleşiyorsa teslimat o kişinin "Gönderilerim" listesinde görünür. Hesabı yoksa, ileride aynı e-posta ile hesap açtığında kayıt otomatik olarak eşleşir.',
+    onBehalfName: 'Yardımı yapan kişinin adı',
+    onBehalfEmail: 'Yardımı yapan kişinin e-postası',
+    onBehalfPhone: 'Yardımı yapan kişinin telefonu',
+    onBehalfSelf: 'Kendi hesabıma kaydet',
+    onBehalfOther: 'Başka biri adına kaydet',
     // Step-by-step delivery report.
     stepOf: (n: number, total: number) => `Adım ${n} / ${total}`,
     stepNames: { delivery: 'Teslimat', note: 'Not ve fotoğraf', contact: 'İletişim' },
@@ -526,6 +536,20 @@ export const tr = {
   },
 
   track: {
+    // "Gönderilerim" — the signed-in account's own submissions.
+    mineTitle: 'Gönderilerim',
+    mineIntro: 'Bu hesabın e-posta adresiyle yaptığınız teslimat bildirimleri. Bir satıra dokunarak durumunu inceleyebilirsiniz.',
+    mineEmpty: 'Bu hesapla henüz teslimat bildirimi yapılmamış.',
+    mineEmptyBody: 'Bir afet sayfasındaki ihtiyaç kartından "Bunu teslim ettim" ile bildirim yapabilirsiniz.',
+    mineLoading: 'Gönderileriniz yükleniyor…',
+    mineFailed: 'Gönderileriniz yüklenemedi. Yeniden denemeyi seçebilirsiniz.',
+    mineRetry: 'Yeniden dene',
+    mineCount: (n: number) => `${n} gönderi`,
+    mineOtherEmail: 'Farklı bir e-posta ile yaptığınız bildirimler bu listede görünmez; onlar için aşağıdaki takip kodu formunu kullanın.',
+    mineDemoNote: 'Bu ortamda veritabanı bağlı değil: aşağıdaki kayıtlar demo veridir, hesabınıza ait değildir.',
+    mineDetail: 'Detayı gör',
+    mineSelected: 'Seçili',
+    otherTitle: 'Takip kodu ile sorgula',
     title: 'Gönderi takibi',
     intro: 'Onay e-postandaki takip kodunu gir.',
     code: 'Takip kodu',
@@ -557,6 +581,9 @@ export const tr = {
   wizard: {
     // Step 1 (coordinator only): which operation is this need for. Without it the data
     // layer had to guess, and it guessed "the first active disaster".
+    // A coordinator/admin filing a need does not queue it for review — they ARE the
+    // reviewer, so it is published immediately.
+    coordDirectNotice: 'Koordinatör olarak giriş yaptığınız için bu ihtiyaç incelemeye düşmeden doğrudan yayınlanır.',
     chooseDisaster: 'Bu ihtiyaç hangi afet için?',
     disasterHint: 'İhtiyaç, seçtiğiniz operasyonun herkese açık sayfasında yayınlanır.',
     disasterFor: (name: string) => `Operasyon: ${name}`,
@@ -883,6 +910,11 @@ export const tr = {
     save: 'Kaydet',
     cancel: 'Vazgeç',
     saved: 'Slayt kaydedildi ✓',
+    reordered: 'Sıra güncellendi ✓',
+    dragHint: 'Sırayı değiştirmek için kartları sürükleyin ya da ok tuşlarını kullanın.',
+    dragHandle: 'Sırala',
+    moveUp: 'Yukarı taşı',
+    moveDown: 'Aşağı taşı',
     deleted: 'Slayt kaldırıldı',
     saveFailed: 'Slayt kaydedilemedi. Bilgileri kontrol edip tekrar deneyin.',
     errTitle: 'Başlık gerekli.',

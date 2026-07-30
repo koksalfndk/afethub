@@ -2,12 +2,17 @@ import { useApp } from '../store';
 import { tr, statusLabel } from '../i18n/strings';
 import { C, STATUS } from '../theme';
 import { cols } from '../select';
-import { Field, inputStyle } from '../ui';
+import { Field, inputStyle, eyebrow, Ico } from '../ui';
+import { useAuth } from '../auth';
 
 export function Track() {
   const a = useApp();
+  const auth = useAuth();
+  const loggedIn = auth.enabled && !!auth.user;
   const L = cols(a.device === 'mobile');
   const sub = a.trackedSub;
+  // A submission opened from the list may belong to another operation than the loaded
+  // snapshot, so its need name comes from the record itself when the lookup misses.
   const need = sub && a.snap ? a.snap.needs.find((n) => n.id === sub.needId) : null;
 
   let timeline: { label: string; time: string; dot: string; ring: string; fg: string }[] = [];
@@ -29,7 +34,77 @@ export function Track() {
   return (
     <div style={{ maxWidth: 620, margin: '0 auto' }}>
       <h1 style={{ fontSize: L.h2, fontWeight: 700, letterSpacing: '-.02em', margin: '0 0 4px' }}>{tr.track.title}</h1>
-      <p style={{ fontSize: 14.5, color: C.muted, margin: '0 0 18px' }}>{tr.track.intro}</p>
+      <p style={{ fontSize: 14.5, color: C.muted, margin: '0 0 18px' }}>{loggedIn ? tr.track.mineIntro : tr.track.intro}</p>
+
+      {/* Signed in: the account's own submissions, no code needed. The code form stays
+          below it — a delivery reported with a different address is not in this list,
+          and that is the only way to reach it. */}
+      {loggedIn && (
+        <section style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, marginBottom: 14, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '13px 16px', borderBottom: `1px solid ${C.borderFaint}` }}>
+            <h2 style={{ fontSize: 15.5, fontWeight: 700, margin: 0, color: C.navy }}>{tr.track.mineTitle}</h2>
+            {a.mySubs.length > 0 && (
+              <span className="tnum" style={{ fontSize: 12.5, color: C.muted2 }}>{tr.track.mineCount(a.mySubs.length)}</span>
+            )}
+          </div>
+
+          {a.backend === 'local' && (
+            <div style={{ background: '#FFFBEF', borderBottom: '1px solid #F2DFA8', padding: '9px 16px', fontSize: 12.5, fontWeight: 600, color: C.warningText }}>
+              {tr.track.mineDemoNote}
+            </div>
+          )}
+
+          {a.mySubsLoading ? (
+            <div style={{ padding: '18px 16px', fontSize: 13.5, color: C.muted }}>{tr.track.mineLoading}</div>
+          ) : a.mySubsError ? (
+            <div style={{ padding: '16px' }}>
+              <div role="alert" style={{ fontSize: 13.5, color: C.errorText, fontWeight: 600 }}>{a.mySubsError}</div>
+              <button onClick={a.reloadMySubs} className="hv-navy" style={{ marginTop: 10, background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 9, height: 42, padding: '0 14px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>{tr.track.mineRetry}</button>
+            </div>
+          ) : a.mySubs.length === 0 ? (
+            <div style={{ padding: '18px 16px' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.heading2 }}>{tr.track.mineEmpty}</div>
+              <div style={{ fontSize: 13, color: C.muted, marginTop: 3 }}>{tr.track.mineEmptyBody}</div>
+            </div>
+          ) : (
+            <>
+              {a.mySubs.map((row) => {
+                const t = STATUS[row.status] ?? STATUS.Verified;
+                const selected = sub?.code === row.code;
+                return (
+                  <button key={row.code} onClick={() => a.openTrackedSub(row)} aria-pressed={selected} className="hv-navy" style={{
+                    display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto auto', gap: 10, alignItems: 'center',
+                    width: '100%', textAlign: 'left', cursor: 'pointer',
+                    background: selected ? C.chipNavyBg : 'none', border: 0,
+                    borderTop: `1px solid ${C.borderFaint}`,
+                    borderLeft: `3px solid ${selected ? C.navy : 'transparent'}`,
+                    padding: '12px 16px', minHeight: 60,
+                  }}>
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: C.navy }}>
+                        {row.qty} {row.unit} · {row.needName || '—'}
+                      </span>
+                      <span className="tnum" style={{ display: 'block', fontSize: 12, color: C.muted2, marginTop: 1 }}>
+                        {row.code} · {row.loc} · {row.submitted}
+                      </span>
+                    </span>
+                    {/* Status in words as well as colour (rules/04 §Accessibility). */}
+                    <span style={{ fontSize: 12, fontWeight: 700, color: t.fg, background: t.bg, border: `1px solid ${t.border}`, borderRadius: 20, padding: '4px 9px', whiteSpace: 'nowrap' }}>
+                      {statusLabel[row.status]}
+                    </span>
+                    <Ico n="chev" size={16} color={C.muted3} />
+                  </button>
+                );
+              })}
+              <div style={{ padding: '11px 16px', borderTop: `1px solid ${C.borderFaint}`, fontSize: 12, color: C.muted2 }}>
+                {tr.track.mineOtherEmail}
+              </div>
+            </>
+          )}
+        </section>
+      )}
+
+      {loggedIn && <div style={{ ...eyebrow, marginBottom: 8 }}>{tr.track.otherTitle}</div>}
       <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <Field label={tr.track.code}><input value={a.track.code} onChange={(e) => a.setTrack('code', e.target.value)} placeholder="AFT-4821" style={{ ...inputStyle, letterSpacing: '.05em' }} /></Field>
         <Field label={tr.track.email}><input value={a.track.email} onChange={(e) => a.setTrack('email', e.target.value)} type="email" placeholder="siz@example.com" style={inputStyle} /></Field>

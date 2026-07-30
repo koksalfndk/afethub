@@ -4,6 +4,8 @@ import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Ico } from '../ui';
 import type { SlideAction } from '../types';
+import { supabase } from '../data/supabaseClient';
+import { slideImageSrc } from '../imageUpload';
 
 // Informative banner slider.
 //
@@ -52,7 +54,10 @@ export function HeroBanner() {
   };
   const slides: Slide[] = managed.length > 0
     ? managed.map((sl) => ({
-        key: sl.id, image: sl.image, tint: sl.tint,
+        // An uploaded slide is stored as 'upload:<object>'; it has to be resolved to a
+        // URL here too. Only the admin thumbnail did it, so an uploaded image saved fine
+        // and then silently failed to render on the home page.
+        key: sl.id, image: slideImageSrc(sl.image, supabase), tint: sl.tint,
         title: sl.title, body: sl.body, cta: sl.ctaLabel, onClick: act(sl.action),
       }))
     : [

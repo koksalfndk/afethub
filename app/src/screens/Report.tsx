@@ -77,9 +77,10 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
   // at a drop-off point, one-handed, often on a weak connection (rules/01, rules/04
   // §Forms — progressive disclosure). Nothing is submitted until the last step, and
   // moving between steps never clears a field.
-  const stepKeys: Array<'delivery' | 'note' | 'contact'> = loggedIn
-    ? ['delivery', 'note']
-    : ['delivery', 'note', 'contact'];
+  // Signed in, the contact step is still offered: a coordinator frequently records a
+  // delivery someone else brought, and that person's own details are what matter for
+  // the audit trail and for the record showing up in THEIR "Gönderilerim".
+  const stepKeys: Array<'delivery' | 'note' | 'contact'> = ['delivery', 'note', 'contact'];
   const stepKey = stepKeys[Math.min(step, stepKeys.length - 1)];
   const lastStep = step >= stepKeys.length - 1;
 
@@ -89,7 +90,9 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
       if (!(parseInt(f.qty, 10) > 0)) return tr.report.errQty;
       if (!f.loc) return tr.report.errLoc;
     }
-    if (which === 'contact' && (!f.name || !f.email || !phoneRest || !f.city)) return tr.report.errContact;
+    // Signed in: the contact step is optional (falls back to the account). A guest must
+    // fill it, because there would otherwise be no way to reach them about the delivery.
+    if (which === 'contact' && !loggedIn && (!f.name || !f.email || !phoneRest || !f.city)) return tr.report.errContact;
     return '';
   };
 
@@ -175,16 +178,28 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
 
         {stepKey === 'contact' && (
           <div>
-            <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 10 }}>{tr.report.contactWhy}</div>
+            {loggedIn ? (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 700, color: C.navy }}>{tr.report.onBehalfTitle}</div>
+                <div style={{ fontSize: 12.5, color: C.muted, marginTop: 3 }}>{tr.report.onBehalfHint}</div>
+                <div style={{
+                  marginTop: 9, background: C.canvas, border: `1px solid ${C.border}`,
+                  borderLeft: `3px solid ${C.info}`, borderRadius: 9, padding: '9px 11px',
+                  fontSize: 12.5, color: C.heading2,
+                }}>{tr.report.onBehalfMatch}</div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 10 }}>{tr.report.contactWhy}</div>
+            )}
             <div style={{ display: 'grid', gap: 12, gridTemplateColumns: L.form, alignItems: 'start' }}>
-              <Field label={tr.report.fields.fullName}>
+              <Field label={loggedIn ? tr.report.onBehalfName : tr.report.fields.fullName}>
                 <input value={f.name} onChange={(e) => a.setForm('name', e.target.value)} name="contact-name" autoComplete="name" placeholder="Ayşe Yılmaz" style={inputStyle} />
               </Field>
-              <Field label={tr.report.fields.email}>
+              <Field label={loggedIn ? tr.report.onBehalfEmail : tr.report.fields.email}>
                 <input value={f.email} onChange={(e) => a.setForm('email', e.target.value)} name="contact-email" autoComplete="email" type="email" placeholder="siz@example.com" style={inputStyle} />
               </Field>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: C.heading2 }}>{tr.report.fields.phone}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: C.heading2 }}>{loggedIn ? tr.report.onBehalfPhone : tr.report.fields.phone}</span>
                 {/* Dial code as a prefix so the number field holds digits only. */}
                 <div style={{ display: 'grid', gridTemplateColumns: '104px minmax(0,1fr)', gap: 8 }}>
                   <select value={dial} onChange={(e) => setDial(e.target.value)} aria-label={tr.account.fPhoneCode} className="tnum" style={{ ...inputStyle, padding: '11px 8px' }}>
