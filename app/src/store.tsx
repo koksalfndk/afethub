@@ -1,12 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { repo, fallbackToLocal, type Snapshot } from './data';
-import type { Submission, VerifyKind } from './types';
+import { repo, fallbackToLocal, type Snapshot, type Overview } from './data';
+import type { Submission, VerifyKind, Organization, OrganizationInput } from './types';
 import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
 import { useAuth } from './auth';
 
 export type Route =
-  | 'home' | 'disaster' | 'report' | 'track' | 'needReq'
+  | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs'
   | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog'
   | 'components' | 'system';
 export type Tab = 'overview' | 'needs' | 'locations' | 'announcements' | 'activity';
@@ -28,6 +28,7 @@ function toPath(route: Route, tab: Tab, slug: string): string {
     case 'report': return '/bildir';
     case 'track': return '/takip';
     case 'needReq': return '/talep';
+    case 'orgs': return '/kurumlar';
     case 'coordHome': return '/koordinasyon';
     case 'coordQueue': return '/koordinasyon/kuyruk';
     case 'coordNeeds': return '/koordinasyon/ihtiyaclar';
@@ -49,6 +50,7 @@ function fromPath(pathname: string): ParsedPath {
     case 'bildir': return { route: 'report' };
     case 'takip': return { route: 'track' };
     case 'talep': return { route: 'needReq' };
+    case 'kurumlar': return { route: 'orgs' };
     case 'koordinasyon': {
       const s = parts[1];
       const r: Route = s === 'kuyruk' ? 'coordQueue' : s === 'ihtiyaclar' ? 'coordNeeds' : s === 'kayit' ? 'coordLog' : 'coordHome';
@@ -61,7 +63,8 @@ function fromPath(pathname: string): ParsedPath {
 }
 
 const emptyForm = {
-  needId: 'n1', qty: '', unit: 'kutu', loc: 'Seydikemer Kapalı Pazar Yeri', date: '2026-07-29',
+  // loc/needId are replaced by prefillReport() as soon as a need is picked.
+  needId: '', qty: '', unit: 'kutu', loc: '', date: new Date().toISOString().slice(0, 10),
   eta: '16:30', notes: '', name: '', email: '', phone: '', city: '', confirm: false, photoUrl: '',
 };
 
@@ -75,6 +78,8 @@ export type WizardMode = 'coord' | 'public';
 
 export interface AppApi {
   snap: Snapshot | null;
+  overview: Overview | null;      // national dashboard (home)
+  orgs: Organization[];           // organizations directory
   backend: 'local' | 'supabase';
   route: Route; tab: Tab; device: Device; role: Role; currentSlug: string;
   frame: boolean; showToolbar: boolean;
@@ -107,6 +112,7 @@ export interface AppApi {
   setModalQty: (v: string) => void; setModalReason: (v: string) => void; confirmModal: () => void;
   doTrack: () => void; fillDemoCode: () => void;
   showToast: (m: string) => void;
+  submitOrganization: (input: OrganizationInput) => Promise<boolean>;
 }
 
 const Ctx = createContext<AppApi | null>(null);
@@ -119,6 +125,8 @@ export const useApp = () => {
 export function AppProvider({ children }: { children: ReactNode }) {
   const initial = fromPath(typeof window !== 'undefined' ? window.location.pathname : '/');
   const [snap, setSnap] = useState<Snapshot | null>(null);
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [orgs, setOrgs] = useState<Organization[]>([]);
   const [route, setRoute] = useState<Route>(initial.route);
   const [tab, setTab] = useState<Tab>(initial.tab ?? 'needs');
   const auth = useAuth();
@@ -175,6 +183,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => { loadSnapshot(currentSlug); /* initial */ // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // National dashboard and the organizations directory load independently of the
+  // per-disaster snapshot, so a slow disaster page never blocks the home page.
+  useEffect(() => {
+    repo.getOverview().then(setOverview).catch(() => fallbackToLocal().getOverview().then(setOverview));
+    repo.listOrganizations().then(setOrgs).catch(() => fallbackToLocal().listOrganizations().then(setOrgs));
+  }, []);
+
   // Browser back/forward: re-parse the path into state.
   useEffect(() => {
     const onPop = () => {
@@ -217,7 +232,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const api: AppApi = useMemo(() => ({
-    snap, backend: repo.kind,
+    snap, overview, orgs, backend: repo.kind,
     route, tab, device, role, currentSlug, frame, showToolbar: IS_DEV, query, filter, subFilter,
     catFilter, locFilter, onlyCritical, updatedToday,
     form, track, reportStage, lastCode, formError, copied,
@@ -321,8 +336,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
     },
     showToast,
+    submitOrganization: async (input) => {
+      try {
+        await repo.submitOrganization(input);
+        setOrgs(await repo.listOrganizations());
+        showToast(tr.orgs.sentToast);
+        return true;
+      } catch {
+        showToast(tr.orgs.sendError);
+        return false;
+      }
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [snap, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, modal, toast, trackedSub, trackError]);
+  }), [snap, overview, orgs, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

@@ -33,7 +33,7 @@ export function CoordHome() {
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ fontSize: L.h2, fontWeight: 700, letterSpacing: '-.02em', margin: 0 }}>{tr.coord.dashTitle}</h1>
-          <div style={{ fontSize: 13.5, color: C.muted, marginTop: 3 }}>{tr.coord.dashSubtitle}</div>
+          <div style={{ fontSize: 13.5, color: C.muted, marginTop: 3 }}>{tr.coord.dashSubtitle(a.snap.disaster.name)}</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => a.go('coordNeeds')} style={{ background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 9, padding: '11px 15px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>{tr.coord.newNeed}</button>

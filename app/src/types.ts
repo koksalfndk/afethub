@@ -2,17 +2,29 @@ import type { PriorityKey, StatusKey } from './theme';
 
 export type { PriorityKey, StatusKey };
 
+// Disaster kinds AfetHUB coordinates. Canonical keys are English (stable, match DB
+// enums); Turkish labels live in i18n/strings.ts.
+export type DisasterType = 'Wildfire' | 'Flood' | 'Earthquake' | 'Storm' | 'Evacuation' | 'Other';
+
 export interface Disaster {
   id: string;
-  slug: string;          // URL-safe, e.g. "seydikemer-orman-yangini"
+  // URL-safe and date-stamped so a place that burns twice never collides:
+  // "seydikemer-orman-yangini-2026-07-21".
+  slug: string;
+  legacySlugs?: string[]; // older URLs that must keep resolving
   name: string;
-  region: string;
+  region: string;         // "Seydikemer, Muğla · Türkiye"
+  province: string;       // "Muğla" — used by the national dashboard
+  type: DisasterType;
   status: 'Active' | 'Resolved' | 'Archived';
   situation: string;
   openedAt: string;      // display string, e.g. "21 Temmuz"
   updatedLabel: string;  // display string, e.g. "4 dakika önce"
   volunteers: number;    // registered on site
   onShift: number;       // on shift now
+  // True while the record is sample content. The UI must label it visibly so it is
+  // never mistaken for verified live disaster data (rules/07, rules/08).
+  demo?: boolean;
 }
 
 export interface Location {
@@ -67,6 +79,8 @@ export interface Submission {
 
 export interface LogEntry {
   id: string;
+  disasterId: string;
+  disasterName: string;  // denormalized for the cross-disaster activity feed
   user: string;
   action: string;        // Turkish display copy
   detail: string;
@@ -78,6 +92,7 @@ export interface LogEntry {
 
 export interface Announcement {
   id: string;
+  disasterId: string;
   kind: string;
   accent: string;
   time: string;
@@ -108,4 +123,41 @@ export interface Profile {
 export interface NeedDraft {
   title: string; cat: string; priority: PriorityKey;
   required: number; unit: string; loc: string; deadline: string;
+}
+
+// ---------------------------------------------------------------------------
+// Organizations directory (kurumlar ve dernekler)
+// ---------------------------------------------------------------------------
+export type OrgStatus = 'Pending verification' | 'Verified' | 'Rejected';
+export type OrgKind = 'Kamu kurumu' | 'Belediye' | 'Dernek' | 'Vakıf' | 'Meslek odası' | 'Gönüllü grubu' | 'Diğer';
+export type OrgScope = 'Ulusal' | 'Bölgesel' | 'İl' | 'İlçe';
+
+// Public projection of an organization. Submitter contact details are
+// operational data and never travel to the browser (rules/01, rules/03).
+export interface Organization {
+  id: string;
+  name: string;
+  kind: OrgKind;
+  scope: OrgScope;
+  province: string;
+  district: string;
+  services: string[];
+  description: string;
+  website: string;
+  email: string;
+  phone: string;
+  emergencyPhone: string;
+  address: string;
+  status: OrgStatus;
+  isOfficial: boolean;      // only a coordinator may set this
+  verifiedAt: string | null;
+  createdLabel: string;     // display string
+}
+
+// What a visitor submits. Contact of the submitter is kept server-side only.
+export interface OrganizationInput {
+  name: string; kind: OrgKind; scope: OrgScope; province: string; district: string;
+  services: string[]; description: string; website: string; email: string;
+  phone: string; emergencyPhone: string; address: string;
+  submittedByName: string; submittedByEmail: string; submittedByPhone: string;
 }

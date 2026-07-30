@@ -2,6 +2,7 @@
 // stays translatable — screens never hard-code display text. Canonical domain
 // keys (priority/status) map to Turkish labels below.
 import type { PriorityKey, StatusKey } from '../theme';
+import type { DisasterType, OrgKind, OrgScope, OrgStatus } from '../types';
 
 export const priorityLabel: Record<PriorityKey, string> = {
   Critical: 'Kritik',
@@ -18,6 +19,24 @@ export const statusLabel: Record<StatusKey, string> = {
   'Rejected': 'Reddedildi',
   'Information requested': 'Bilgi istendi',
 };
+
+export const disasterTypeLabel: Record<DisasterType, string> = {
+  Wildfire: 'Orman Yangını',
+  Flood: 'Sel ve Taşkın',
+  Earthquake: 'Deprem',
+  Storm: 'Şiddetli Hava',
+  Evacuation: 'Tahliye',
+  Other: 'Diğer',
+};
+
+export const orgStatusLabel: Record<OrgStatus, string> = {
+  'Pending verification': 'Doğrulanmayı Bekliyor',
+  'Verified': 'Doğrulandı',
+  'Rejected': 'Reddedildi',
+};
+
+export const ORG_KINDS: OrgKind[] = ['Kamu kurumu', 'Belediye', 'Dernek', 'Vakıf', 'Meslek odası', 'Gönüllü grubu', 'Diğer'];
+export const ORG_SCOPES: OrgScope[] = ['Ulusal', 'Bölgesel', 'İl', 'İlçe'];
 
 export const tr = {
   brand: 'AfetHUB',
@@ -99,6 +118,7 @@ export const tr = {
     needs: 'İhtiyaçlar',
     deliveryLocations: 'Teslim Noktaları',
     howItWorks: 'Nasıl Çalışır',
+    orgs: 'Kurumlar',
     dashboard: 'Panel',
     reviewQueue: 'İnceleme Kuyruğu',
     auditLog: 'Denetim Kaydı',
@@ -172,9 +192,84 @@ export const tr = {
     ],
   },
 
+  // National dashboard (home page)
+  dash: {
+    title: 'Türkiye genelinde aktif afetler',
+    subtitle: 'Her operasyonun doğrulanmış ihtiyaçlarını, teslim noktalarını ve son hareketlerini tek ekranda izle.',
+    demoTitle: 'Demo veri',
+    demoBody: 'Bu ekrandaki afetler gerçek yerleşimlere dayanır; miktarlar, teslim noktaları ve bildirimler örnek veridir. Doğrulanmış canlı operasyon verisi değildir.',
+    totals: {
+      disasters: 'Aktif afet', needs: 'Aktif ihtiyaç', verified: 'Doğrulanan teslimat',
+      pending: 'Doğrulama bekliyor', volunteers: 'Gönüllü', points: 'Teslim noktası',
+    },
+    allTypes: 'Tümü',
+    onlyActive: 'Yalnızca aktif',
+    searchPh: 'Afet, il veya ilçe ara…',
+    countLabel: (shown: number, total: number) => `${shown} / ${total} operasyon`,
+    noMatch: 'Bu filtreye uyan afet yok',
+    noMatchBody: 'Aramayı temizlemeyi ya da tüm türlere dönmeyi deneyin.',
+    open: 'Koordinasyonu Aç',
+    resolved: 'Çözüldü',
+    archived: 'Arşivlendi',
+    openedAt: (d: string) => `${d}'de açıldı`,
+    urgentTitle: 'Tüm operasyonlarda en acil',
+    feedTitle: 'Canlı Hareket Akışı',
+    feedNote: 'Tüm operasyonlar · yalnızca gerçekleşen olaylar',
+    cardNeeds: 'Aktif ihtiyaç',
+    cardPending: 'Bekleyen teslim',
+    cardPoints: 'Teslim noktası',
+    cardVolunteers: 'Gönüllü',
+  },
+
+  orgs: {
+    title: 'Kurumlar ve Dernekler',
+    subtitle: 'Afet ve acil durumlarda çalışan kamu kurumları, belediyeler, dernekler, vakıflar ve gönüllü grupları.',
+    disclaimer: 'AfetHUB bu kurumların hiçbiriyle resmî bir bağlantı iddia etmez. Acil ve hayati tehlike durumlarında 112’yi arayın.',
+    addBtn: 'Kurum Ekle',
+    searchPh: 'Kurum adı, il veya hizmet ara…',
+    allKinds: 'Tüm türler',
+    allProvinces: 'Tüm iller',
+    onlyVerified: 'Yalnızca doğrulanmış',
+    countLabel: (shown: number, total: number) => `${shown} / ${total} kayıt`,
+    empty: 'Bu filtreye uyan kurum yok',
+    emptyBody: 'Aramayı temizleyin ya da yeni bir kurum ekleyin.',
+    officialBadge: 'Resmî kurum',
+    national: 'Ulusal',
+    services: 'Hizmet alanları',
+    contact: 'İletişim',
+    website: 'Web sitesi',
+    email: 'E-posta',
+    phone: 'Telefon',
+    emergency: 'Acil hat',
+    address: 'Adres',
+    addedAgo: (t: string) => `${t} eklendi`,
+    pendingNote: 'Bu kayıt bir kullanıcı tarafından gönderildi ve koordinatör doğrulaması bekliyor.',
+    // submit form
+    formTitle: 'Kurum veya dernek ekle',
+    formIntro: 'Hesap gerekmez. Kaydınız hemen listede görünür ve bir koordinatör doğrulayana kadar “Doğrulanmayı Bekliyor” etiketi taşır.',
+    fName: 'Kurum adı', fKind: 'Tür', fScope: 'Kapsam', fProvince: 'İl', fDistrict: 'İlçe',
+    fServices: 'Hizmet alanları', fServicesHint: 'virgülle ayırın', fDescription: 'Kısa açıklama',
+    fWebsite: 'Web sitesi', fEmail: 'E-posta', fPhone: 'Telefon', fEmergency: 'Acil hat',
+    fAddress: 'Adres',
+    contactSection: 'Kurum iletişim bilgileri',
+    submitterSection: 'Sizin iletişim bilgileriniz',
+    submitterHint: 'Yalnızca koordinatör görür; listede yayınlanmaz.',
+    fYourName: 'Ad Soyad', fYourEmail: 'E-posta', fYourPhone: 'Telefon',
+    submit: 'Kaydı Gönder',
+    cancel: 'Vazgeç',
+    errName: 'Lütfen kurum adını girin.',
+    errContact: 'En az bir iletişim yolu girin: web sitesi, e-posta veya telefon.',
+    errSubmitter: 'Koordinatörün size ulaşabilmesi için ad ve e-posta gerekli.',
+    errOfficialClaim: 'Kamu kurumu ve belediye kayıtları yalnızca koordinatör doğrulamasından sonra resmî olarak işaretlenir.',
+    sentToast: 'Kurum kaydı gönderildi · doğrulama bekliyor',
+    sendError: 'Kayıt gönderilemedi. Bilgileri kontrol edip tekrar deneyin.',
+    doneTitle: 'Kaydınız alındı',
+    doneBody: 'Kayıt listede “Doğrulanmayı Bekliyor” etiketiyle görünüyor. Bir koordinatör inceleyip doğrulayacak.',
+  },
+
   disaster: {
     allDisasters: '← Tüm afetler',
-    openedUpdated: (opened: string, upd: string) => `Seydikemer, Muğla · Koordinasyon ${opened}'de açıldı · ${upd} güncellendi`,
+    openedUpdated: (region: string, opened: string, upd: string) => `${region} · Koordinasyon ${opened}'de açıldı · ${upd} güncellendi`,
     active: 'Aktif',
     tabs: { overview: 'Genel bakış', needs: 'İhtiyaçlar', locations: 'Teslim noktaları', announcements: 'Duyurular', activity: 'Hareketler' },
     summary: {
@@ -331,7 +426,7 @@ export const tr = {
 
   coord: {
     dashTitle: 'Koordinasyon paneli',
-    dashSubtitle: 'Seydikemer Orman Yangını · Elif Kaya, saha koordinatörü',
+    dashSubtitle: (disasterName: string) => `${disasterName} · saha koordinasyonu`,
     newNeed: 'Yeni ihtiyaç',
     reviewQueue: 'İnceleme kuyruğu',
     cards: {
@@ -432,5 +527,5 @@ export const tr = {
     ],
   },
 
-  sidebarFooter: { disaster: 'Seydikemer Orman Yangını', region: 'Muğla · Koordinasyon açık' },
+  sidebarFooter: { regionSuffix: 'Koordinasyon açık' },
 } as const;

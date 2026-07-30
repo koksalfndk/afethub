@@ -46,6 +46,11 @@ const ROUTE_META: Record<Route, RouteMeta> = {
     description: 'Sahadaki bir ihtiyacı koordinatör incelemesi için iletin.',
     index: true,
   },
+  orgs: {
+    title: 'Kurumlar ve dernekler',
+    description: 'Afet ve acil durumlarda çalışan kamu kurumları, belediyeler, dernekler, vakıflar ve gönüllü gruplarının iletişim bilgileri.',
+    index: true,
+  },
   coordHome: { title: 'Koordinasyon paneli', index: false },
   coordQueue: { title: 'İnceleme kuyruğu', index: false },
   coordNeeds: { title: 'İhtiyaç yönetimi', index: false },

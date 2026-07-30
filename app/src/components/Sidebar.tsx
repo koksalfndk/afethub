@@ -42,8 +42,8 @@ export function Sidebar() {
         {item(tr.nav.publicSite, 'home', null, 'grey', () => a.setRole('visitor'))}
       </div>
       <div style={{ marginTop: 'auto', background: C.canvas, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 700, color: C.navy }}>{tr.sidebarFooter.disaster}</div>
-        <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>{tr.sidebarFooter.region}</div>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: C.navy }}>{a.snap?.disaster.name ?? ''}</div>
+        <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>{[a.snap?.disaster.province, tr.sidebarFooter.regionSuffix].filter(Boolean).join(' · ')}</div>
       </div>
     </aside>
   );

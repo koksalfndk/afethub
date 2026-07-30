@@ -27,7 +27,7 @@ function WizardInner({ mode }: { mode: WizardMode }) {
   const needContact = isPublic && !loggedIn;
 
   const defaultLoc = mode === 'coord'
-    ? (a.snap?.locations[0]?.name || 'Seydikemer Kapalı Pazar Yeri')
+    ? (a.snap?.locations[0]?.name ?? '')
     : '';
   const [v, setV] = useState<WizardValues>(() => emptyWizard(defaultLoc));
   const [step, setStep] = useState(0);
@@ -228,7 +228,7 @@ function DetailsStep({ v, set, togglePetNeed, cat }: {
           <input value={v.capacity} onChange={(e) => set('capacity', e.target.value)} type="number" placeholder="45" style={inputStyle} />
         </Field>
         <Field label={tr.wizard.fFrom}><input value={v.from} onChange={(e) => set('from', e.target.value)} placeholder="Kuzey sırtı" style={inputStyle} /></Field>
-        <Field label={tr.wizard.fTo}><input value={v.to} onChange={(e) => set('to', e.target.value)} placeholder="Seydikemer merkez" style={inputStyle} /></Field>
+        <Field label={tr.wizard.fTo}><input value={v.to} onChange={(e) => set('to', e.target.value)} placeholder="İlçe merkezi" style={inputStyle} /></Field>
         <Field label={tr.wizard.fWhen} full><input value={v.when} onChange={(e) => set('when', e.target.value)} placeholder="Bugün 18:00" style={inputStyle} /></Field>
         <PrioritySelect v={v} set={set} />
       </Grid>

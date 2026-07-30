@@ -91,8 +91,8 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
             </Field>
             <Field label={tr.report.fields.location}>
               <select value={f.loc} onChange={(e) => a.setForm('loc', e.target.value)} style={inputStyle}>
-                <option>Seydikemer Kapalı Pazar Yeri</option>
-                <option>Çamlıyayla Okul Spor Salonu</option>
+                {/* Delivery points follow the loaded operation instead of a fixed list. */}
+                {(a.snap?.locations ?? []).map((l) => <option key={l.id} value={l.name}>{l.name}</option>)}
               </select>
             </Field>
             <Field label={tr.report.fields.date}>

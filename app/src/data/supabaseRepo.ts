@@ -1,11 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   Disaster, Location, Need, Submission, LogEntry, Announcement,
-  VerifyKind, DeliveryInput, PriorityKey, StatusKey,
+  VerifyKind, DeliveryInput, PriorityKey, StatusKey, DisasterType,
+  Organization, OrganizationInput, OrgStatus, OrgKind, OrgScope,
 } from '../types';
-import type { Repo, Snapshot, CreateDeliveryResult } from './repo';
+import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
 import type { NeedPayload } from '../needForm';
 import { genCode, genNrq } from './repo';
+import { PRI } from '../theme';
 
 // Turkish relative-time formatter for DB timestamps.
 function rel(iso: string): string {
@@ -37,15 +39,23 @@ export class SupabaseRepo implements Repo {
     ]);
 
     const mapDisaster = (r: Record<string, unknown>): Disaster => ({
-      id: String(r.id), slug: String(r.slug ?? ''), name: String(r.name), region: String(r.region ?? ''),
+      id: String(r.id), slug: String(r.slug ?? ''),
+      legacySlugs: Array.isArray(r.legacy_slugs) ? (r.legacy_slugs as string[]) : [],
+      name: String(r.name), region: String(r.region ?? ''), province: String(r.province ?? ''),
+      type: (r.type as DisasterType) ?? 'Other',
       status: (r.status as Disaster['status']) ?? 'Active', situation: String(r.situation ?? ''),
       openedAt: String(r.opened_at ?? ''), updatedLabel: r.updated_at ? rel(String(r.updated_at)) : '',
       volunteers: Number(r.volunteers ?? 0), onShift: Number(r.on_shift ?? 0),
+      demo: r.is_demo === true,
     });
     const disasters: Disaster[] = (ds.data ?? []).map(mapDisaster);
     const disaster = disasters.find((x) => x.slug === slug)
+      ?? disasters.find((x) => (x.legacySlugs ?? []).includes(slug ?? ''))
       ?? disasters.find((x) => x.status === 'Active') ?? disasters[0]
-      ?? { id: 'd1', slug: '', name: '', region: '', status: 'Active' as const, situation: '', openedAt: '', updatedLabel: '', volunteers: 0, onShift: 0 };
+      ?? {
+        id: 'd1', slug: '', name: '', region: '', province: '', type: 'Other' as const,
+        status: 'Active' as const, situation: '', openedAt: '', updatedLabel: '', volunteers: 0, onShift: 0,
+      };
     const byId = new Map(disasters.map((x) => [x.id, x] as const));
 
     const locations: Location[] = (loc.data ?? []).filter((r: Record<string, unknown>) => String(r.disaster_id) === disaster.id).map((r: Record<string, unknown>) => ({
@@ -67,7 +77,7 @@ export class SupabaseRepo implements Repo {
       details: (r.details as Record<string, string>) ?? {},
     }));
 
-    const subs: Submission[] = (su.data ?? []).map((r: Record<string, unknown>) => ({
+    const subs: Submission[] = (su.data ?? []).filter((r: Record<string, unknown>) => String(r.disaster_id) === disaster.id).map((r: Record<string, unknown>) => ({
       id: String(r.id), code: String(r.code), contributor: String(r.contributor_name),
       city: String(r.city), needId: String(r.need_id), qty: Number(r.qty), unit: String(r.unit),
       loc: String(r.location_name), submitted: rel(String(r.submitted_at)),
@@ -75,19 +85,142 @@ export class SupabaseRepo implements Repo {
       note: String(r.note), photoUrl: r.photo_url ? String(r.photo_url) : null,
     }));
 
-    const log: LogEntry[] = (lg.data ?? []).map((r: Record<string, unknown>) => ({
-      id: String(r.id), user: String(r.actor), action: String(r.action), detail: String(r.detail),
+    const log: LogEntry[] = (lg.data ?? []).filter((r: Record<string, unknown>) => String(r.disaster_id) === disaster.id).map((r: Record<string, unknown>) => ({
+      id: String(r.id), disasterId: String(r.disaster_id ?? ''),
+      disasterName: byId.get(String(r.disaster_id))?.name ?? '', user: String(r.actor), action: String(r.action), detail: String(r.detail),
       oldValue: String(r.old_value), newValue: String(r.new_value), time: rel(String(r.created_at)),
       color: String(r.color),
     }));
 
-    const announcements: Announcement[] = (an.data ?? []).map((r: Record<string, unknown>) => ({
-      id: String(r.id), kind: String(r.kind), accent: String(r.accent), time: rel(String(r.created_at)),
+    const announcements: Announcement[] = (an.data ?? []).filter((r: Record<string, unknown>) => String(r.disaster_id) === disaster.id).map((r: Record<string, unknown>) => ({
+      id: String(r.id), disasterId: String(r.disaster_id ?? ''), kind: String(r.kind), accent: String(r.accent), time: rel(String(r.created_at)),
       author: String(r.author), title: String(r.title), body: String(r.body),
     }));
 
     const verifiedTotal = subs.filter((s) => s.status === 'Verified' || s.status === 'Partially verified').length;
     return { disaster, disasters, locations, needs, subs, log, announcements, verifiedTotal };
+  }
+
+  // Reads the `disaster_overview` view (migration 0002) so the national counters
+  // come from SQL, not from the browser. Falls back to per-row aggregation when
+  // the view is not applied yet.
+  async getOverview(): Promise<Overview> {
+    const [ov, ne, ds] = await Promise.all([
+      this.db.from('disaster_overview').select('*'),
+      this.db.from('needs').select('*'),
+      this.db.from('disasters').select('*'),
+    ]);
+    const rows = ov.error ? null : (ov.data ?? []);
+
+    const mapDisaster = (r: Record<string, unknown>): Disaster => ({
+      id: String(r.id), slug: String(r.slug ?? ''),
+      legacySlugs: Array.isArray(r.legacy_slugs) ? (r.legacy_slugs as string[]) : [],
+      name: String(r.name), region: String(r.region ?? ''), province: String(r.province ?? ''),
+      type: (r.type as DisasterType) ?? 'Other',
+      status: (r.status as Disaster['status']) ?? 'Active', situation: String(r.situation ?? ''),
+      openedAt: String(r.opened_at ?? ''), updatedLabel: r.updated_at ? rel(String(r.updated_at)) : '',
+      volunteers: Number(r.volunteers ?? 0), onShift: Number(r.on_shift ?? 0),
+      demo: r.is_demo === true,
+    });
+
+    const disasters: Disaster[] = (rows ?? ds.data ?? []).map(mapDisaster);
+    const allNeeds = (ne.data ?? []) as Record<string, unknown>[];
+    const openOf = (id: string) => allNeeds
+      .filter((n) => String(n.disaster_id) === id && Number(n.required_qty) - Number(n.verified_qty) > 0);
+
+    const topOf = (d: Disaster, limit: number): TopNeed[] => openOf(d.id)
+      .map((n) => ({
+        id: String(n.id), name: String(n.name), priority: n.priority as PriorityKey,
+        remaining: Math.max(0, Number(n.required_qty) - Number(n.verified_qty)), unit: String(n.unit),
+        disasterId: d.id, disasterName: d.name, disasterSlug: d.slug,
+      }))
+      .sort((x, y) => (PRI[x.priority] ?? PRI.Normal).rank - (PRI[y.priority] ?? PRI.Normal).rank
+        || y.remaining - x.remaining)
+      .slice(0, limit);
+
+    const rowFor = (id: string) => (rows ?? []).find((r) => String(r.id) === id) as Record<string, unknown> | undefined;
+
+    const cards: DisasterCard[] = disasters.map((d) => {
+      const r = rowFor(d.id);
+      return {
+        disaster: d,
+        activeNeeds: r ? Number(r.active_needs) : openOf(d.id).length,
+        completedNeeds: r ? Number(r.completed_needs) : 0,
+        pendingSubs: r ? Number(r.pending_submissions) : 0,
+        pendingUnits: r ? Number(r.pending_units) : 0,
+        verifiedSubs: r ? Number(r.verified_submissions) : 0,
+        deliveryPoints: r ? Number(r.delivery_points) : 0,
+        topNeeds: topOf(d, 2),
+      };
+    }).sort((x, y) => (x.disaster.status === 'Active' ? 0 : 1) - (y.disaster.status === 'Active' ? 0 : 1));
+
+    const active = cards.filter((c) => c.disaster.status === 'Active');
+    const lg = await this.db.from('audit_log').select('*').order('created_at', { ascending: false }).limit(12);
+    const byId = new Map(disasters.map((d) => [d.id, d] as const));
+
+    return {
+      disasters: cards,
+      totals: {
+        activeDisasters: active.length,
+        activeNeeds: active.reduce((x, c) => x + c.activeNeeds, 0),
+        verifiedSubs: active.reduce((x, c) => x + c.verifiedSubs, 0),
+        pendingSubs: active.reduce((x, c) => x + c.pendingSubs, 0),
+        volunteers: active.reduce((x, c) => x + c.disaster.volunteers, 0),
+        deliveryPoints: active.reduce((x, c) => x + c.deliveryPoints, 0),
+      },
+      log: (lg.data ?? []).map((r: Record<string, unknown>) => ({
+        id: String(r.id), disasterId: String(r.disaster_id ?? ''),
+        disasterName: byId.get(String(r.disaster_id))?.name ?? '',
+        user: String(r.actor), action: String(r.action), detail: String(r.detail),
+        oldValue: String(r.old_value), newValue: String(r.new_value),
+        time: rel(String(r.created_at)), color: String(r.color),
+      })),
+      urgent: active.flatMap((c) => topOf(c.disaster, 3))
+        .sort((x, y) => (PRI[x.priority] ?? PRI.Normal).rank - (PRI[y.priority] ?? PRI.Normal).rank)
+        .slice(0, 6),
+      demo: cards.some((c) => c.disaster.demo === true),
+    };
+  }
+
+  // Read from the public view: it excludes the submitter's contact details, which
+  // must never reach the browser (rules/01, rules/03).
+  async listOrganizations(): Promise<Organization[]> {
+    const { data } = await this.db.from('organizations_public').select('*').order('name');
+    return (data ?? []).map((r: Record<string, unknown>) => ({
+      id: String(r.id), name: String(r.name), kind: r.kind as OrgKind, scope: r.scope as OrgScope,
+      province: String(r.province ?? ''), district: String(r.district ?? ''),
+      services: Array.isArray(r.services) ? (r.services as string[]) : [],
+      description: String(r.description ?? ''), website: String(r.website ?? ''),
+      email: String(r.email ?? ''), phone: String(r.phone ?? ''),
+      emergencyPhone: String(r.emergency_phone ?? ''), address: String(r.address ?? ''),
+      status: r.status as OrgStatus, isOfficial: r.is_official === true,
+      verifiedAt: r.verified_at ? String(r.verified_at) : null,
+      createdLabel: r.created_at ? rel(String(r.created_at)) : '',
+    }));
+  }
+
+  // Status, official flag and verification fields are not client-writable — RLS in
+  // migration 0002 rejects any insert that tries to set them.
+  async submitOrganization(input: OrganizationInput): Promise<Organization> {
+    const { data, error } = await this.db.from('organizations').insert({
+      name: input.name.trim(), kind: input.kind, scope: input.scope,
+      province: input.province.trim(), district: input.district.trim(),
+      services: input.services.filter(Boolean), description: input.description.trim(),
+      website: input.website.trim(), email: input.email.trim(), phone: input.phone.trim(),
+      emergency_phone: input.emergencyPhone.trim(), address: input.address.trim(),
+      submitted_by_name: input.submittedByName.trim(),
+      submitted_by_email: input.submittedByEmail.trim(),
+      submitted_by_phone: input.submittedByPhone.trim(),
+    }).select('id').single();
+    if (error) throw error;
+    return {
+      id: String(data?.id ?? ''), name: input.name.trim(), kind: input.kind, scope: input.scope,
+      province: input.province.trim(), district: input.district.trim(),
+      services: input.services.filter(Boolean), description: input.description.trim(),
+      website: input.website.trim(), email: input.email.trim(), phone: input.phone.trim(),
+      emergencyPhone: input.emergencyPhone.trim(), address: input.address.trim(),
+      status: 'Pending verification', isOfficial: false, verifiedAt: null, createdLabel: 'az önce',
+    };
   }
 
   async createDelivery(f: DeliveryInput): Promise<CreateDeliveryResult> {
