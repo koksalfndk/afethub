@@ -519,13 +519,15 @@ export class SupabaseRepo implements Repo {
     const invites: RoleInvite[] = ((inv.data ?? []) as Record<string, unknown>[]).map((r) => ({
       email: String(r.email ?? ''), role: (r.role as StaffRole) ?? 'coordinator',
       note: String(r.note ?? ''), createdLabel: r.created_at ? rel(String(r.created_at)) : '',
+      orgId: r.organization_id ? String(r.organization_id) : null,
+      orgName: '',
     }));
     return { staff, invites };
   }
 
-  async grantStaffRole(email: string, role: StaffRole, note: string): Promise<'granted' | 'invited'> {
+  async grantStaffRole(email: string, role: StaffRole, note: string, orgId: string | null): Promise<'granted' | 'invited'> {
     const { data, error } = await this.db.rpc('grant_staff_role', {
-      p_email: email, p_role: role, p_note: note,
+      p_email: email, p_role: role, p_note: note, p_org: orgId,
     });
     if (error) throw error;
     return data === 'granted' ? 'granted' : 'invited';

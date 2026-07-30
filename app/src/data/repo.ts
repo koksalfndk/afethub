@@ -141,7 +141,10 @@ export interface Repo {
   // Returns 'granted' when an existing account was changed, 'invited' when the grant was
   // stored for a future sign-up. The browser cannot create auth users: that needs the
   // service-role key, which must never ship to a client (rules/03 §Secrets).
-  grantStaffRole(email: string, role: StaffRole, note: string): Promise<'granted' | 'invited'>;
+  // `orgId` is an optional membership. Assigning one from here IS its verification: an
+  // admin picking from the verified list is the check that `org_verified` records, which
+  // is why a self-declared membership from the account page stays unverified.
+  grantStaffRole(email: string, role: StaffRole, note: string, orgId: string | null): Promise<'granted' | 'invited'>;
   revokeStaffRole(userId: string): Promise<void>;
   cancelRoleInvite(email: string): Promise<void>;
 }

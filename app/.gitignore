@@ -13,7 +13,10 @@ dist-ssr
 *.local
 
 # Local env (contains your Supabase project keys). Keep .env.example committed.
+# `.env` alone does not match `.env.local` / `.env.production.local`, which is how a
+# key file ends up staged by accident.
 .env
+.env*.local
 
 # Editor directories and files
 .vscode/*

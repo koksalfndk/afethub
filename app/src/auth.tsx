@@ -15,7 +15,11 @@ export interface AuthApi {
   error: string;
   modalOpen: boolean;
   modalMode: 'signIn' | 'signUp';   // which tab the modal opens on
-  openModal: (mode?: 'signIn' | 'signUp') => void;
+  // Address to pre-fill on the sign-up tab, set when someone arrives from an invite link.
+  // It is a convenience only: the role is claimed by verifying the address, not by having
+  // the link (see migration 0015).
+  prefillEmail: string;
+  openModal: (mode?: 'signIn' | 'signUp', prefillEmail?: string) => void;
   closeModal: () => void;
   signIn: (email: string, password: string) => Promise<boolean>;
   signUp: (email: string, password: string, fullName: string) => Promise<'ok' | 'confirm' | 'error'>;
@@ -62,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'signIn' | 'signUp'>('signIn');
+  const [prefillEmail, setPrefillEmail] = useState('');
 
   useEffect(() => {
     if (!supabase) return;
@@ -84,7 +89,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     emailVerified: !!user?.email_confirmed_at,
     working, error,
     modalOpen, modalMode,
-    openModal: (mode) => { setError(''); setModalMode(mode ?? 'signIn'); setModalOpen(true); },
+    prefillEmail,
+    openModal: (mode, prefill) => {
+      setError(''); setModalMode(mode ?? 'signIn');
+      setPrefillEmail(prefill ?? ''); setModalOpen(true);
+    },
     closeModal: () => setModalOpen(false),
     clearError: () => setError(''),
     signIn: async (email, password) => {

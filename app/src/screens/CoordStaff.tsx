@@ -150,18 +150,20 @@ export function CoordStaff() {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<StaffRole>('coordinator');
   const [note, setNote] = useState('');
+  const [orgId, setOrgId] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [vTab, setVTab] = useState<'pending' | 'approved' | 'other'>('pending');
+  const verifiedOrgs = a.orgs.filter((o) => o.status === 'Verified');
 
   useEffect(() => { a.reloadStaff(); a.reloadVolunteers(); }, []);
 
   const grant = async () => {
     if (!email.includes('@') || email.trim().length < 5) { setErr(tr.coordStaff.errEmail); return; }
     setErr(''); setBusy(true);
-    const outcome = await a.grantStaffRole(email.trim(), role, note.trim());
+    const res = await a.grantStaffRole(email.trim(), role, note.trim(), orgId || null);
     setBusy(false);
-    if (outcome) { setEmail(''); setNote(''); }
+    if (res) { setEmail(''); setNote(''); setOrgId(''); }
   };
 
   const apps = a.volunteers.filter((v) => (
@@ -200,6 +202,9 @@ export function CoordStaff() {
           <h2 style={{ fontSize: 16.5, fontWeight: 700, margin: 0, color: C.navy }}>{tr.coordStaff.inviteTitle}</h2>
           {/* The constraint is stated, not hidden: a browser cannot create accounts. */}
           <p style={{ fontSize: 13, color: C.muted, margin: '6px 0 0', maxWidth: '78ch' }}>{tr.coordStaff.howItWorks}</p>
+          <p style={{ fontSize: 12.5, color: C.muted3, margin: '6px 0 0', maxWidth: '78ch' }}>
+            {a.backend === 'local' ? tr.coordStaff.mailLocalNote : tr.coordStaff.mailNote}
+          </p>
           {!isAdmin && (
             <p style={{ fontSize: 12.5, color: C.warningText, background: '#FFFBEF', border: '1px solid #F2DFA8', borderRadius: 8, padding: '8px 10px', margin: '8px 0 0' }}>
               {tr.coordStaff.adminOnly}
@@ -207,7 +212,7 @@ export function CoordStaff() {
           )}
         </div>
 
-        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: mob ? '1fr' : 'minmax(0,1.4fr) 160px minmax(0,1fr)', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: mob ? '1fr' : 'minmax(0,1.4fr) 160px', alignItems: 'start' }}>
           <Field label={tr.coordStaff.fEmail}>
             <input type="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)}
               placeholder={tr.coordStaff.fEmailPh} style={inputStyle} />
@@ -217,7 +222,20 @@ export function CoordStaff() {
               {ROLES.map((r) => <option key={r} value={r}>{tr.coordStaff.roleLabels[r]}</option>)}
             </select>
           </Field>
-          <Field label={tr.coordStaff.fNote}>
+          {/* Only verified records: assigning a membership marks it verified on the
+              person's profile, so it must not point at a record nobody has checked. */}
+          <Field label={tr.coordStaff.fOrg} hint={tr.coordStaff.orgHint} full>
+            <select value={orgId} onChange={(e) => setOrgId(e.target.value)} style={inputStyle}>
+              <option value="">{tr.coordStaff.fOrgNone}</option>
+              {verifiedOrgs.map((o) => (
+                <option key={o.id} value={o.id}>{[o.name, o.province].filter(Boolean).join(' · ')}</option>
+              ))}
+            </select>
+          </Field>
+          {verifiedOrgs.length === 0 && (
+            <div style={{ gridColumn: '1 / -1', fontSize: 12.5, color: C.muted3 }}>{tr.coordStaff.orgNoneAvailable}</div>
+          )}
+          <Field label={tr.coordStaff.fNote} full>
             <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={tr.coordStaff.fNotePh} style={inputStyle} />
           </Field>
         </div>
@@ -289,6 +307,11 @@ export function CoordStaff() {
                       <div style={{ fontSize: 12.5, color: C.muted2 }}>
                         {[tr.coordStaff.roleLabels[i.role], i.createdLabel, i.note].filter(Boolean).join(' · ')}
                       </div>
+                      {i.orgId && (
+                        <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>
+                          {tr.coordStaff.inviteOrgLabel}: {i.orgName || (a.orgs.find((o) => o.id === i.orgId)?.name ?? '—')}
+                        </div>
+                      )}
                     </div>
                     <button onClick={() => void a.cancelRoleInvite(i.email)} style={ghost}>{tr.coordStaff.cancelInvite}</button>
                   </div>

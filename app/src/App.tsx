@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactElement } from 'react';
 import { useApp } from './store';
+import { useAuth } from './auth';
 import { tr } from './i18n/strings';
 import { LOAD_TIMEOUT_MS } from './util';
 import { C } from './theme';
@@ -41,6 +42,7 @@ import { System } from './screens/System';
 
 export function App() {
   const a = useApp();
+  const auth = useAuth();
   const mob = a.device === 'mobile';
   const coord = a.role === 'coordinator';
   const frame = a.frame; // 412px phone mock-up wrapper (dev preview only)
@@ -97,7 +99,7 @@ export function App() {
           <DisasterReportModal />
           <NeedWizard />
           <Modal />
-          <AuthModal />
+          <AuthModal key={auth.prefillEmail} />
           <Toast />
         </div>
       </div>

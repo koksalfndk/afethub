@@ -471,16 +471,19 @@ export class LocalRepo implements Repo {
     return { staff: [], invites: roleInvites.map((i) => ({ ...i })) };
   }
 
-  async grantStaffRole(email: string, role: StaffRole, note: string): Promise<'granted' | 'invited'> {
+  async grantStaffRole(email: string, role: StaffRole, note: string, orgId: string | null): Promise<'granted' | 'invited'> {
     const clean = email.trim().toLowerCase();
     if (!clean.includes('@')) throw new Error('invalid e-mail');
+    const org = orgId ? orgs.find((o) => o.id === orgId && o.status === 'Verified') : undefined;
+    if (orgId && !org) throw new Error('organization must exist and be verified');
     roleInvites = [
-      { email: clean, role, note: note.trim(), createdLabel: NOW },
+      { email: clean, role, note: note.trim(), createdLabel: NOW, orgId: org?.id ?? null, orgName: org?.name ?? '' },
       ...roleInvites.filter((i) => i.email !== clean),
     ];
     addLog(activeDisasterId(), {
       user: 'Yönetici', action: 'Yetki daveti oluşturuldu',
-      detail: clean, oldValue: '—', newValue: role, color: '#E6A700',
+      detail: [clean, org?.name].filter(Boolean).join(' · '),
+      oldValue: '—', newValue: role, color: '#E6A700',
     });
     return 'invited';
   }

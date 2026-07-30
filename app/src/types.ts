@@ -354,6 +354,10 @@ export interface RoleInvite {
   role: StaffRole;
   note: string;
   createdLabel: string;
+  // Membership that will be applied when this person signs up. Assigned by an admin, so
+  // it lands already verified — unlike a membership the person declares themselves.
+  orgId: string | null;
+  orgName: string;      // resolved for display; '' when the id no longer matches a record
 }
 
 // What a coordinator may write on an organization record. Unlike OrgEditable this

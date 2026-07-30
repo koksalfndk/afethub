@@ -9,7 +9,9 @@ export function AuthModal() {
   // Opened from "Kayıt Ol" → the sign-up tab is already active.
   const [mode, setMode] = useState<'signIn' | 'signUp'>(auth.modalMode);
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  // Pre-filled when the visitor arrived from an invite link; editable, because the
+  // address in the URL is a hint and not a credential.
+  const [email, setEmail] = useState(auth.prefillEmail);
   const [password, setPassword] = useState('');
   const [localErr, setLocalErr] = useState('');
   const [confirmMsg, setConfirmMsg] = useState('');

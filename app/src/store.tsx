@@ -11,6 +11,7 @@ import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
 import { withTimeout } from './util';
 import { useAuth } from './auth';
+import { sendStaffInvite } from './data/sendEmail';
 
 export type Route =
   | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
@@ -75,6 +76,9 @@ function fromPath(pathname: string): ParsedPath {
     case 'nasil-calisir': return { route: 'howItWorks' };
     case 'hesabim': return { route: 'account' };
     case 'gonullu': return { route: 'volunteer' };
+    // Invite landing. It is not a route of its own: there is no page to show, only the
+    // sign-up form to open over the home page (handled by the effect below).
+    case 'kayit': return { route: 'home' };
     case 'koordinasyon': {
       const s = parts[1];
       const r: Route = s === 'kuyruk' ? 'coordQueue' : s === 'ihtiyaclar' ? 'coordNeeds'
@@ -147,7 +151,11 @@ export interface AppApi {
   // Staff (admin only; the RPCs enforce it).
   staff: StaffMember[]; invites: RoleInvite[]; staffLoading: boolean; staffError: string;
   reloadStaff: () => void;
-  grantStaffRole: (email: string, role: StaffRole, note: string) => Promise<'granted' | 'invited' | null>;
+  // Returns the outcome plus whether the notification e-mail actually went out. The two
+  // are reported separately on purpose: the role change succeeds or fails in the
+  // database, and telling someone about it is a different thing that can fail on its own.
+  grantStaffRole: (email: string, role: StaffRole, note: string, orgId: string | null)
+    => Promise<{ outcome: 'granted' | 'invited'; mailed: boolean } | null>;
   revokeStaffRole: (userId: string) => Promise<boolean>;
   cancelRoleInvite: (email: string) => Promise<boolean>;
   reloadOrgEdits: () => void;
@@ -362,6 +370,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMySubsLoading(false);
     }
   };
+  // Invite landing: /kayit?davet=<adres> opens the sign-up form with the address filled
+  // in, then strips the query so the address does not sit in the URL bar (or in the next
+  // share of that link) longer than it needs to. Nothing is granted here — the role is
+  // applied by handle_new_user() once Supabase has verified the address.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (!url.pathname.replace(/\/+$/, '').endsWith('/kayit')) return;
+    const invited = url.searchParams.get('davet') ?? '';
+    window.history.replaceState({}, '', '/');
+    if (auth.enabled && !auth.user) auth.openModal('signUp', invited);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.enabled]);
+
   useEffect(() => { void loadMySubs(); /* eslint-disable-next-line */ }, [auth.user?.id]);
 
   // Browser back/forward: re-parse the path into state.
@@ -604,14 +626,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return true;
       } catch { showToast(tr.coordVolunteers.actionFailed); return false; }
     },
-    grantStaffRole: async (email, role, note) => {
+    grantStaffRole: async (email, role, note, orgId) => {
       if (unverified) { showToast(tr.auth.verifyFirst); return null; }
+      let outcome: 'granted' | 'invited';
       try {
-        const outcome = await withTimeout(repo.grantStaffRole(email, role, note));
-        await loadStaff();
-        showToast(outcome === 'granted' ? tr.coordStaff.grantedToast : tr.coordStaff.invitedToast);
-        return outcome;
+        outcome = await withTimeout(repo.grantStaffRole(email, role, note, orgId));
       } catch { showToast(tr.coordStaff.actionFailed); return null; }
+      await loadStaff();
+      // The grant is already committed. Mail is attempted after it and never allowed to
+      // fail the operation — but the caller is told, so the screen can say "yetki verildi,
+      // e-posta gönderilemedi" instead of implying the person was notified.
+      let mailed = false;
+      if (repo.kind === 'supabase') {
+        const sent = await sendStaffInvite(email.trim().toLowerCase(), role, orgId);
+        mailed = sent.ok;
+      }
+      showToast(outcome === 'granted'
+        ? (mailed ? tr.coordStaff.grantedMailedToast : tr.coordStaff.grantedToast)
+        : (mailed ? tr.coordStaff.invitedMailedToast : tr.coordStaff.invitedToast));
+      return { outcome, mailed };
     },
     revokeStaffRole: async (userId) => {
       try {
