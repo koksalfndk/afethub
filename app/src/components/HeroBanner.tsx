@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../store';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
@@ -104,10 +104,71 @@ export function HeroBanner() {
 
   const s = slides[i];
 
+  // ---- Dragging the banner changes the slide --------------------------------
+  // An addition, not a replacement: the dots stay, because they are the only control a
+  // keyboard or a screen reader can reach and a gesture nobody can see is not an
+  // interface on its own (rules/04 §Accessibility).
+  const many = slides.length > 1;
+  const [dx, setDx] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  // A ref, not state: these change on every pointer event and nothing renders from them.
+  const grab = useRef({ x: 0, y: 0, dx: 0, on: false, axis: '' as '' | 'x' | 'y', moved: false });
+  const SWIPE = 56; // px of travel that counts as "next slide" rather than a stray touch
+  const AXIS = 8;   // px before the gesture is committed to an axis
+
+  const onDown = (e: React.PointerEvent) => {
+    if (!many || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    const g = grab.current;
+    g.x = e.clientX; g.y = e.clientY; g.dx = 0; g.on = true; g.axis = ''; g.moved = false;
+    setPaused(true);
+  };
+
+  const onMove = (e: React.PointerEvent) => {
+    const g = grab.current;
+    if (!g.on) return;
+    const ax = e.clientX - g.x, ay = e.clientY - g.y;
+    if (!g.axis) {
+      if (Math.abs(ax) < AXIS && Math.abs(ay) < AXIS) return;
+      // A mostly-vertical move is the page being scrolled, not the banner being dragged.
+      // Hand it straight back rather than fighting the scroll — this banner sits at the
+      // top of the page people arrive on, and swallowing that scroll would be the first
+      // thing the site did to them.
+      g.axis = Math.abs(ax) > Math.abs(ay) ? 'x' : 'y';
+      if (g.axis !== 'x') { g.on = false; setPaused(false); return; }
+      setDragging(true);
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+    g.moved = true;
+    // Damped to 55%: the frame follows the finger enough to say "this moves", without
+    // promising a next slide sliding in underneath — there is only one slide rendered.
+    g.dx = ax * 0.55;
+    setDx(g.dx);
+  };
+
+  const onUp = () => {
+    const g = grab.current;
+    if (!g.on) return;
+    const travel = g.axis === 'x' ? g.dx : 0;
+    g.on = false; g.axis = '';
+    setDragging(false); setDx(0); setPaused(false);
+    if (Math.abs(travel) >= SWIPE) {
+      setI((v) => (travel < 0 ? (v + 1) % slides.length : (v - 1 + slides.length) % slides.length));
+    }
+  };
+
+  // A drag that happens to end on the CTA must not also press it.
+  const onClickCapture = (e: React.MouseEvent) => {
+    if (!grab.current.moved) return;
+    grab.current.moved = false;
+    e.preventDefault(); e.stopPropagation();
+  };
+
   return (
     <section
       onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}
+      onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+      onClickCapture={onClickCapture}
       aria-roledescription="carousel" aria-label={tr.banner.label}
       style={{
         position: 'relative', overflow: 'hidden', borderRadius: 14,
@@ -116,8 +177,20 @@ export function HeroBanner() {
         // Mobile puts the photo first and the copy after it, so the copy starts at the top
         // of its own band (it is offset down by the photo height below, not centred).
         alignItems: mob ? 'flex-start' : 'center',
+        // Vertical panning stays with the browser; horizontal comes to us.
+        touchAction: many ? 'pan-y' : undefined,
+        cursor: many && !mob ? (dragging ? 'grabbing' : 'grab') : undefined,
+        userSelect: dragging ? 'none' : undefined,
       }}
     >
+      {/* Everything the drag moves lives in one layer, so the frame — border, rounded
+          corners, clipping — stays put while the contents slide inside it. */}
+      <div style={{
+        position: 'relative', flex: 1, alignSelf: 'stretch', display: 'flex',
+        alignItems: mob ? 'flex-start' : 'center',
+        transform: dx ? `translateX(${dx}px)` : undefined,
+        transition: dragging ? 'none' : 'transform .2s ease-out',
+      }}>
       {/* The image is full-bleed and the white panel is painted on top of it with a
           single wide gradient. Splitting the surface into two columns left a visible
           seam where the photo began; one layer over one image has no edge to show. */}
@@ -208,6 +281,7 @@ export function HeroBanner() {
               }} />
           ))}
         </div>
+      </div>
       </div>
     </section>
   );
