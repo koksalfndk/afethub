@@ -51,10 +51,13 @@ export async function sendStaffInvite(
   email: string,
   role: 'coordinator' | 'admin',
   orgId: string | null,
+  note: string,
 ): Promise<StaffInviteResult> {
   if (!supabase) return { ok: false, error: 'supabase-not-configured' };
+  // `note` is the admin's own message to that person; the function escapes it and caps
+  // its length. It is the only client-supplied text in the mail.
   const { data, error } = await supabase.functions.invoke('send-staff-invite', {
-    body: { email, role, orgId },
+    body: { email, role, orgId, note },
   });
   if (error) return { ok: false, error: error.message };
   if (!data?.ok) return { ok: false, error: String(data?.error ?? 'unknown') };

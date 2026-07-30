@@ -638,7 +638,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // e-posta gönderilemedi" instead of implying the person was notified.
       let mailed = false;
       if (repo.kind === 'supabase') {
-        const sent = await sendStaffInvite(email.trim().toLowerCase(), role, orgId);
+        const sent = await sendStaffInvite(email.trim().toLowerCase(), role, orgId, note);
         mailed = sent.ok;
       }
       showToast(outcome === 'granted'

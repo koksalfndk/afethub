@@ -7,8 +7,8 @@
 // Why this is a separate function and not a call to `send-email`:
 // `send-email` takes client-supplied `to`, `subject` and `html`, which makes it an open
 // relay for anyone holding the public anon key (its own source says so). Nothing here
-// accepts HTML. The caller sends only an address, a role and an optional organization id;
-// the body is rendered below, server-side.
+// accepts HTML. The caller sends only an address, a role, an optional organization id and
+// a short plain-text note; the body is rendered below, server-side.
 //
 // Authorisation: the caller's own access token is forwarded to the database and
 // `staff_invite_context()` is called with it. That function is `security definer` behind
@@ -17,6 +17,9 @@
 //
 // NOTE ON THE LINK: the invite URL is not a secret and carries no token. What claims the
 // role is control of the mailbox, enforced by Supabase's own e-mail confirmation.
+//
+// Layout mirrors the "Confirm signup" template in Supabase -> Authentication -> Email
+// Templates, so both messages look like the same product.
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const FROM = Deno.env.get('RESEND_FROM') ?? 'onboarding@resend.dev';
@@ -37,9 +40,9 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-// Everything interpolated into the HTML goes through this. The values come from our own
-// database, but an organization name is ultimately visitor-submitted text and an e-mail
-// client is an HTML renderer.
+// Everything interpolated into the HTML goes through this. Values come from our own
+// database, but an organization name is ultimately visitor-submitted text and the note is
+// typed by a person — an e-mail client is an HTML renderer.
 function esc(v: string): string {
   return String(v ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -55,16 +58,55 @@ interface Ctx {
   org_phone: string; org_email: string; org_website: string; org_logo: string;
 }
 
-// Logo: only a path we host. A remote URL out of the database would be a tracking pixel
-// with extra steps, and mail clients load images from anywhere.
+// Only an asset we host, and only PNG. The directory logos are WebP, which Outlook does
+// not render at all, so the mail links to the PNG copies in /logos/email/. A remote URL
+// out of the database would be a tracking pixel with extra steps.
 function logoUrl(logo: string): string {
-  if (!logo) return '';
-  if (logo.startsWith('/')) return `${APP_ORIGIN}${logo}`;
-  if (logo.startsWith('upload:')) {
-    return `${SUPABASE_URL}/storage/v1/object/public/organization-logos/${logo.slice('upload:'.length)}`;
-  }
+  const m = /^\/logos\/([A-Za-z0-9._-]+)\.webp$/.exec(logo);
+  if (m) return `${APP_ORIGIN}/logos/email/${m[1]}.png`;
+  if (/^\/[A-Za-z0-9._/-]+\.png$/.test(logo)) return `${APP_ORIGIN}${logo}`;
   return '';
 }
+
+const S = {
+  page: 'background:#F6F8FA;padding:28px 12px;font-family:Inter,Arial,Helvetica,sans-serif;',
+  card: 'max-width:600px;width:100%;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;overflow:hidden;',
+  head: 'padding:22px 28px;border-bottom:1px solid #EEF2F6;',
+  body: 'padding:28px;',
+  h1: 'margin:0 0 8px;font-size:22px;line-height:1.25;color:#102A43;font-weight:700;',
+  p: 'margin:0 0 18px;font-size:15px;line-height:1.6;color:#486581;',
+  small: 'margin:0 0 6px;font-size:13px;line-height:1.6;color:#627D98;',
+  faint: 'margin:0;font-size:13px;line-height:1.6;color:#829AB1;',
+  url: 'margin:0 0 18px;font-size:12.5px;line-height:1.5;color:#829AB1;word-break:break-all;',
+  foot: 'padding:16px 28px;border-top:1px solid #EEF2F6;background:#F6F8FA;',
+  footText: 'margin:0;font-size:12px;line-height:1.6;color:#9FB3C8;',
+};
+
+function shell(inner: string): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${S.page}">
+  <tr><td align="center">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="${S.card}">
+      <tr><td style="${S.head}">
+        <img src="${APP_ORIGIN}/logo-email.png" alt="AfetHUB" height="50" style="height:50px;display:block;border:0;" />
+      </td></tr>
+      <tr><td style="${S.body}">${inner}</td></tr>
+      <tr><td style="${S.foot}">
+        <p style="${S.footText}">
+          AfetHUB · Afet yardım koordinasyonu ·
+          <a href="${APP_ORIGIN}" style="color:#627D98;text-decoration:none;">afethub.com</a><br>
+          Acil ve hayati tehlike durumlarında 112’yi arayın.
+        </p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>`;
+}
+
+const btn = (href: string, label: string) => `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 20px;">
+  <tr><td style="border-radius:10px;background:#102A43;">
+    <a href="${esc(href)}" target="_blank" style="display:inline-block;padding:13px 22px;font-size:15px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:10px;">${esc(label)}</a>
+  </td></tr>
+</table>`;
 
 function orgCard(c: Ctx): string {
   if (!c.org_name) return '';
@@ -74,98 +116,66 @@ function orgCard(c: Ctx): string {
     [c.org_kind, place].filter(Boolean).join(' · '),
     c.org_phone, c.org_email, c.org_website,
   ].filter(Boolean);
-  return `
-  <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-         style="margin:20px 0;border:1px solid #DDE6EF;border-radius:12px;background:#F7FAFC">
-    <tr>
-      <td style="padding:16px">
-        <div style="font:700 11px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.08em;
-                    text-transform:uppercase;color:#5B7182;margin-bottom:10px">Bağlı olduğunuz kurum</div>
-        <table role="presentation" cellpadding="0" cellspacing="0">
-          <tr>
-            ${img ? `<td valign="top" style="padding-right:12px">
-              <img src="${esc(img)}" alt="" width="48" height="48"
-                   style="width:48px;height:48px;object-fit:contain;border-radius:10px;
-                          background:#fff;border:1px solid #DDE6EF;display:block">
-            </td>` : ''}
-            <td valign="top">
-              <div style="font:700 16px/1.3 -apple-system,Segoe UI,Roboto,sans-serif;color:#102A43">
-                ${esc(c.org_name)}
-              </div>
-              ${lines.map((l) => `<div style="font:400 13px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#5B7182">${esc(l)}</div>`).join('')}
-            </td>
-          </tr>
-        </table>
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border:1px solid #E2E8F0;border-radius:12px;background:#F6F8FA;">
+  <tr><td style="padding:16px;">
+    <p style="margin:0 0 10px;font-size:11px;line-height:1.4;letter-spacing:.08em;text-transform:uppercase;color:#627D98;font-weight:700;">Bağlı olduğunuz kurum</p>
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+      ${img ? `<td valign="top" style="padding-right:12px;">
+        <img src="${esc(img)}" alt="" width="48" style="width:48px;display:block;border:1px solid #E2E8F0;border-radius:10px;background:#FFFFFF;" />
+      </td>` : ''}
+      <td valign="top">
+        <p style="margin:0 0 2px;font-size:16px;line-height:1.3;color:#102A43;font-weight:700;">${esc(c.org_name)}</p>
+        ${lines.map((l) => `<p style="margin:0;font-size:13px;line-height:1.6;color:#627D98;">${esc(l)}</p>`).join('')}
       </td>
-    </tr>
-  </table>`;
+    </tr></table>
+  </td></tr>
+</table>`;
 }
 
-function shell(inner: string): string {
-  return `<!doctype html><html lang="tr"><body style="margin:0;padding:24px;background:#EEF3F8">
-  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;margin:0 auto">
-    <tr><td style="background:#fff;border:1px solid #DDE6EF;border-radius:14px;padding:28px">
-      <div style="font:700 18px/1.2 -apple-system,Segoe UI,Roboto,sans-serif;color:#102A43;margin-bottom:4px">AfetHUB</div>
-      <div style="font:400 12px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#5B7182;margin-bottom:20px">
-        Bağımsız sivil afet koordinasyon platformu
-      </div>
-      ${inner}
-      <div style="margin-top:24px;padding-top:14px;border-top:1px solid #EDF1F5;
-                  font:400 12px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#8A9BA8">
-        Bu e-postayı beklemiyorduysanız yapmanız gereken bir şey yok; bağlantıyı kullanmadığınız
-        sürece hiçbir değişiklik olmaz.<br>
-        Acil ve hayati tehlike durumlarında 112’yi arayın.
-      </div>
-    </td></tr>
-  </table></body></html>`;
+// The admin's own words. Escaped and capped: it is a message they chose to send, not
+// markup they get to inject.
+function noteBlock(note: string): string {
+  const n = note.trim().slice(0, 500);
+  if (!n) return '';
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border-left:3px solid #102A43;background:#F6F8FA;">
+  <tr><td style="padding:12px 14px;">
+    <p style="margin:0 0 4px;font-size:11px;line-height:1.4;letter-spacing:.08em;text-transform:uppercase;color:#627D98;font-weight:700;">Yöneticinin notu</p>
+    <p style="margin:0;font-size:14px;line-height:1.6;color:#334E68;white-space:pre-wrap;">${esc(n)}</p>
+  </td></tr>
+</table>`;
 }
 
-const btn = (href: string, label: string) => `
-  <a href="${esc(href)}" style="display:inline-block;background:#102A43;color:#fff;text-decoration:none;
-     border-radius:10px;padding:13px 22px;font:600 15px/1 -apple-system,Segoe UI,Roboto,sans-serif">${esc(label)}</a>`;
-
-const p = (text: string) =>
-  `<p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#334E68;margin:0 0 12px">${text}</p>`;
-
-function inviteBody(email: string, role: string, c: Ctx): { subject: string; html: string } {
+function inviteBody(email: string, role: string, note: string, c: Ctx): { subject: string; html: string } {
   const roleTr = ROLE_TR[role] ?? role;
   const link = `${APP_ORIGIN}/kayit?davet=${encodeURIComponent(email)}`;
   return {
     subject: `AfetHUB · ${roleTr} yetkisi için davet`,
-    html: shell(`
-      <div style="font:700 21px/1.3 -apple-system,Segoe UI,Roboto,sans-serif;color:#102A43;margin-bottom:14px">
-        AfetHUB’a ${esc(roleTr.toLowerCase())} olarak davet edildiniz
-      </div>
-      ${p(`Aşağıdaki bağlantıdan <strong>${esc(email)}</strong> adresiyle hesap oluşturduğunuzda
-           <strong>${esc(roleTr)}</strong> yetkiniz otomatik olarak tanımlanacak.`)}
-      ${orgCard(c)}
-      <div style="margin:18px 0">${btn(link, 'Hesap oluştur ve yetkiyi al')}</div>
-      ${p(`Yetki, hesabı <strong>bu e-posta adresiyle</strong> açmanıza bağlı. Başka bir adresle
-           kayıt olursanız yetki tanımlanmaz.`)}
-      ${p(`<span style="color:#5B7182;font-size:13px">Bu bağlantı bir şifre ya da gizli anahtar değildir;
-           yalnızca kayıt formunda adresinizi hazır getirir. Yetkinin tanımlanması, e-posta adresinizin
-           doğrulanmasına bağlıdır.</span>`)}
-    `),
+    html: shell(`<h1 style="${S.h1}">AfetHUB’a ${esc(roleTr.toLowerCase())} olarak davet edildiniz</h1>
+<p style="${S.p}">Aşağıdaki butondan <strong style="color:#102A43;">${esc(email)}</strong> adresiyle hesap oluşturduğunuzda <strong style="color:#102A43;">${esc(roleTr)}</strong> yetkiniz otomatik olarak tanımlanacak.</p>
+${noteBlock(note)}
+${orgCard(c)}
+${btn(link, 'Hesap oluştur ve yetkiyi al')}
+<p style="${S.small}">Buton çalışmazsa bu bağlantıyı tarayıcına yapıştır:</p>
+<p style="${S.url}">${esc(link)}</p>
+<p style="${S.small}">Yetki, hesabı <strong style="color:#486581;">bu e-posta adresiyle</strong> açmanıza bağlı. Başka bir adresle kayıt olursanız yetki tanımlanmaz.</p>
+<p style="${S.faint}">Bu bağlantı bir şifre ya da gizli anahtar değildir; yalnızca kayıt formunda adresinizi hazır getirir. Yetkinin tanımlanması, e-posta adresinizin doğrulanmasına bağlıdır. Bu e-postayı beklemiyorduysanız yapmanız gereken bir şey yok.</p>`),
   };
 }
 
-function grantedBody(email: string, role: string, c: Ctx): { subject: string; html: string } {
+function grantedBody(email: string, role: string, note: string, c: Ctx): { subject: string; html: string } {
   const roleTr = ROLE_TR[role] ?? role;
   const who = c.full_name ? esc(c.full_name) : esc(email);
+  const link = `${APP_ORIGIN}/koordinasyon`;
   return {
     subject: `AfetHUB · ${roleTr} yetkiniz tanımlandı`,
-    html: shell(`
-      <div style="font:700 21px/1.3 -apple-system,Segoe UI,Roboto,sans-serif;color:#102A43;margin-bottom:14px">
-        ${roleTr} yetkiniz tanımlandı
-      </div>
-      ${p(`Merhaba ${who}, AfetHUB hesabınıza <strong>${esc(roleTr)}</strong> yetkisi tanımlandı.
-           Bir sonraki girişinizde koordinasyon paneli açılacak.`)}
-      ${orgCard(c)}
-      <div style="margin:18px 0">${btn(`${APP_ORIGIN}/koordinasyon`, 'Koordinasyon paneline git')}</div>
-      ${p(`<span style="color:#5B7182;font-size:13px">Bu yetkiyi beklemiyorduysanız bir yöneticiyle
-           iletişime geçin. Yetkiler yalnızca yöneticiler tarafından verilir ve her değişiklik denetim
-           kaydına yazılır.</span>`)}
-    `),
+    html: shell(`<h1 style="${S.h1}">${esc(roleTr)} yetkiniz tanımlandı</h1>
+<p style="${S.p}">Merhaba ${who}, AfetHUB hesabınıza <strong style="color:#102A43;">${esc(roleTr)}</strong> yetkisi tanımlandı. Bir sonraki girişinizde koordinasyon paneli açılacak.</p>
+${noteBlock(note)}
+${orgCard(c)}
+${btn(link, 'Koordinasyon paneline git')}
+<p style="${S.small}">Buton çalışmazsa bu bağlantıyı tarayıcına yapıştır:</p>
+<p style="${S.url}">${esc(link)}</p>
+<p style="${S.faint}">Bu yetkiyi beklemiyorduysanız bir yöneticiyle iletişime geçin. Yetkiler yalnızca yöneticiler tarafından verilir ve her değişiklik denetim kaydına yazılır.</p>`),
   };
 }
 
@@ -178,7 +188,7 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get('Authorization') ?? '';
   if (!authHeader.startsWith('Bearer ')) return json({ error: 'Missing bearer token' }, 401);
 
-  let body: { email?: string; role?: string; orgId?: string | null };
+  let body: { email?: string; role?: string; orgId?: string | null; note?: string };
   try {
     body = await req.json();
   } catch {
@@ -188,6 +198,7 @@ Deno.serve(async (req) => {
   const email = String(body.email ?? '').trim().toLowerCase();
   const role = String(body.role ?? '');
   const orgId = body.orgId ? String(body.orgId) : null;
+  const note = String(body.note ?? '');
   if (!email.includes('@') || !['coordinator', 'admin'].includes(role)) {
     return json({ error: 'Invalid email or role' }, 400);
   }
@@ -210,7 +221,9 @@ Deno.serve(async (req) => {
   }
   const ctx = rows[0];
 
-  const mail = ctx.account_exists ? grantedBody(email, role, ctx) : inviteBody(email, role, ctx);
+  const mail = ctx.account_exists
+    ? grantedBody(email, role, note, ctx)
+    : inviteBody(email, role, note, ctx);
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -220,5 +233,7 @@ Deno.serve(async (req) => {
   const data = await res.json();
   if (!res.ok) return json({ error: 'Resend rejected the request', detail: data }, res.status);
 
+  // `ok` means Resend ACCEPTED the message. Delivery is a separate step that can still
+  // fail; the panel says "sağlayıcıya iletildi" for exactly this reason.
   return json({ ok: true, id: data.id, kind: ctx.account_exists ? 'granted' : 'invited' });
 });
