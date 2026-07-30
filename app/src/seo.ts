@@ -56,6 +56,9 @@ const ROUTE_META: Record<Route, RouteMeta> = {
     description: 'AfetHUB’ın yapısı, kimin ne yapabildiği ve her işlemin adımları: afet bildirme, ihtiyaç çağrısı, yardım bildirimi, takip ve doğrulama zinciri.',
     index: true,
   },
+  // Account and panel content management are operational, not public content.
+  account: { title: 'Hesabım', index: false },
+  coordSlider: { title: 'Slider yönetimi', index: false },
   reportDisaster: {
     title: 'Afet bildir',
     description: 'Yangın, deprem, sel veya şiddetli hava olayını bildirin. Aynı olaya ait bildirimler birleştirilir.',

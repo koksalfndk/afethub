@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { repo, fallbackToLocal, type Snapshot, type Overview } from './data';
 import type {
   Submission, VerifyKind, Organization, OrganizationInput, DisasterReport, DisasterReportInput,
+  BannerSlide, BannerSlideInput,
 } from './types';
 import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
@@ -9,8 +10,8 @@ import { withTimeout } from './util';
 import { useAuth } from './auth';
 
 export type Route =
-  | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks'
-  | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog'
+  | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
+  | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog' | 'coordSlider'
   | 'components' | 'system';
 export type Tab = 'overview' | 'needs' | 'locations' | 'announcements' | 'activity';
 export type Device = 'desktop' | 'mobile';
@@ -35,10 +36,12 @@ function toPath(route: Route, tab: Tab, slug: string): string {
     case 'reportDisaster': return '/afet-bildir';
     case 'about': return '/hakkimizda';
     case 'howItWorks': return '/nasil-calisir';
+    case 'account': return '/hesabim';
     case 'coordHome': return '/koordinasyon';
     case 'coordQueue': return '/koordinasyon/kuyruk';
     case 'coordNeeds': return '/koordinasyon/ihtiyaclar';
     case 'coordLog': return '/koordinasyon/kayit';
+    case 'coordSlider': return '/koordinasyon/slider';
     case 'system': return '/sistem';
     case 'components': return '/bilesenler';
     default: return '/';
@@ -60,9 +63,11 @@ function fromPath(pathname: string): ParsedPath {
     case 'afet-bildir': return { route: 'reportDisaster' };
     case 'hakkimizda': return { route: 'about' };
     case 'nasil-calisir': return { route: 'howItWorks' };
+    case 'hesabim': return { route: 'account' };
     case 'koordinasyon': {
       const s = parts[1];
-      const r: Route = s === 'kuyruk' ? 'coordQueue' : s === 'ihtiyaclar' ? 'coordNeeds' : s === 'kayit' ? 'coordLog' : 'coordHome';
+      const r: Route = s === 'kuyruk' ? 'coordQueue' : s === 'ihtiyaclar' ? 'coordNeeds'
+        : s === 'kayit' ? 'coordLog' : s === 'slider' ? 'coordSlider' : 'coordHome';
       return { route: r, role: 'coordinator' };
     }
     case 'sistem': return { route: 'system' };
@@ -91,6 +96,7 @@ export interface AppApi {
   retryLoad: () => void;
   overview: Overview | null;      // national dashboard (home)
   orgs: Organization[];           // organizations directory
+  slides: BannerSlide[];          // home banner slides (panel-managed)
   backend: 'local' | 'supabase';
   route: Route; tab: Tab; device: Device; role: Role; currentSlug: string;
   frame: boolean; showToolbar: boolean;
@@ -125,6 +131,8 @@ export interface AppApi {
   setModalQty: (v: string) => void; setModalReason: (v: string) => void; confirmModal: () => void;
   doTrack: () => void; fillDemoCode: () => void;
   showToast: (m: string) => void;
+  saveSlide: (id: string | null, input: BannerSlideInput) => Promise<boolean>;
+  deleteSlide: (id: string) => Promise<boolean>;
   submitOrganization: (input: OrganizationInput) => Promise<boolean>;
   findSimilarReports: (input: DisasterReportInput) => Promise<DisasterReport[]>;
   submitDisasterReport: (input: DisasterReportInput) => Promise<{ report: DisasterReport; merged: boolean } | null>;
@@ -144,6 +152,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [loadError, setLoadError] = useState('');
   const [orgs, setOrgs] = useState<Organization[]>([]);
+  const [slides, setSlides] = useState<BannerSlide[]>([]);
   const [route, setRoute] = useState<Route>(initial.route);
   const [tab, setTab] = useState<Tab>(initial.tab ?? 'needs');
   const auth = useAuth();
@@ -222,6 +231,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     withTimeout(repo.listOrganizations())
       .then(setOrgs)
       .catch(() => fallbackToLocal().listOrganizations().then(setOrgs).catch(() => undefined));
+    withTimeout(repo.listSlides())
+      .then(setSlides)
+      .catch(() => fallbackToLocal().listSlides().then(setSlides).catch(() => undefined));
   }, []);
 
   // Browser back/forward: re-parse the path into state.
@@ -273,7 +285,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const api: AppApi = useMemo(() => ({
-    snap, loadError, retryLoad, overview, orgs, backend: repo.kind,
+    snap, loadError, retryLoad, overview, orgs, slides, backend: repo.kind,
     route, tab, device, role, currentSlug, frame, showToolbar: IS_DEV, query, filter, subFilter,
     catFilter, locFilter, onlyCritical, updatedToday,
     form, track, reportStage, lastCode, formError, copied,
@@ -402,6 +414,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return false;
       }
     },
+    // Slide writes are authorised server-side (RLS). A rejected write surfaces as a
+    // toast and the list is left untouched — never optimistically "saved".
+    saveSlide: async (id, input) => {
+      try {
+        setSlides(await withTimeout(repo.saveSlide(id, input)));
+        showToast(tr.slider.saved);
+        return true;
+      } catch { showToast(tr.slider.saveFailed); return false; }
+    },
+    deleteSlide: async (id) => {
+      try {
+        setSlides(await withTimeout(repo.deleteSlide(id)));
+        showToast(tr.slider.deleted);
+        return true;
+      } catch { showToast(tr.slider.saveFailed); return false; }
+    },
+
     submitOrganization: async (input) => {
       try {
         await repo.submitOrganization(input);

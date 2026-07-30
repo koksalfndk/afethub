@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, hasSupabaseEnv } from './data/supabaseClient';
-import type { Profile, UserRole } from './types';
+import type { Profile, ProfileInput, UserRole } from './types';
+import { tr } from './i18n/strings';
 
 export interface AuthApi {
   enabled: boolean;          // true when Supabase is configured
@@ -21,6 +22,9 @@ export interface AuthApi {
   signOut: () => Promise<void>;
   resendVerification: () => Promise<boolean>;
   setAvatar: (url: string) => Promise<void>;
+  // Profile self-service. Role and membership verification are NOT writable here —
+  // RLS rejects them too, so a crafted request cannot self-promote (rules/03).
+  updateProfile: (input: ProfileInput) => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -33,9 +37,20 @@ export const useAuth = () => {
 
 async function loadProfile(userId: string): Promise<Profile | null> {
   if (!supabase) return null;
-  const { data } = await supabase.from('profiles').select('id, full_name, role, avatar_url').eq('id', userId).maybeSingle();
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, full_name, role, avatar_url, phone, city, organization_id, org_title, org_verified')
+    .eq('id', userId).maybeSingle();
   if (!data) return null;
-  return { id: String(data.id), fullName: String(data.full_name ?? ''), role: (data.role as UserRole) ?? 'volunteer', avatarUrl: data.avatar_url ?? null };
+  return {
+    id: String(data.id), fullName: String(data.full_name ?? ''),
+    role: (data.role as UserRole) ?? 'volunteer', avatarUrl: data.avatar_url ?? null,
+    phone: String(data.phone ?? ''), city: String(data.city ?? ''),
+    orgId: data.organization_id ? String(data.organization_id) : null,
+    orgTitle: String(data.org_title ?? ''),
+    // Membership verification is coordinator-set; the client only reads it.
+    orgVerified: data.org_verified === true,
+  };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -105,6 +120,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!supabase || !user) return;
       await supabase.from('profiles').update({ avatar_url: url }).eq('id', user.id);
       setProfile((p) => (p ? { ...p, avatarUrl: url } : p));
+    },
+    updateProfile: async (input) => {
+      if (!supabase || !user) return false;
+      setWorking(true); setError('');
+      // Only these five columns are sent. `role` and `org_verified` are absent by
+      // design and RLS forbids them regardless of what the client asks for.
+      const { error: e } = await supabase.from('profiles').update({
+        full_name: input.fullName.trim(), phone: input.phone.trim(), city: input.city.trim(),
+        organization_id: input.orgId, org_title: input.orgTitle.trim(),
+      }).eq('id', user.id);
+      setWorking(false);
+      if (e) { setError(tr.auth.genericError); return false; }
+      // A changed membership drops back to unverified: a coordinator confirmed the
+      // previous organization, not this one.
+      setProfile((p) => (p ? {
+        ...p, fullName: input.fullName.trim(), phone: input.phone.trim(), city: input.city.trim(),
+        orgId: input.orgId, orgTitle: input.orgTitle.trim(),
+        orgVerified: p.orgId === input.orgId ? p.orgVerified : false,
+      } : p));
+      return true;
     },
   }), [enabled, ready, user, profile, working, error, modalOpen, modalMode]);
 

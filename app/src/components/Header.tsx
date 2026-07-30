@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../store';
 import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
-import { C, D, G } from '../theme';
+import { C, G } from '../theme';
 import { Ico, IconBtn, LiveDot, type IcoName } from '../ui';
 import { AccountModal } from './AccountModal';
 
@@ -43,20 +43,19 @@ export function Header() {
   // Navigating from a menu always closes it.
   const goAnd = (fn: () => void) => () => { fn(); setProfOpen(false); setDrawerOpen(false); };
 
-  const navItems: { label: string; active: boolean; onClick: () => void }[] = coord
-    ? [
-        { label: tr.nav.dashboard, active: a.route === 'coordHome', onClick: () => a.go('coordHome') },
-        { label: tr.nav.reviewQueue, active: a.route === 'coordQueue', onClick: () => a.go('coordQueue') },
-        { label: tr.nav.needs, active: a.route === 'coordNeeds', onClick: () => a.go('coordNeeds') },
-        { label: tr.nav.auditLog, active: a.route === 'coordLog', onClick: () => a.go('coordLog') },
-      ]
-    // "Teslim Noktaları" was removed from the menu — it lives on the disaster page
-    // as a tab and in the delivery-points panel on the home page.
-    : [
-        { label: tr.nav.activeDisasters, active: a.route === 'home', onClick: () => a.go('home') },
-        { label: tr.nav.orgs, active: a.route === 'orgs', onClick: () => a.go('orgs') },
-        { label: tr.nav.howItWorks, active: a.route === 'howItWorks', onClick: () => a.go('howItWorks') },
-      ];
+  // The header always carries the PUBLIC menu, in both roles. Management navigation
+  // lives in the coordinator sidebar and nowhere else: duplicating it in the header
+  // meant the same five links appeared twice and the coordinator lost any way to reach
+  // the public site from the top bar (rules/04 §Responsive Navigation — do not mix
+  // public and coordinator navigation without clear role context).
+  //
+  // "Teslim Noktaları" is not in this menu — it lives on the disaster page as a
+  // section and in the delivery-points panel on the dashboard.
+  const navItems: { label: string; active: boolean; onClick: () => void }[] = [
+    { label: tr.nav.activeDisasters, active: a.route === 'home', onClick: () => a.go('home') },
+    { label: tr.nav.orgs, active: a.route === 'orgs', onClick: () => a.go('orgs') },
+    { label: tr.nav.howItWorks, active: a.route === 'howItWorks', onClick: () => a.go('howItWorks') },
+  ];
 
   const nav = (
     <nav style={{ display: 'flex', gap: 1, marginLeft: 12, flex: '0 1 auto', minWidth: 0 }}>
@@ -137,7 +136,7 @@ export function Header() {
       <div style={{ height: 1, background: C.borderFaint, margin: '6px 2px' }} />
       {loggedIn
         ? [
-            menuRow('user', tr.header.account, () => setAccountOpen(true)),
+            menuRow('user', tr.header.account, () => a.go('account')),
             menuRow('logout', tr.header.signOut, () => { void auth.signOut(); }),
           ]
         : auth.enabled
@@ -148,21 +147,6 @@ export function Header() {
           : null}
     </div>
   );
-
-  // Slim operational strip — mobile only; on desktop this information lives in the
-  // hero card's own header row so the top bar stays a single line.
-  const opsStrip = mob && a.snap && !coord ? (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '7px 13px',
-      fontSize: 11.5, background: G.opsBar, color: D.fg2,
-    }}>
-      <LiveDot color="#4ADE80" size={6} />
-      <b style={{ color: '#fff', fontWeight: 600 }}>{a.snap.disaster.name}</b>
-      <span className="tnum">{tr.home.activeNeedsCount(a.snap.needs.filter((n) => n.required > n.verified).length)}</span>
-      <span style={{ flex: 1 }} />
-      <span className="tnum">{tr.common.updated(a.snap.disaster.updatedLabel)}</span>
-    </div>
-  ) : null;
 
   // Opens over the page (fixed + backdrop) so the layout never shifts down.
   const drawer = (
@@ -258,7 +242,6 @@ export function Header() {
       )}
 
       {mob && drawerOpen && drawer}
-      {opsStrip}
       <AccountModal open={accountOpen} onClose={() => setAccountOpen(false)} />
     </header>
   );

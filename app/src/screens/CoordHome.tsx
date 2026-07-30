@@ -2,7 +2,8 @@ import { useApp } from '../store';
 import { tr } from '../i18n/strings';
 import { C } from '../theme';
 import { enrichSorted, cols } from '../select';
-import { ProgressBar, StatCard, type IcoName } from '../ui';
+import { ProgressBar, StatCard, Ico, type IcoName } from '../ui';
+import { useAuth } from '../auth';
 
 export function CoordHome() {
   const a = useApp();
@@ -47,6 +48,8 @@ export function CoordHome() {
         ))}
       </div>
 
+      <MembershipCard />
+
       <div style={{ display: 'grid', gap: 14, gridTemplateColumns: L.two }}>
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 }}>
           <h3 style={{ fontSize: 15.5, fontWeight: 700, margin: '0 0 12px' }}>{tr.coord.nearDone}</h3>
@@ -77,5 +80,69 @@ export function CoordHome() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Which institution / association / volunteer group the signed-in coordinator belongs
+// to. Shown here because it is operational context: it tells the person (and anyone
+// looking over their shoulder) on whose behalf they are acting. The badge repeats the
+// account page's rule — a self-declared membership stays "Doğrulama bekliyor" until a
+// coordinator confirms it, so this panel never implies an affiliation is proven.
+function MembershipCard() {
+  const a = useApp();
+  const auth = useAuth();
+  const p = auth.profile;
+  const org = p?.orgId ? a.orgs.find((o) => o.id === p.orgId) ?? null : null;
+  const verified = !!p?.orgVerified;
+
+  return (
+    <section style={{
+      background: C.surface, border: `1px solid ${C.border}`,
+      borderLeft: `3px solid ${org ? (verified ? C.success : C.warning) : C.borderSoft}`,
+      borderRadius: 12, padding: 16,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap',
+    }}>
+      <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start', minWidth: 0 }}>
+        <span style={{
+          width: 40, height: 40, flex: '0 0 40px', borderRadius: 10, overflow: 'hidden',
+          border: `1px solid ${C.borderFaint}`, background: C.surface,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {org?.logo
+            ? <img src={org.logo} alt="" width={32} height={32} loading="lazy"
+                style={{ width: 32, height: 32, objectFit: 'contain', display: 'block' }} />
+            : <Ico n="people" size={18} color={C.muted2} />}
+        </span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: C.muted2 }}>
+            {tr.account.panelMembership}
+          </div>
+          {org ? (
+            <>
+              <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginTop: 2 }}>{org.name}</div>
+              <div style={{ fontSize: 12.5, color: C.muted, marginTop: 1 }}>
+                {[p?.orgTitle, org.kind, org.scope === 'Ulusal' ? tr.orgs.national : org.province]
+                  .filter(Boolean).join(' · ')}
+              </div>
+              {/* Status in text as well as colour (rules/04 §Accessibility). */}
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 5,
+                fontSize: 12, fontWeight: 700,
+                color: verified ? C.successText : C.warningText,
+              }}>
+                <Ico n={verified ? 'verified' : 'pending'} size={13} color={verified ? C.success : C.warning} />
+                {verified ? tr.account.orgVerified : tr.account.orgPending}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: 13.5, color: C.muted, marginTop: 3 }}>{tr.account.panelNoOrg}</div>
+          )}
+        </div>
+      </div>
+      <button onClick={() => a.go('account')} className="hv-navy" style={{
+        background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 9,
+        height: 42, padding: '0 15px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+      }}>{org ? tr.nav.account : tr.account.panelAddOrg}</button>
+    </section>
   );
 }

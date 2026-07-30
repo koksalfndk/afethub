@@ -21,6 +21,9 @@ import { Organizations } from './screens/Organizations';
 import { ReportDisaster } from './screens/ReportDisaster';
 import { About } from './screens/About';
 import { HowItWorks } from './screens/HowItWorks';
+import { Account } from './screens/Account';
+import { CoordSlider } from './screens/CoordSlider';
+import { LiveTicker } from './components/LiveTicker';
 import { DisasterReportModal } from './components/DisasterReportModal';
 import { Footer } from './components/Footer';
 import { CoordHome } from './screens/CoordHome';
@@ -37,8 +40,8 @@ export function App() {
   const frame = a.frame; // 412px phone mock-up wrapper (dev preview only)
 
   const screens: Record<string, () => ReactElement | null> = {
-    home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About, howItWorks: HowItWorks,
-    coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog,
+    home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About, howItWorks: HowItWorks, account: Account,
+    coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider,
     components: Components, system: System,
   };
   const isReport = a.route === 'report';
@@ -60,6 +63,7 @@ export function App() {
           minHeight: 720, position: 'relative',
         }}>
           <Header />
+          <LiveTicker />
           <AccountBanner />
           <div style={{ display: 'flex', alignItems: 'stretch' }}>
             {coord && !mob && <Sidebar />}

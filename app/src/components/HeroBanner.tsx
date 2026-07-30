@@ -3,6 +3,7 @@ import { useApp } from '../store';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Ico } from '../ui';
+import type { SlideAction } from '../types';
 
 // Informative banner slider.
 //
@@ -36,17 +37,35 @@ export function HeroBanner() {
   const a = useApp();
   const mob = a.device === 'mobile';
 
-  const slides: Slide[] = [
-    { key: 'report', image: '/banners/wildfire.jpg', tint: '#D9363E',
-      title: tr.banner.reportTitle, body: tr.banner.reportBody, cta: tr.reportDisaster.title,
-      onClick: a.openDisasterForm },
-    { key: 'verify', image: '/banners/coordination.jpg', tint: '#159947',
-      title: tr.banner.verifyTitle, body: tr.banner.verifyBody, cta: tr.home.howVerification,
-      onClick: () => a.go('howItWorks') },
-    { key: 'orgs', image: '/banners/volunteers.jpg', tint: '#2A6FB0',
-      title: tr.banner.orgsTitle, body: tr.banner.orgsBody, cta: tr.nav.orgs,
-      onClick: () => a.go('orgs') },
-  ];
+  // Slides come from the data layer so a coordinator can edit them in the panel
+  // (/koordinasyon/slider). The built-in set is the fallback for a database that has
+  // no rows yet — the banner is never empty and never blocks on this read.
+  const managed = a.slides.filter((sl) => sl.active).sort((x, y) => x.sortOrder - y.sortOrder);
+  const act = (action: SlideAction): (() => void) => {
+    switch (action) {
+      case 'reportDisaster': return a.openDisasterForm;
+      case 'howItWorks': return () => a.go('howItWorks');
+      case 'orgs': return () => a.go('orgs');
+      case 'track': return () => a.go('track');
+      default: return () => a.go('home');
+    }
+  };
+  const slides: Slide[] = managed.length > 0
+    ? managed.map((sl) => ({
+        key: sl.id, image: sl.image, tint: sl.tint,
+        title: sl.title, body: sl.body, cta: sl.ctaLabel, onClick: act(sl.action),
+      }))
+    : [
+        { key: 'report', image: '/banners/wildfire.webp', tint: '#D9363E',
+          title: tr.banner.reportTitle, body: tr.banner.reportBody, cta: tr.reportDisaster.title,
+          onClick: a.openDisasterForm },
+        { key: 'verify', image: '/banners/coordination.webp', tint: '#159947',
+          title: tr.banner.verifyTitle, body: tr.banner.verifyBody, cta: tr.home.howVerification,
+          onClick: () => a.go('howItWorks') },
+        { key: 'orgs', image: '/banners/volunteers.webp', tint: '#2A6FB0',
+          title: tr.banner.orgsTitle, body: tr.banner.orgsBody, cta: tr.nav.orgs,
+          onClick: () => a.go('orgs') },
+      ];
 
   const [i, setI] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -81,8 +100,8 @@ export function HeroBanner() {
         // Photo first, generated artwork behind it: a real file at the slide's path
         // simply covers the artwork, so dropping images into public/banners/ needs no
         // code change and a missing file is never a blank frame.
-        backgroundImage: `url(${s.image}), ${artLayer(s.tint)}`,
-        backgroundSize: 'cover, cover',
+        backgroundImage: s.image ? `url(${s.image}), ${artLayer(s.tint)}` : artLayer(s.tint),
+        backgroundSize: s.image ? 'cover, cover' : 'cover',
         backgroundPosition: mob ? 'center top, center' : 'right center, right center',
         backgroundRepeat: 'no-repeat, no-repeat',
         backgroundColor: `color-mix(in srgb, ${s.tint} 9%, #EAF0F5)`,
@@ -90,15 +109,19 @@ export function HeroBanner() {
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
         background: mob
-          ? 'linear-gradient(185deg, #FFFFFF 0%, #FFFFFF 30%, rgba(255,255,255,.97) 40%, rgba(255,255,255,.86) 52%, rgba(255,255,255,.6) 65%, rgba(255,255,255,.28) 80%, rgba(255,255,255,0) 100%)'
-          : 'linear-gradient(100deg, #FFFFFF 0%, #FFFFFF 32%, rgba(255,255,255,.985) 40%, rgba(255,255,255,.92) 48%, rgba(255,255,255,.74) 57%, rgba(255,255,255,.46) 68%, rgba(255,255,255,.18) 80%, rgba(255,255,255,0) 94%)',
+          // Mobile: the copy block is the full width, so the white plateau has to clear
+          // it vertically — body text over the image failed the outdoor-contrast rule.
+          ? 'linear-gradient(185deg, #FFFFFF 0%, #FFFFFF 46%, rgba(255,255,255,.97) 56%, rgba(255,255,255,.88) 66%, rgba(255,255,255,.66) 76%, rgba(255,255,255,.34) 88%, rgba(255,255,255,0) 100%)'
+          // The white plateau ends where the (now 70% wider) text column ends, so the
+          // copy never sits on the image and the fade still finishes inside the frame.
+          : 'linear-gradient(100deg, #FFFFFF 0%, #FFFFFF 52%, rgba(255,255,255,.985) 60%, rgba(255,255,255,.92) 68%, rgba(255,255,255,.74) 77%, rgba(255,255,255,.46) 86%, rgba(255,255,255,.18) 94%, rgba(255,255,255,0) 100%)',
       }} />
 
       <div style={{
         position: 'relative', zIndex: 2,
         padding: mob ? '24px 20px 26px' : '36px 38px',
         display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 11,
-        maxWidth: mob ? '100%' : 500, width: '100%',
+        maxWidth: mob ? '100%' : 850, width: '100%',
       }}>
         <span style={{
           alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7,
@@ -109,7 +132,7 @@ export function HeroBanner() {
           <Ico n="critical" size={12} color={s.tint} />{tr.banner.label}
         </span>
         <h2 style={{ fontSize: mob ? 24 : 30, fontWeight: 700, letterSpacing: '-.025em', lineHeight: 1.12, margin: 0, color: C.navy }}>{s.title}</h2>
-        <p style={{ fontSize: 14, color: C.text, margin: 0, maxWidth: '44ch' }}>{s.body}</p>
+        <p style={{ fontSize: 14.5, color: C.text, margin: 0, maxWidth: '70ch' }}>{s.body}</p>
         <button onClick={s.onClick} className="hv-emergency" style={{
           alignSelf: 'flex-start', marginTop: 4, background: G.emergencyBtn, border: '1px solid #BE2A31',
           color: '#fff', borderRadius: 10, padding: '0 18px', height: 46, fontSize: 14, fontWeight: 600, cursor: 'pointer',

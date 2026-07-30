@@ -1,5 +1,6 @@
 import type {
   Disaster, Location, Need, Submission, LogEntry, Announcement, Organization, DisasterReport,
+  BannerSlide,
 } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -321,6 +322,29 @@ export const announcements: Announcement[] = [
 // placeholders and they are deliberately left "Doğrulama bekliyor" so the
 // verification state is visible in the UI.
 // ---------------------------------------------------------------------------
+// Default banner slides. Editorial content, editable from the panel; these are the
+// values the app ships with so the slider is never empty on a fresh database.
+export const bannerSlides: BannerSlide[] = [
+  {
+    id: 'slide1', title: 'Bir olay gördüyseniz bildirin',
+    body: 'Yangın, sel, deprem veya şiddetli hava olayını hesap açmadan bildirin. Aynı olaya ait bildirimler birleştirilir ve koordinatör incelemesine tek kayıt olarak düşer.',
+    ctaLabel: 'Afet Bildir', action: 'reportDisaster',
+    image: '/banners/wildfire.webp', tint: '#D9363E', active: true, sortOrder: 1,
+  },
+  {
+    id: 'slide2', title: 'Sayılar nasıl doğrulanıyor',
+    body: 'Kalan miktar yalnızca koordinatörün teslim aldığını onayladığı kadar düşer. Bekleyen bildirimler bilgi amaçlıdır ve hiçbir sayıyı değiştirmez.',
+    ctaLabel: 'Doğrulama Nasıl İşler', action: 'howItWorks',
+    image: '/banners/coordination.webp', tint: '#159947', active: true, sortOrder: 2,
+  },
+  {
+    id: 'slide3', title: 'Kurumlar ve gönüllü grupları',
+    body: 'Afetlerde çalışan kamu kurumlarının, belediyelerin, derneklerin ve gönüllü gruplarının iletişim bilgilerini tek listede bulun; eksik bir kurumu siz de ekleyin.',
+    ctaLabel: 'Kurumlar', action: 'orgs',
+    image: '/banners/volunteers.webp', tint: '#2A6FB0', active: true, sortOrder: 3,
+  },
+];
+
 export const organizations: Organization[] = [
   {
     id: 'org1', name: 'AFAD — Afet ve Acil Durum Yönetimi Başkanlığı', kind: 'Kamu kurumu', scope: 'Ulusal',

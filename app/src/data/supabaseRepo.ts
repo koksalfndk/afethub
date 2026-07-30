@@ -3,11 +3,11 @@ import type {
   Disaster, Location, Need, Submission, LogEntry, Announcement,
   VerifyKind, DeliveryInput, PriorityKey, StatusKey, DisasterType,
   Organization, OrganizationInput, OrgStatus, OrgKind, OrgScope,
-  DisasterReport, DisasterReportInput, ReportStatus,
+  DisasterReport, DisasterReportInput, ReportStatus, BannerSlide, BannerSlideInput, SlideAction,
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
 import type { NeedPayload } from '../needForm';
-import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW } from './repo';
+import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW, isLocalSlideImage } from './repo';
 import { PRI } from '../theme';
 
 // Turkish relative-time formatter for DB timestamps.
@@ -185,6 +185,42 @@ export class SupabaseRepo implements Repo {
       reports: (rep.data ?? []).map(this.mapReport).sort((x, y) => y.reportCount - x.reportCount),
       demo: cards.some((c) => c.disaster.demo === true),
     };
+  }
+
+  // ---- Banner slides -------------------------------------------------------
+  // Reads are public. Writes go straight to the table and are authorised by RLS
+  // (coordinator/admin only) — the panel screen hiding a button is not authorisation
+  // (rules/03 §Server-Side Authorization).
+  private mapSlide = (r: Record<string, unknown>): BannerSlide => ({
+    id: String(r.id), title: String(r.title ?? ''), body: String(r.body ?? ''),
+    ctaLabel: String(r.cta_label ?? ''), action: (r.action as SlideAction) ?? 'home',
+    image: String(r.image ?? ''), tint: String(r.tint ?? '#D9363E'),
+    active: r.active === true, sortOrder: Number(r.sort_order ?? 0),
+  });
+
+  async listSlides(): Promise<BannerSlide[]> {
+    const { data } = await this.db.from('banner_slides').select('*').order('sort_order');
+    return (data ?? []).map(this.mapSlide);
+  }
+
+  async saveSlide(id: string | null, input: BannerSlideInput): Promise<BannerSlide[]> {
+    if (!isLocalSlideImage(input.image)) throw new Error('slide image must be a local /banners path');
+    const row = {
+      title: input.title.trim(), body: input.body.trim(), cta_label: input.ctaLabel.trim(),
+      action: input.action, image: input.image.trim(), tint: input.tint,
+      active: input.active, sort_order: input.sortOrder,
+    };
+    const { error } = id
+      ? await this.db.from('banner_slides').update(row).eq('id', id)
+      : await this.db.from('banner_slides').insert(row);
+    if (error) throw error;
+    return this.listSlides();
+  }
+
+  async deleteSlide(id: string): Promise<BannerSlide[]> {
+    const { error } = await this.db.from('banner_slides').delete().eq('id', id);
+    if (error) throw error;
+    return this.listSlides();
   }
 
   // Read from the public view: it excludes the submitter's contact details, which

@@ -29,21 +29,40 @@ export function Sidebar() {
   };
 
   return (
-    <aside style={{
-      width: 236, flex: '0 0 236px', background: C.surface, borderRight: `1px solid ${C.border}`,
-      padding: '18px 12px', display: 'flex', flexDirection: 'column', gap: 22, minHeight: 640,
+    // The management menu is the coordinator's fixed frame: the column runs the full
+    // page height so its edge is continuous, and the menu block inside stays in view
+    // while the work area scrolls. Sticky must sit on the inner block — a sticky element
+    // taller than the viewport scrolls away (same fix as the disaster rail).
+    <aside aria-label={tr.nav.operations} style={{
+      width: 236, flex: '0 0 236px', alignSelf: 'stretch',
+      background: C.chipNavyBg, borderRight: `1px solid ${C.borderSoft}`,
+      minHeight: 'calc(100vh - 63px)',
     }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: C.muted3, padding: '6px 10px' }}>{tr.nav.operations}</span>
-        {item(tr.nav.dashboard, 'coordHome', null, 'grey', () => a.go('coordHome'))}
-        {item(tr.nav.reviewQueue, 'coordQueue', pending, 'red', () => a.go('coordQueue'))}
-        {item(tr.nav.needs, 'coordNeeds', snap?.needs.length ?? 0, 'grey', () => a.go('coordNeeds'))}
-        {item(tr.nav.auditLog, 'coordLog', snap?.log.length ?? 0, 'grey', () => a.go('coordLog'))}
-        {item(tr.nav.publicSite, 'home', null, 'grey', () => a.setRole('visitor'))}
-      </div>
-      <div style={{ marginTop: 'auto', background: C.canvas, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 700, color: C.navy }}>{a.snap?.disaster.name ?? ''}</div>
-        <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>{[a.snap?.disaster.province, tr.sidebarFooter.regionSuffix].filter(Boolean).join(' · ')}</div>
+      <div style={{
+        position: 'sticky', top: 0, padding: '18px 12px 20px',
+        display: 'flex', flexDirection: 'column', gap: 14,
+        maxHeight: '100vh', overflowY: 'auto',
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: C.muted3, padding: '6px 10px' }}>{tr.nav.operations}</span>
+          {item(tr.nav.dashboard, 'coordHome', null, 'grey', () => a.go('coordHome'))}
+          {item(tr.nav.reviewQueue, 'coordQueue', pending, 'red', () => a.go('coordQueue'))}
+          {item(tr.nav.needs, 'coordNeeds', snap?.needs.length ?? 0, 'grey', () => a.go('coordNeeds'))}
+          {item(tr.nav.auditLog, 'coordLog', snap?.log.length ?? 0, 'grey', () => a.go('coordLog'))}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: C.muted3, padding: '6px 10px' }}>{tr.nav.contentGroup}</span>
+          {item(tr.nav.sliderAdmin, 'coordSlider', null, 'grey', () => a.go('coordSlider'))}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: C.muted3, padding: '6px 10px' }}>{tr.nav.accountGroup}</span>
+          {item(tr.nav.account, 'account', null, 'grey', () => a.go('account'))}
+          {item(tr.nav.publicSite, 'home', null, 'grey', () => a.setRole('visitor'))}
+        </div>
+        <div style={{ marginTop: 'auto', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: C.navy }}>{a.snap?.disaster.name ?? ''}</div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>{[a.snap?.disaster.province, tr.sidebarFooter.regionSuffix].filter(Boolean).join(' · ')}</div>
+        </div>
       </div>
     </aside>
   );

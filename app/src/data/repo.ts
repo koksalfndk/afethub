@@ -1,7 +1,7 @@
 import type {
   Disaster, Location, Need, Submission, LogEntry, Announcement,
   VerifyKind, DeliveryInput, PriorityKey, Organization, OrganizationInput,
-  DisasterReport, DisasterReportInput,
+  DisasterReport, DisasterReportInput, BannerSlide, BannerSlideInput, SlideAction,
 } from '../types';
 import type { NeedPayload } from '../needForm';
 
@@ -65,6 +65,9 @@ export interface Repo {
   getOverview(): Promise<Overview>;
   // Organizations directory. Entries are public as soon as they are submitted and
   // carry "Doğrulama bekliyor" until a coordinator verifies them.
+  listSlides(): Promise<BannerSlide[]>;
+  saveSlide(id: string | null, input: BannerSlideInput): Promise<BannerSlide[]>;
+  deleteSlide(id: string): Promise<BannerSlide[]>;
   listOrganizations(): Promise<Organization[]>;
   submitOrganization(input: OrganizationInput): Promise<Organization>;
   // Citizen disaster reports. `findSimilarReports` is a *suggestion* pass so the
@@ -93,6 +96,12 @@ export const genNrq = (r: number): string => 'NRQ-' + (120 + Math.floor(r * 80))
 // province, were observed within REPORT_DAY_WINDOW days of each other, and name
 // the same district (or the district is left blank on one side). Keep this rule in
 // one place: the SQL trigger in migration 0003 mirrors it exactly.
+// Banner slides. Reads are public (the slider is public content); writes are
+// coordinator-only and enforced by RLS, not by hiding the screen (rules/03).
+export const SLIDE_ACTIONS: SlideAction[] = ['reportDisaster', 'howItWorks', 'orgs', 'home', 'track'];
+// A slide image must be a file we ship. Mirrored by a check constraint in SQL.
+export const isLocalSlideImage = (v: string): boolean => v === '' || /^\/banners\/[A-Za-z0-9._-]+\.(webp|png|svg|jpg)$/.test(v);
+
 export const REPORT_DAY_WINDOW = 2;
 
 const norm = (v: string) => v.trim().toLocaleLowerCase('tr');

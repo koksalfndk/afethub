@@ -116,8 +116,51 @@ export type UserRole = 'volunteer' | 'coordinator' | 'admin';
 export interface Profile {
   id: string;
   fullName: string;
-  role: UserRole;
+  role: UserRole;              // platform role — only an admin may change it
   avatarUrl?: string | null;
+  // Contact kept on the account so a contributor never retypes it (rules/01
+  // §Registration Must Be Optional). Never rendered on a public surface.
+  phone: string;
+  city: string;
+  // Which institution / association / volunteer group the person belongs to.
+  // A self-declared membership is NOT proof of affiliation: it stays
+  // "Doğrulama bekliyor" until a coordinator confirms it, exactly like an
+  // organization record itself.
+  orgId: string | null;
+  orgTitle: string;            // their role inside that organization, free text
+  orgVerified: boolean;        // coordinator-set only
+}
+
+// What the account form may write. Role, verification and id are excluded on
+// purpose: a user cannot promote themselves or self-verify a membership.
+export interface ProfileInput {
+  fullName: string; phone: string; city: string; orgId: string | null; orgTitle: string;
+}
+
+// ---------------------------------------------------------------------------
+// Home banner slides (koordinatör tarafından yönetilir)
+// ---------------------------------------------------------------------------
+// The slider is editorial content, not operational data, so it is managed from
+// the panel rather than derived. `image` is a local path only — the same rule as
+// organization logos: a remote URL supplied through the admin UI would render a
+// third-party asset to every visitor (rules/03 §File Uploads).
+export type SlideAction = 'reportDisaster' | 'howItWorks' | 'orgs' | 'home' | 'track';
+
+export interface BannerSlide {
+  id: string;
+  title: string;
+  body: string;
+  ctaLabel: string;
+  action: SlideAction;
+  image: string;               // '/banners/*.webp' or ''
+  tint: string;                // hex, used by the generated fallback artwork
+  active: boolean;
+  sortOrder: number;
+}
+
+export interface BannerSlideInput {
+  title: string; body: string; ctaLabel: string; action: SlideAction;
+  image: string; tint: string; active: boolean; sortOrder: number;
 }
 
 export interface NeedDraft {

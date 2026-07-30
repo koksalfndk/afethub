@@ -18,10 +18,12 @@ export function routePath(route: Route, tab: Tab, slug: string): string {
     case 'reportDisaster': return '/afet-bildir';
     case 'about': return '/hakkimizda';
     case 'howItWorks': return '/nasil-calisir';
+    case 'account': return '/hesabim';
     case 'coordHome': return '/koordinasyon';
     case 'coordQueue': return '/koordinasyon/kuyruk';
     case 'coordNeeds': return '/koordinasyon/ihtiyaclar';
     case 'coordLog': return '/koordinasyon/kayit';
+    case 'coordSlider': return '/koordinasyon/slider';
     case 'system': return '/sistem';
     case 'components': return '/bilesenler';
     default: return '/';

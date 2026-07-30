@@ -1,9 +1,9 @@
 import type {
   LogEntry, Need, Submission, VerifyKind, DeliveryInput, Organization, OrganizationInput,
-  DisasterReport, DisasterReportInput,
+  DisasterReport, DisasterReportInput, BannerSlide, BannerSlideInput,
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
-import { genCode, genNrq, remaining, isSameEvent } from './repo';
+import { genCode, genNrq, remaining, isSameEvent, isLocalSlideImage } from './repo';
 import { agoMinutes } from '../util';
 import { PRI } from '../theme';
 import type { NeedPayload } from '../needForm';
@@ -20,6 +20,7 @@ let log: LogEntry[] = seed.log.map((l) => ({ ...l }));
 const verifiedTotals: Record<string, number> = { ...seed.verifiedTotals };
 let orgs: Organization[] = seed.organizations.map((o) => ({ ...o }));
 let reports: DisasterReport[] = seed.reports.map((r) => ({ ...r }));
+let slides: BannerSlide[] = seed.bannerSlides.map((sl) => ({ ...sl }));
 
 let uid = 0;
 const nextId = (p: string) => `${p}_${Date.now()}_${uid++}`;
@@ -133,6 +134,28 @@ export class LocalRepo implements Repo {
         .slice(0, 6),
       demo: cards.some((c) => c.disaster.demo === true),
     };
+  }
+
+  // ---- Banner slides -------------------------------------------------------
+  // Writes stay in memory: without Supabase there is nowhere to persist to, and
+  // pretending otherwise would be worse than saying so in the UI.
+  async listSlides(): Promise<BannerSlide[]> {
+    return slides.slice().sort((x, y) => x.sortOrder - y.sortOrder);
+  }
+
+  async saveSlide(id: string | null, input: BannerSlideInput): Promise<BannerSlide[]> {
+    if (!isLocalSlideImage(input.image)) throw new Error('slide image must be a local /banners path');
+    if (id) {
+      slides = slides.map((sl) => (sl.id === id ? { ...sl, ...input } : sl));
+    } else {
+      slides = [...slides, { id: nextId('slide'), ...input }];
+    }
+    return this.listSlides();
+  }
+
+  async deleteSlide(id: string): Promise<BannerSlide[]> {
+    slides = slides.filter((sl) => sl.id !== id);
+    return this.listSlides();
   }
 
   // Directory entries are public as soon as they are submitted; the pending ones
