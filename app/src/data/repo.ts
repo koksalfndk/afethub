@@ -118,6 +118,13 @@ export interface Repo {
   reviewDisasterReport(reportId: string, action: 'publish' | 'reject', reason: string): Promise<string>;
   // Clears the "koordinatör doğrulaması bekleniyor" label from a community operation.
   confirmCommunityDisaster(disasterId: string): Promise<void>;
+  // The panel's system log: every recorded action, including the ones the public feed
+  // never shows. Who may actually read the private rows is decided by RLS
+  // (migration 0017), not by which screen calls this.
+  listSystemLog(limit: number): Promise<LogEntry[]>;
+  // Puts an approved volunteer on shift, or takes them off it. This is the only source
+  // of the "şu an nöbette" figure.
+  setVolunteerShift(applicationId: string, onShift: boolean): Promise<VolunteerApplication[]>;
   createDelivery(input: DeliveryInput): Promise<CreateDeliveryResult>;
   verifySubmission(subId: string, kind: VerifyKind, qty: number, reason: string): Promise<Snapshot>;
   // Coordinator-managed operations. A new disaster goes live immediately: the person

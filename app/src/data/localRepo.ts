@@ -483,6 +483,7 @@ export class LocalRepo implements Repo {
       province: input.province, district: input.district,
       skills: input.skills.slice(), availability: input.availability, note: input.note.trim(),
       status: 'Pending review', reviewNote: '', createdLabel: NOW, reviewedLabel: '',
+      onShift: false, shiftSinceLabel: '',
     });
     addLog(d?.id ?? activeDisasterId(), {
       user: input.fullName.trim() || 'Gönüllü', action: 'Gönüllü başvurusu alındı',
@@ -493,6 +494,27 @@ export class LocalRepo implements Repo {
 
   async listVolunteerApplications(): Promise<VolunteerApplication[]> {
     return volunteerApps.map((v) => ({ ...v, skills: v.skills.slice() }));
+  }
+
+  async setVolunteerShift(applicationId: string, onShift: boolean): Promise<VolunteerApplication[]> {
+    const app = volunteerApps.find((v) => v.id === applicationId);
+    if (!app) throw new Error('application not found');
+    if (onShift && app.status !== 'Approved') throw new Error('only an approved volunteer can be on shift');
+    app.onShift = onShift;
+    app.shiftSinceLabel = onShift ? NOW : '';
+    addLog(app.disasterId ?? activeDisasterId(), {
+      user: 'Koordinatör',
+      action: onShift ? 'Gönüllü nöbete alındı' : 'Gönüllü nöbetten çıktı',
+      detail: app.fullName,
+      oldValue: onShift ? 'Nöbette değil' : 'Nöbette',
+      newValue: onShift ? 'Nöbette' : 'Nöbette değil', color: '#2A6FB0',
+    });
+    return this.listVolunteerApplications();
+  }
+
+  // Unfiltered, unlike the public feed: this is what the panel's system log shows.
+  async listSystemLog(limit: number): Promise<LogEntry[]> {
+    return log.slice().sort(byRecency).slice(0, limit).map((l) => ({ ...l }));
   }
 
   async reviewVolunteerApplication(id: string, status: VolunteerStatus, note: string): Promise<VolunteerApplication[]> {
@@ -780,7 +802,6 @@ export class LocalRepo implements Repo {
       const next: Disaster = {
         ...before, name: input.name.trim(), type: input.type, province: input.province,
         region, status: input.status, situation: input.situation.trim(),
-        volunteers: input.volunteers, onShift: input.onShift,
         openedByOrgId: input.openedByOrgId, updatedLabel: NOW,
       };
       const i = seed.disasters.findIndex((d) => d.id === id);
@@ -796,7 +817,8 @@ export class LocalRepo implements Repo {
       name: input.name.trim(), region, province: input.province, type: input.type,
       status: input.status, situation: input.situation.trim(),
       openedAt: new Date().toISOString().slice(0, 10), updatedLabel: NOW,
-      volunteers: input.volunteers, onShift: input.onShift,
+      // Counted from approved volunteer applications, never typed (migration 0017).
+      volunteers: 0, onShift: 0,
       openedByOrgId: input.openedByOrgId,
     };
     seed.disasters.unshift(created);

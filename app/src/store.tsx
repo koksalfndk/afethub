@@ -6,7 +6,7 @@ import type {
   BannerSlide, BannerSlideInput, OrgEditRequestInput, OrgEditRequest, DisasterInput,
   OrganizationSave, OrgStatus, VolunteerInput, VolunteerApplication, VolunteerStatus,
   AnnouncementInput, LocationInput,
-  StaffMember, StaffRole, RoleInvite,
+  StaffMember, StaffRole, RoleInvite, LogEntry,
 } from './types';
 import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
@@ -209,6 +209,16 @@ export interface AppApi {
   reloadReportQueue: () => void;
   reviewDisasterReport: (reportId: string, action: 'publish' | 'reject', reason: string) => Promise<boolean>;
   confirmCommunityDisaster: (disasterId: string) => Promise<boolean>;
+  // Admin system log: every recorded action. Loaded only when the screen asks, because
+  // the private rows name people.
+  systemLog: LogEntry[]; systemLogLoading: boolean; systemLogError: string;
+  reloadSystemLog: () => void;
+  // Volunteer drill-down from the operation form. `mode` decides which list the staff
+  // screen opens on, so "şu an nöbette · 3" lands on those three people.
+  volunteerFilter: { disasterId: string | null; mode: 'approved' | 'onShift' } | null;
+  openVolunteers: (disasterId: string | null, mode: 'approved' | 'onShift') => void;
+  clearVolunteerFilter: () => void;
+  setVolunteerShift: (applicationId: string, onShift: boolean) => Promise<boolean>;
 }
 
 const Ctx = createContext<AppApi | null>(null);
@@ -264,6 +274,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [orgEditsLoading, setOrgEditsLoading] = useState(false);
   const [orgEditsError, setOrgEditsError] = useState('');
   const [orgEditsPending, setOrgEditsPending] = useState(0);
+  const [systemLog, setSystemLog] = useState<LogEntry[]>([]);
+  const [systemLogLoading, setSystemLogLoading] = useState(false);
+  const [systemLogError, setSystemLogError] = useState('');
+  const [volunteerFilter, setVolunteerFilter] = useState<{ disasterId: string | null; mode: 'approved' | 'onShift' } | null>(null);
   const [reportQueue, setReportQueue] = useState<ReportQueueItem[]>([]);
   const [reportQueueLoading, setReportQueueLoading] = useState(false);
   const [reportQueueError, setReportQueueError] = useState('');
@@ -299,7 +313,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     withTimeout(repo.getSnapshot(slug || undefined))
       .then((s) => {
         // Backend reachable but not seeded → show the local seed so the UI is never empty.
-        if (repo.kind === 'supabase' && s.needs.length === 0) { void useLocal('backend boş'); return; }
+        //
+        // The test is "are there any operations at all", NOT "does this one have needs".
+        // With `s.needs.length === 0` a brand-new operation — every community-opened one
+        // starts with zero needs — dropped the visitor into the local demo seed, so
+        // /afet/karaburun-… rendered the Seydikemer sample. Demo content silently
+        // replacing a live operation is the exact failure rules/07 §Seed Content and
+        // rules/01 exist to prevent.
+        if (repo.kind === 'supabase' && s.disasters.length === 0) { void useLocal('backend boş'); return; }
         applySnap(s);
       })
       .catch((e: unknown) => { void useLocal(e instanceof Error ? e.message : 'bilinmeyen hata'); });
@@ -358,6 +379,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setReportQueueError(tr.coordReports.loadFailed);
     } finally {
       setReportQueueLoading(false);
+    }
+  };
+
+  const loadSystemLog = async () => {
+    setSystemLogLoading(true); setSystemLogError('');
+    try {
+      setSystemLog(await withTimeout(repo.listSystemLog(300)));
+    } catch {
+      setSystemLogError(tr.coordLog.loadFailed);
+    } finally {
+      setSystemLogLoading(false);
     }
   };
 
@@ -469,6 +501,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     mySubs, mySubsLoading, mySubsError,
     orgEdits, orgEditsLoading, orgEditsError, orgEditsPending,
     reportQueue, reportQueueLoading, reportQueueError,
+    systemLog, systemLogLoading, systemLogError, volunteerFilter,
     volunteers, volunteersLoading, volunteersError,
     volunteersPending: volunteers.filter((v) => v.status === 'Pending review').length,
     staff, invites, staffLoading, staffError,
@@ -753,6 +786,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     },
     reloadReportQueue: () => { void loadReportQueue(); },
+    reloadSystemLog: () => { void loadSystemLog(); },
+    openVolunteers: (disasterId, mode) => {
+      setVolunteerFilter({ disasterId, mode });
+      setRoute('coordStaff');
+    },
+    clearVolunteerFilter: () => setVolunteerFilter(null),
+    setVolunteerShift: async (applicationId, onShift) => {
+      try {
+        setVolunteers(await withTimeout(repo.setVolunteerShift(applicationId, onShift)));
+        // The operation's "şu an nöbette" figure is derived from these rows, so the
+        // snapshot is re-read rather than left showing the previous count.
+        setSnap(await repo.getSnapshot(currentSlug || undefined));
+        setOverview(await repo.getOverview());
+        showToast(onShift ? tr.coordVolunteers.shiftOnToast : tr.coordVolunteers.shiftOffToast);
+        return true;
+      } catch { showToast(tr.coordVolunteers.actionFailed); return false; }
+    },
     reviewDisasterReport: async (reportId, action, reason) => {
       try {
         await withTimeout(repo.reviewDisasterReport(reportId, action, reason));
@@ -817,7 +867,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Every piece of state exposed on `api` must be listed here, or consumers keep the
   // previous value: `deliveryOpen` and `slides` were missing, so the delivery overlay
   // never appeared and the slide list could go stale after a save.
-  }), [snap, loadError, overview, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
+  }), [snap, loadError, overview, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, systemLog, systemLogLoading, systemLogError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

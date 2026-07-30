@@ -20,8 +20,30 @@ const STATUSES: Disaster['status'][] = ['Active', 'Resolved', 'Archived'];
 
 const blank = (): DisasterInput => ({
   name: '', type: 'Wildfire', province: '', district: '',
-  status: 'Active', situation: '', volunteers: 0, onShift: 0, openedByOrgId: null,
+  status: 'Active', situation: '', openedByOrgId: null,
 });
+
+// A figure that cannot be typed, with a way through to the records behind it. Shown as
+// a field so it sits in the same grid as the editable ones, but it is a button: the
+// number is only meaningful if you can see who it counts.
+function CountField({ label, value, hint, cta, onOpen }: {
+  label: string; value: number; hint: string; cta: string; onOpen: () => void;
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span style={labelText}>{label}</span>
+      <button onClick={onOpen} className="hv-navy" style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+        background: C.canvas, border: `1px solid ${C.borderSoft}`, borderRadius: 10,
+        minHeight: 46, padding: '0 13px', cursor: 'pointer', textAlign: 'left', width: '100%',
+      }}>
+        <span className="tnum" style={{ fontSize: 18, fontWeight: 700, color: C.navy }}>{value}</span>
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: C.info }}>{cta}</span>
+      </button>
+      <span style={{ fontSize: 11.5, color: C.muted2 }}>{hint}</span>
+    </div>
+  );
+}
 
 export function CoordDisasters() {
   const a = useApp();
@@ -45,8 +67,7 @@ export function CoordDisasters() {
     setDraft({
       name: d.name, type: d.type, province: d.province,
       district: district === d.province ? '' : district,
-      status: d.status, situation: d.situation,
-      volunteers: d.volunteers, onShift: d.onShift, openedByOrgId: d.openedByOrgId,
+      status: d.status, situation: d.situation, openedByOrgId: d.openedByOrgId,
     });
     setEditing(d.id); setErr('');
   };
@@ -63,6 +84,9 @@ export function CoordDisasters() {
     if (ok) setEditing(null);
   };
 
+  // The saved record behind the open form: the volunteer figures are read from it, not
+  // from the draft, because they are not editable fields.
+  const editingDisaster = editing ? list.find((d) => d.id === editing) ?? null : null;
   const card = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12 } as const;
   // Only verified organizations may be named as the initiator: a pending record is an
   // unchecked claim, and this line appears on a public page.
@@ -134,17 +158,23 @@ export function CoordDisasters() {
               <textarea value={draft.situation} onChange={(e) => set('situation', e.target.value)} rows={3}
                 placeholder={tr.coordDisasters.fSituationPh} style={{ ...inputStyle, minHeight: 88, resize: 'vertical' }} />
             </Field>
-            <Field label={tr.coordDisasters.fVolunteers}>
-              <input type="number" min={0} value={draft.volunteers}
-                onChange={(e) => set('volunteers', Math.max(0, Number(e.target.value) || 0))} style={inputStyle} />
-            </Field>
-            <Field label={tr.coordDisasters.fOnShift}>
-              <input type="number" min={0} value={draft.onShift}
-                onChange={(e) => set('onShift', Math.max(0, Number(e.target.value) || 0))} style={inputStyle} />
-            </Field>
+            {/* Read-only, and they open the people behind them. These are counts of
+                approved volunteer applications (migration 0017): a coordinator typing
+                "168" here published a figure with nobody behind it, which is the same
+                mistake as a hand-entered delivery total (CLAUDE.md §Source of Truth). */}
+            <CountField label={tr.coordDisasters.fVolunteers} value={editingDisaster?.volunteers ?? 0}
+              hint={tr.coordDisasters.volunteersDerived}
+              cta={tr.coordDisasters.openVolunteers}
+              onOpen={() => a.openVolunteers(editing || null, 'approved')} />
+            <CountField label={tr.coordDisasters.fOnShift} value={editingDisaster?.onShift ?? 0}
+              hint={tr.coordDisasters.onShiftDerived}
+              cta={tr.coordDisasters.openOnShift}
+              onOpen={() => a.openVolunteers(editing || null, 'onShift')} />
             <Field label={tr.coordDisasters.fOpenedBy} hint={`· ${tr.coordDisasters.openedByHint}`} full>
               <select value={draft.openedByOrgId ?? ''} onChange={(e) => set('openedByOrgId', e.target.value || null)} style={inputStyle}>
-                <option value="">{tr.coordDisasters.fOpenedBySelf}</option>
+                <option value="">
+                  {editingDisaster?.openedByCommunity ? tr.coordDisasters.fOpenedByCommunity : tr.coordDisasters.fOpenedBySelf}
+                </option>
                 {orgOptions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
             </Field>
@@ -214,7 +244,8 @@ export function CoordDisasters() {
                   {disasterTypeLabel[d.type]} · {d.region} · {tr.common.updated(d.updatedLabel)}
                 </div>
                 <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                  {tr.coordDisasters.startedBy}: {org?.name ?? tr.coordDisasters.fOpenedBySelf}
+                  {tr.coordDisasters.startedBy}: {org?.name
+                    ?? (d.openedByCommunity ? tr.coordDisasters.fOpenedByCommunity : tr.coordDisasters.fOpenedBySelf)}
                 </div>
               </div>
 

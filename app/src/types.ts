@@ -206,8 +206,10 @@ export interface BannerSlideInput {
 export interface DisasterInput {
   name: string; type: DisasterType; province: string; district: string;
   status: Disaster['status']; situation: string;
-  volunteers: number; onShift: number;
   openedByOrgId: string | null;
+  // No volunteer figures here on purpose. "Kayıtlı gönüllü" and "şu an nöbette" are
+  // counted from approved volunteer applications (migration 0017); a typed-in number
+  // was a public figure with nobody behind it (CLAUDE.md §Source of Truth).
 }
 
 export interface NeedDraft {
@@ -341,6 +343,11 @@ export interface VolunteerApplication {
   reviewNote: string;
   createdLabel: string;
   reviewedLabel: string;
+  // On shift right now — coordinator-set on an approved application, and the only
+  // source of the "şu an nöbette" figure. There is no automatic end to a shift, so
+  // `shiftSinceLabel` is shown next to it rather than left implicit.
+  onShift: boolean;
+  shiftSinceLabel: string;
 }
 
 // ---------------------------------------------------------------------------

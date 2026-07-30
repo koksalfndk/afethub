@@ -12,7 +12,7 @@ import type {
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
 import type { NeedPayload } from '../needForm';
-import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW, isLocalSlideImage, disasterSlug } from './repo';
+import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW, isLocalSlideImage, disasterSlug, isPublicAuditAction } from './repo';
 import { PRI } from '../theme';
 
 // Turkish relative-time formatter for DB timestamps.
@@ -36,7 +36,10 @@ export class SupabaseRepo implements Repo {
 
   async getSnapshot(slug?: string): Promise<Snapshot> {
     const [ds, loc, ne, su, lg, an] = await Promise.all([
-      this.db.from('disasters').select('*'),
+      // The overview view, not the table: volunteer figures are derived there from real
+      // approved applications (migration 0017). Reading `disasters` directly would show
+      // the stale typed-in numbers the table still carries.
+      this.db.from('disaster_overview').select('*'),
       this.db.from('locations').select('*'),
       this.db.from('needs').select('*'),
       this.db.from('submissions').select('*').order('submitted_at', { ascending: false }),
@@ -95,7 +98,11 @@ export class SupabaseRepo implements Repo {
       note: String(r.note), photoUrl: r.photo_url ? String(r.photo_url) : null,
     }));
 
-    const log: LogEntry[] = (lg.data ?? []).filter((r: Record<string, unknown>) => String(r.disaster_id) === disaster.id).map((r: Record<string, unknown>) => ({
+    // The public feed reads the same for everyone. RLS lets an admin read private rows
+    // too (role grants, moderation), and those belong in the panel's system log — not in
+    // the strip a visitor is looking at. Filtering here keeps one feed, one meaning.
+    const log: LogEntry[] = (lg.data ?? []).filter((r: Record<string, unknown>) =>
+      String(r.disaster_id) === disaster.id && isPublicAuditAction(String(r.action))).map((r: Record<string, unknown>) => ({
       id: String(r.id), disasterId: String(r.disaster_id ?? ''),
       disasterName: byId.get(String(r.disaster_id))?.name ?? '', user: String(r.actor), action: String(r.action), detail: String(r.detail),
       oldValue: String(r.old_value), newValue: String(r.new_value), time: rel(String(r.created_at)),
@@ -119,7 +126,7 @@ export class SupabaseRepo implements Repo {
     const [ov, ne, ds] = await Promise.all([
       this.db.from('disaster_overview').select('*'),
       this.db.from('needs').select('*'),
-      this.db.from('disasters').select('*'),
+      this.db.from('disaster_overview').select('*'),
     ]);
     const rows = ov.error ? null : (ov.data ?? []);
 
@@ -171,7 +178,9 @@ export class SupabaseRepo implements Repo {
 
     const active = cards.filter((c) => c.disaster.status === 'Active');
     const [lg, rep] = await Promise.all([
-      this.db.from('audit_log').select('*').order('created_at', { ascending: false }).limit(12),
+      // Over-fetch: private rows are dropped below, and an admin would otherwise end up
+      // with a shorter feed than a visitor sees.
+      this.db.from('audit_log').select('*').order('created_at', { ascending: false }).limit(40),
       this.db.from('disaster_reports_public').select('*').eq('status', 'Pending verification').limit(12),
     ]);
     const byId = new Map(disasters.map((d) => [d.id, d] as const));
@@ -186,7 +195,8 @@ export class SupabaseRepo implements Repo {
         volunteers: active.reduce((x, c) => x + c.disaster.volunteers, 0),
         deliveryPoints: active.reduce((x, c) => x + c.deliveryPoints, 0),
       },
-      log: (lg.data ?? []).map((r: Record<string, unknown>) => ({
+      // Same rule as the snapshot: the national feed is the public one, for everyone.
+      log: (lg.data ?? []).filter((r: Record<string, unknown>) => isPublicAuditAction(String(r.action))).slice(0, 12).map((r: Record<string, unknown>) => ({
         id: String(r.id), disasterId: String(r.disaster_id ?? ''),
         disasterName: byId.get(String(r.disaster_id))?.name ?? '',
         user: String(r.actor), action: String(r.action), detail: String(r.detail),
@@ -496,6 +506,8 @@ export class SupabaseRepo implements Repo {
       reviewNote: String(r.review_note ?? ''),
       createdLabel: r.created_at ? rel(String(r.created_at)) : '',
       reviewedLabel: r.reviewed_at ? rel(String(r.reviewed_at)) : '',
+      onShift: r.on_shift === true,
+      shiftSinceLabel: r.shift_since ? rel(String(r.shift_since)) : '',
     }));
   }
 
@@ -626,6 +638,31 @@ export class SupabaseRepo implements Repo {
     }));
   }
 
+  // The admin system log: every recorded action, nothing filtered. RLS is what decides
+  // whether the caller may see the private rows (migration 0017: is_admin()), so a
+  // coordinator calling this simply gets the public subset back rather than an error.
+  async listSystemLog(limit: number): Promise<LogEntry[]> {
+    const [lg, ds] = await Promise.all([
+      this.db.from('audit_log').select('*').order('created_at', { ascending: false }).limit(limit),
+      this.db.from('disasters').select('id,name'),
+    ]);
+    if (lg.error) throw lg.error;
+    const names = new Map((ds.data ?? []).map((d: Record<string, unknown>) => [String(d.id), String(d.name)] as const));
+    return (lg.data ?? []).map((r: Record<string, unknown>) => ({
+      id: String(r.id), disasterId: String(r.disaster_id ?? ''),
+      disasterName: names.get(String(r.disaster_id)) ?? '',
+      user: String(r.actor), action: String(r.action), detail: String(r.detail),
+      oldValue: String(r.old_value), newValue: String(r.new_value),
+      time: rel(String(r.created_at)), color: String(r.color),
+    }));
+  }
+
+  async setVolunteerShift(applicationId: string, onShift: boolean): Promise<VolunteerApplication[]> {
+    const { error } = await this.db.rpc('set_volunteer_shift', { p_app: applicationId, p_on: onShift });
+    if (error) throw error;
+    return this.listVolunteerApplications();
+  }
+
   async reviewDisasterReport(reportId: string, action: 'publish' | 'reject', reason: string): Promise<string> {
     const { data, error } = await this.db.rpc('review_disaster_report', {
       p_report: reportId, p_action: action, p_reason: reason.trim(),
@@ -665,7 +702,6 @@ export class SupabaseRepo implements Repo {
     const row = {
       name: input.name.trim(), type: input.type, province: input.province, region,
       status: input.status, situation: input.situation.trim(),
-      volunteers: input.volunteers, on_shift: input.onShift,
       opened_by_org_id: input.openedByOrgId,
     };
     if (id) {

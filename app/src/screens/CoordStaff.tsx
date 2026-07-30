@@ -111,6 +111,24 @@ function VolunteerCard({ app }: { app: VolunteerApplication }) {
 
       {err && <div style={{ fontSize: 13, color: C.emergency, fontWeight: 600 }}>{err}</div>}
 
+      {/* Shift state. Only an approved application can carry it — the same rule the RPC
+          enforces (migration 0017) — and the badge says since when, because nothing
+          closes a shift automatically. */}
+      {app.status === 'Approved' && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {app.onShift && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700,
+              color: C.successText, background: '#EAF7EE', border: '1px solid #BFE3CB',
+              borderRadius: 20, padding: '3px 9px',
+            }}>{tr.coordVolunteers.shiftBadge}{app.shiftSinceLabel ? ` · ${app.shiftSinceLabel}` : ''}</span>
+          )}
+          <button onClick={() => { void a.setVolunteerShift(app.id, !app.onShift); }} style={{
+            ...ghost, color: app.onShift ? C.emergency : C.navy,
+          }}>{app.onShift ? tr.coordVolunteers.shiftOff : tr.coordVolunteers.shiftOn}</button>
+        </div>
+      )}
+
       {open && mode === null && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => decide('Approved')} disabled={busy} style={{
@@ -153,7 +171,11 @@ export function CoordStaff() {
   const [orgId, setOrgId] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const [vTab, setVTab] = useState<'pending' | 'approved' | 'other'>('pending');
+  const [vTab, setVTab] = useState<'pending' | 'approved' | 'other'>(
+    // Both figures count approved applications, so a drill-down must not land on the
+    // pending tab and look empty.
+    a.volunteerFilter ? 'approved' : 'pending',
+  );
   const verifiedOrgs = a.orgs.filter((o) => o.status === 'Verified');
 
   useEffect(() => { a.reloadStaff(); a.reloadVolunteers(); }, []);
@@ -166,10 +188,17 @@ export function CoordStaff() {
     if (res) { setEmail(''); setNote(''); setOrgId(''); }
   };
 
+  // Arrived from an operation's "kayıtlı gönüllü / şu an nöbette" figure: the list is
+  // narrowed to exactly the people that number counts, otherwise the figure and the
+  // list would disagree.
+  const vf = a.volunteerFilter;
   const apps = a.volunteers.filter((v) => (
     vTab === 'pending' ? v.status === 'Pending review' || v.status === 'On hold'
       : vTab === 'approved' ? v.status === 'Approved'
         : v.status === 'Rejected' || v.status === 'Withdrawn'
+  )).filter((v) => (
+    !vf || ((vf.disasterId === null || v.disasterId === vf.disasterId)
+      && (vf.mode !== 'onShift' || v.onShift))
   ));
   const countOf = (t: typeof vTab) => a.volunteers.filter((v) => (
     t === 'pending' ? v.status === 'Pending review' || v.status === 'On hold'
@@ -334,6 +363,26 @@ export function CoordStaff() {
           <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: C.navy }}>{tr.coordVolunteers.title}</h2>
           <p style={{ fontSize: 13.5, color: C.muted, margin: '5px 0 0', maxWidth: '72ch' }}>{tr.coordVolunteers.subtitle}</p>
         </div>
+
+        {/* The active drill-down, stated and removable: a filtered list that does not say
+            it is filtered reads as "there is nobody else". */}
+        {vf && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+            background: G.chip, border: `1px solid ${C.borderFaint}`, borderRadius: 10, padding: '9px 12px',
+          }}>
+            <Ico n="pin" size={13} color={C.muted2} />
+            <span style={{ fontSize: 12.5, color: C.heading2, fontWeight: 600 }}>
+              {vf.disasterId
+                ? tr.coordVolunteers.filterDisaster(a.snap?.disasters.find((d) => d.id === vf.disasterId)?.name ?? '')
+                : tr.coordVolunteers.generalPool}
+              {vf.mode === 'onShift' ? ` · ${tr.coordVolunteers.filterOnShift}` : ''}
+            </span>
+            <button onClick={a.clearVolunteerFilter} className="hv-navy" style={{
+              ...ghost, height: 34, marginLeft: 'auto',
+            }}>{tr.coordVolunteers.clearFilter}</button>
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
           {(['pending', 'approved', 'other'] as const).map((t) => {

@@ -67,6 +67,9 @@ export function ReportConfirmModal({ report, onClose }: { report: DisasterReport
     if (res) setDone({ count: res.report.reportCount, already: res.already, slug: res.createdSlug });
   };
 
+  // Everything the confirmation needs is already on the account: nothing to ask.
+  const knownAccount = loggedIn && name.trim().length >= 3
+    && email.trim().includes('@') && province.trim().length >= 2;
   const place = [report.province, report.district].filter(Boolean).join(' / ');
   const left = Math.max(0, COMMUNITY_THRESHOLD - report.reportCount);
 
@@ -150,32 +153,52 @@ export function ReportConfirmModal({ report, onClose }: { report: DisasterReport
               )}
             </div>
 
-            <div style={{ display: 'grid', gap: 11, gridTemplateColumns: mob ? '1fr' : 'repeat(2, minmax(0,1fr))' }}>
-              <Field label={tr.confirmReport.fName} full>
-                <input name="confirm-name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)}
-                  autoFocus={!loggedIn} style={inputStyle} />
-              </Field>
-              <Field label={tr.confirmReport.fEmail} full>
-                <input type="email" name="confirm-email" autoComplete="email" value={email}
-                  onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
-              </Field>
-              <Field label={tr.confirmReport.fProvince}>
-                <select name="confirm-province" value={province}
-                  onChange={(e) => { setProvince(e.target.value); setDistrict(''); }} style={inputStyle}>
-                  <option value="">{tr.orgs.pickProvince}</option>
-                  {PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </Field>
-              <Field label={tr.confirmReport.fDistrict}>
-                <select name="confirm-district" value={district} onChange={(e) => setDistrict(e.target.value)}
-                  disabled={!province} style={{ ...inputStyle, opacity: province ? 1 : .6 }}>
-                  <option value="">{province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}</option>
-                  {districtsOf(province).map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </Field>
-            </div>
+            {/* A signed-in account has already given us all of this. Asking again is the
+                exact re-entry rules/01 §Registration Must Be Optional forbids, so the
+                form collapses to a line stating who is confirming. Only a field the
+                account is actually missing is asked for. */}
+            {knownAccount ? (
+              <div style={{ background: C.canvas, border: `1px solid ${C.borderFaint}`, borderRadius: 10, padding: '11px 13px' }}>
+                <div style={{ fontSize: 12.5, color: C.muted2 }}>{tr.confirmReport.asAccount}</div>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: C.navy, marginTop: 2 }}>
+                  {[name, [province, district].filter(Boolean).join(' / ')].filter(Boolean).join(' · ')}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gap: 11, gridTemplateColumns: mob ? '1fr' : 'repeat(2, minmax(0,1fr))' }}>
+                  {!loggedIn && (
+                    <>
+                      <Field label={tr.confirmReport.fName} full>
+                        <input name="confirm-name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)}
+                          autoFocus style={inputStyle} />
+                      </Field>
+                      <Field label={tr.confirmReport.fEmail} full>
+                        <input type="email" name="confirm-email" autoComplete="email" value={email}
+                          onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
+                      </Field>
+                    </>
+                  )}
+                  <Field label={tr.confirmReport.fProvince}>
+                    <select name="confirm-province" value={province} autoFocus={loggedIn}
+                      onChange={(e) => { setProvince(e.target.value); setDistrict(''); }} style={inputStyle}>
+                      <option value="">{tr.orgs.pickProvince}</option>
+                      {PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </Field>
+                  <Field label={tr.confirmReport.fDistrict}>
+                    <select name="confirm-district" value={district} onChange={(e) => setDistrict(e.target.value)}
+                      disabled={!province} style={{ ...inputStyle, opacity: province ? 1 : .6 }}>
+                      <option value="">{province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}</option>
+                      {districtsOf(province).map((d) => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </Field>
+                </div>
 
-            <p style={{ fontSize: 12, color: C.muted2, margin: 0 }}>{tr.confirmReport.whyContact}</p>
+                {!loggedIn && <p style={{ fontSize: 12, color: C.muted2, margin: 0 }}>{tr.confirmReport.whyContact}</p>}
+                {loggedIn && <p style={{ fontSize: 12, color: C.muted2, margin: 0 }}>{tr.confirmReport.needProvince}</p>}
+              </>
+            )}
 
             {err && (
               <div style={{ background: C.errorSurface, border: `1px solid ${C.errorBorder}`, color: C.errorText, borderRadius: 9, padding: '10px 12px', fontSize: 13.5 }}>{err}</div>

@@ -1,10 +1,16 @@
 import { useApp, type Route } from '../store';
+import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C, DESKTOP_HEADER_H } from '../theme';
 
 // Coordinator operations sidebar — desktop only (see App: shown when coord && !mob).
 export function Sidebar() {
   const a = useApp();
+  const auth = useAuth();
+  // The system log carries rows that name people (role grants, moderation). RLS keeps
+  // them from a coordinator either way; the menu simply does not offer a page that
+  // would look broken to them.
+  const isAdmin = auth.profile?.role === 'admin';
   const snap = a.snap;
   const pending = snap ? snap.subs.filter((s) => s.status === 'Pending verification').length : 0;
   // Correction requests waiting. Comes from a count query, not from the loaded list —
@@ -61,7 +67,7 @@ export function Sidebar() {
           {item(tr.nav.staff, 'coordStaff', a.volunteersPending || null, a.volunteersPending > 0 ? 'red' : 'grey', () => a.go('coordStaff'))}
           {item(tr.nav.needs, 'coordNeeds', snap?.needs.length ?? 0, 'grey', () => a.go('coordNeeds'))}
           {item(tr.nav.ops, 'coordOps', (snap?.announcements.length ?? 0) + (snap?.locations.length ?? 0), 'grey', () => a.go('coordOps'))}
-          {item(tr.nav.auditLog, 'coordLog', snap?.log.length ?? 0, 'grey', () => a.go('coordLog'))}
+          {isAdmin && item(tr.nav.systemLog, 'coordLog', null, 'grey', () => a.go('coordLog'))}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: C.muted3, padding: '6px 10px' }}>{tr.nav.contentGroup}</span>
