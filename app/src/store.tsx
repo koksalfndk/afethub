@@ -158,7 +158,7 @@ export interface AppApi {
   reloadMyVolunteer: () => void;
   updateMyVolunteer: (id: string, input: VolunteerInput) => Promise<boolean>;
   withdrawMyVolunteer: (id: string) => Promise<boolean>;
-  setMyVolunteerConsent: (id: string, on: boolean) => Promise<boolean>;
+  setMyVolunteerConsent: (on: boolean) => Promise<boolean>;
   reviewVolunteer: (id: string, status: VolunteerStatus, note: string) => Promise<boolean>;
   // Staff (admin only; the RPCs enforce it).
   staff: StaffMember[]; invites: RoleInvite[]; staffLoading: boolean; staffError: string;
@@ -316,7 +316,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Handy for debugging which backend served the data.
       if (typeof console !== 'undefined') console.info(`[AfetHUB] backend=${repo.kind} afet=${s.disasters.length} ihtiyaç=${s.needs.length}`);
     };
-    const useLocal = (reason: string) => {
+    const switchToLocal = (reason: string) => {
       if (typeof console !== 'undefined') console.warn(`[AfetHUB] yerel veriye düşüldü: ${reason}`);
       return fallbackToLocal().getSnapshot(slug || undefined)
         .then(applySnap)
@@ -332,10 +332,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // /afet/karaburun-… rendered the Seydikemer sample. Demo content silently
         // replacing a live operation is the exact failure rules/07 §Seed Content and
         // rules/01 exist to prevent.
-        if (repo.kind === 'supabase' && s.disasters.length === 0) { void useLocal('backend boş'); return; }
+        if (repo.kind === 'supabase' && s.disasters.length === 0) { void switchToLocal('backend boş'); return; }
         applySnap(s);
       })
-      .catch((e: unknown) => { void useLocal(e instanceof Error ? e.message : 'bilinmeyen hata'); });
+      .catch((e: unknown) => { void switchToLocal(e instanceof Error ? e.message : 'bilinmeyen hata'); });
   };
 
   const retryLoad = () => { setSnap(null); setLoadError(''); loadSnapshot(currentSlug); };
@@ -743,9 +743,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return true;
       } catch { showToast(tr.volunteerMine.actionFailed); return false; }
     },
-    setMyVolunteerConsent: async (id, on) => {
+    setMyVolunteerConsent: async (on) => {
       try {
-        setMyVolunteer(await withTimeout(repo.setMyVolunteerConsent(id, on)));
+        setMyVolunteer(await withTimeout(repo.setMyVolunteerConsent(on)));
         showToast(on ? tr.volunteerMine.consentOnToast : tr.volunteerMine.consentOffToast);
         return true;
       } catch { showToast(tr.volunteerMine.actionFailed); return false; }

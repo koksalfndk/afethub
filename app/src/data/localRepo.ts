@@ -532,10 +532,11 @@ export class LocalRepo implements Repo {
     return this.listMyVolunteerApplications();
   }
 
-  async setMyVolunteerConsent(id: string, on: boolean): Promise<VolunteerApplication[]> {
-    const app = volunteerApps.find((v) => v.id === id);
+  // One answer for the person: every application carries the same value (migration 0022).
+  async setMyVolunteerConsent(on: boolean): Promise<VolunteerApplication[]> {
+    const app = volunteerApps[0];
     if (!app) throw new Error('not authorized');
-    app.standingConsent = on;
+    volunteerApps.forEach((v) => { v.standingConsent = on; });
     addLog(activeDisasterId(), {
       user: app.fullName || 'Gönüllü',
       action: on ? 'Aktif gönüllü izni verildi' : 'Aktif gönüllü izni geri alındı',

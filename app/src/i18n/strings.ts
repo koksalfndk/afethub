@@ -1195,6 +1195,7 @@ export const tr = {
     consentTitle: 'Aktif gönüllü',
     consentLabel: 'Yakınımda afet olursa önceden sormadan benimle iletişime geçilebilir.',
     consentHint: 'Bu izin başvurduğunuz operasyonla sınırlı değildir: bulunduğunuz il/ilçede bir afet açıldığında koordinatörler size doğrudan ulaşabilir. İstediğiniz an kapatabilirsiniz; kapatmak başvurunuzu etkilemez.',
+    consentAllHint: 'Bu tercih kişiye ait: tüm başvurularınız için tek bir izin geçerlidir.',
     consentOn: 'İzin açık',
     consentOff: 'İzin kapalı',
     consentOnToast: 'Aktif gönüllü izni açıldı',

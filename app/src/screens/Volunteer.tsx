@@ -98,6 +98,8 @@ export function Volunteer() {
 
   const mine = a.myVolunteer;
   const openCount = mine.filter((x) => x.status === 'Pending review' || x.status === 'On hold' || x.status === 'Approved').length;
+  // The permission is person-level; every row carries the same value, so any row answers.
+  const standingOn = mine.some((x) => x.standingConsent);
 
   useEffect(() => { if (auth.ready) a.reloadMyVolunteer(); }, [loggedIn, auth.ready]);
 
@@ -268,6 +270,27 @@ export function Volunteer() {
             <span className="tnum" style={{ fontSize: 12.5, color: C.muted2 }}>{tr.volunteerMine.openCount(openCount)}</span>
           </div>
 
+          {/* One switch, not one per application: "may we call you about a disaster near
+              you" is a question about the person. It stays available whatever the
+              statuses are — the one control an approved volunteer keeps, because a
+              consent that cannot be taken back is not a consent (migration 0022). */}
+          <label style={{
+            display: 'grid', gridTemplateColumns: '20px minmax(0,1fr)', gap: 10, alignItems: 'start',
+            cursor: 'pointer', background: standingOn ? '#EAF7EE' : C.canvas,
+            border: `1px solid ${standingOn ? '#BFE3CB' : C.borderFaint}`,
+            borderRadius: 10, padding: '11px 13px',
+          }}>
+            <input type="checkbox" checked={standingOn} style={{ width: 18, height: 18, marginTop: 1, accentColor: C.success }}
+              onChange={(e) => { void a.setMyVolunteerConsent(e.target.checked); }} />
+            <span style={{ minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: C.navy }}>
+                {tr.volunteerMine.consentTitle} · {standingOn ? tr.volunteerMine.consentOn : tr.volunteerMine.consentOff}
+              </span>
+              <span style={{ display: 'block', fontSize: 12.5, color: C.text, marginTop: 2 }}>{tr.volunteerMine.consentLabel}</span>
+              <span style={{ display: 'block', fontSize: 12, color: C.muted3, marginTop: 3 }}>{tr.volunteerMine.consentAllHint}</span>
+            </span>
+          </label>
+
           {mine.map((app) => {
             const tone = STATUS_TONE[app.status] ?? STATUS_TONE['Pending review'];
             const closed = app.status === 'Rejected' || app.status === 'Withdrawn';
@@ -316,28 +339,6 @@ export function Volunteer() {
                   <div style={{ fontSize: 12.5, color: C.muted }}>
                     <strong style={{ color: C.navy, fontWeight: 600 }}>{tr.volunteerMine.reviewNote}:</strong> {app.reviewNote}
                   </div>
-                )}
-
-                {/* The standing permission, switchable in EVERY status. It is the one
-                    control an approved volunteer keeps, and it has to be: a consent you
-                    cannot take back is not a consent (migration 0021). */}
-                {!closed && (
-                  <label style={{
-                    display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer',
-                    background: app.standingConsent ? '#EAF7EE' : C.canvas,
-                    border: `1px solid ${app.standingConsent ? '#BFE3CB' : C.borderFaint}`,
-                    borderRadius: 9, padding: '9px 11px',
-                  }}>
-                    <input type="checkbox" checked={app.standingConsent}
-                      onChange={(e) => { void a.setMyVolunteerConsent(app.id, e.target.checked); }}
-                      style={{ width: 17, height: 17, accentColor: C.success }} />
-                    <span style={{ minWidth: 0 }}>
-                      <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: C.navy }}>
-                        {tr.volunteerMine.consentTitle} · {app.standingConsent ? tr.volunteerMine.consentOn : tr.volunteerMine.consentOff}
-                      </span>
-                      <span style={{ display: 'block', fontSize: 12, color: C.muted2 }}>{tr.volunteerMine.consentLabel}</span>
-                    </span>
-                  </label>
                 )}
 
                 {/* An approved application can be neither edited nor withdrawn here:
@@ -532,7 +533,9 @@ export function Volunteer() {
               <span>
                 <span style={{ fontSize: 13.5, color: C.navy, fontWeight: 700 }}>{tr.volunteerMine.consentTitle}</span>
                 <span style={{ display: 'block', fontSize: 13, color: C.text, marginTop: 2 }}>{tr.volunteerMine.consentLabel}</span>
-                <span style={{ display: 'block', fontSize: 12.5, color: C.muted3, marginTop: 3 }}>{tr.volunteerMine.consentHint}</span>
+                <span style={{ display: 'block', fontSize: 12.5, color: C.muted3, marginTop: 3 }}>
+                  {tr.volunteerMine.consentHint} {tr.volunteerMine.consentAllHint}
+                </span>
               </span>
             </label>
 

@@ -16,6 +16,14 @@ import { slideImageSrc } from '../imageUpload';
 // informational surface where a photo is allowed).
 interface Slide { key: string; image: string; tint: string; title: string; body: string; cta: string; onClick: () => void }
 
+// Mobile geometry. The phone layout is stacked, not overlaid: the photo owns a band at
+// the top and the copy sits underneath it on plain white. Because the text no longer
+// stands on the image, the white layer stops being a backing plate and becomes only the
+// seam between the two — which is why it is 180px here instead of the 448px envelope the
+// overlaid version needed (−60%).
+const MOB_PHOTO_H = 250;
+const MOB_FADE_H = 180;
+
 // Self-contained backdrop drawn under the (optional) photo. Without it a missing
 // file left the right half of the banner as flat empty tint. Abstract contour lines
 // carry no claim about a real event, which is what keeps this acceptable where a
@@ -95,8 +103,8 @@ export function HeroBanner() {
         position: 'relative', overflow: 'hidden', borderRadius: 14,
         border: `1px solid ${C.border}`, background: C.surface,
         minHeight: mob ? 470 : 340, display: 'flex',
-        // Mobile stacks copy over image, so the copy is pinned to the top edge: centering
-        // it left a dead white band above the badge and stole that height from the photo.
+        // Mobile puts the photo first and the copy after it, so the copy starts at the top
+        // of its own band (it is offset down by the photo height below, not centred).
         alignItems: mob ? 'flex-start' : 'center',
       }}
     >
@@ -114,26 +122,35 @@ export function HeroBanner() {
           Desktop: it takes the right 62% instead of the full width, so a 2:1 image loses
           ~19% to the crop instead of ~45% — the subject stays recognisable. Its left edge
           is a mask, not a cut: `contain` showed the whole photo but left a hard vertical
-          seam, which is exactly the edge this banner is not allowed to show. */}
+          seam, which is exactly the edge this banner is not allowed to show.
+          Mobile: the top band only, full width — the copy lives below it, not on it. */}
       {s.image && (
         <div style={{
-          position: 'absolute', top: 0, bottom: 0, right: 0, width: mob ? '100%' : '62%',
+          position: 'absolute', top: 0, right: 0,
+          ...(mob ? { left: 0, height: MOB_PHOTO_H } : { bottom: 0, width: '62%' }),
           backgroundImage: `url(${s.image})`, backgroundSize: 'cover',
           backgroundPosition: mob ? 'center top' : 'center', backgroundRepeat: 'no-repeat',
           maskImage: mob ? undefined : 'linear-gradient(to right, transparent 0%, #000 24%)',
           WebkitMaskImage: mob ? undefined : 'linear-gradient(to right, transparent 0%, #000 24%)',
         }} />
       )}
+      {/* Mobile: solid ground under the copy. The art layer is tinted, and body text has
+          to sit on flat white to hold contrast outdoors — so the area below the photo is
+          filled rather than left to whatever the gradient tail happens to reach. */}
+      {mob && (
+        <div style={{ position: 'absolute', left: 0, right: 0, top: MOB_PHOTO_H, bottom: 0, background: '#FFFFFF' }} />
+      )}
       <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none',
+        position: 'absolute', pointerEvents: 'none',
+        ...(mob
+          ? { left: 0, right: 0, top: MOB_PHOTO_H - MOB_FADE_H, height: MOB_FADE_H }
+          : { inset: 0 }),
         background: mob
-          // Mobile: the copy block is the full width, so the white plateau has to clear it
-          // vertically — body text over the image fails the outdoor-contrast rule. The stops
-          // are in px, not %, because what must be covered is the TEXT (a px height), not a
-          // fraction of the box: making the banner taller must hand the extra height to the
-          // photo, not stretch the white. The body is line-clamped below so the text height
-          // stays bounded no matter what a coordinator types into a slide.
-          ? 'linear-gradient(184deg, #FFFFFF 0px, #FFFFFF 244px, rgba(255,255,255,.96) 278px, rgba(255,255,255,.82) 320px, rgba(255,255,255,.5) 372px, rgba(255,255,255,.2) 412px, rgba(255,255,255,0) 448px)'
+          // Mobile: runs the other way now — transparent where the photo is clean, solid
+          // white where the copy begins. It is the seam between the image band and the text
+          // band, so its height is fixed to the seam (180px) and no longer has to grow with
+          // the text; the copy stands on the white sheet above, not on this.
+          ? 'linear-gradient(176deg, rgba(255,255,255,0) 0px, rgba(255,255,255,.2) 32px, rgba(255,255,255,.5) 62px, rgba(255,255,255,.82) 92px, rgba(255,255,255,.96) 122px, #FFFFFF 150px)'
           // Desktop: the solid white plateau is cut from 52% to 34% of the width so the photo
           // is no longer buried under it; the copy column below is narrowed to match, so the
           // text still lands on ≥.94 white. The tail ends at 76%, leaving the right quarter
@@ -143,7 +160,10 @@ export function HeroBanner() {
 
       <div style={{
         position: 'relative', zIndex: 2,
-        // Mobile top padding is minimal: every pixel taken off the top is a pixel of photo.
+        // Mobile: pushed below the photo band. A margin, not absolute positioning, so the
+        // section still grows when a long slide body needs more room instead of the copy
+        // running off the bottom edge.
+        marginTop: mob ? MOB_PHOTO_H : 0,
         padding: mob ? '14px 20px 18px' : '30px 34px',
         display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: mob ? 9 : 10,
         // The copy column has to end inside the white plateau, which is now 34% wide.
@@ -160,8 +180,8 @@ export function HeroBanner() {
         <h2 style={{ fontSize: mob ? 23 : 26, fontWeight: 700, letterSpacing: '-.025em', lineHeight: 1.12, margin: 0, color: C.navy }}>{s.title}</h2>
         <p style={{
           fontSize: 14.5, color: C.text, margin: 0, maxWidth: mob ? '100%' : '44ch',
-          // Bounded to 4 lines on mobile: the white plateau is sized in px to the text, so an
-          // over-long slide body must not be able to push copy out onto the photo.
+          // Still bounded to 4 lines on mobile: the banner sits above the fold, and an
+          // over-long slide body would otherwise push the button off the first screen.
           ...(mob ? { display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' } : {}),
         }}>{s.body}</p>
         <button onClick={s.onClick} className="hv-emergency" style={{

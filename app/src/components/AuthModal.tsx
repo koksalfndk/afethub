@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C } from '../theme';
@@ -8,6 +8,13 @@ export function AuthModal() {
   const auth = useAuth();
   // Opened from "Kayıt Ol" → the sign-up tab is already active.
   const [mode, setMode] = useState<'signIn' | 'signUp'>(auth.modalMode);
+
+  // …but only on the FIRST render, which is why "Kayıt Ol" used to show the sign-in
+  // form: this component stays mounted across openings (it returns null while closed),
+  // so a useState initialiser reads the mode once and never again. Sync on every open.
+  useEffect(() => {
+    if (auth.modalOpen) setMode(auth.modalMode);
+  }, [auth.modalOpen, auth.modalMode]);
   const [fullName, setFullName] = useState('');
   // Pre-filled when the visitor arrived from an invite link; editable, because the
   // address in the URL is a hint and not a credential.

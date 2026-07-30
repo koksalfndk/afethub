@@ -530,8 +530,8 @@ export class SupabaseRepo implements Repo {
     return this.listMyVolunteerApplications();
   }
 
-  async setMyVolunteerConsent(id: string, on: boolean): Promise<VolunteerApplication[]> {
-    const { error } = await this.db.rpc('set_my_volunteer_consent', { p_app: id, p_on: on });
+  async setMyVolunteerConsent(on: boolean): Promise<VolunteerApplication[]> {
+    const { error } = await this.db.rpc('set_my_volunteer_consent', { p_on: on });
     if (error) throw error;
     return this.listMyVolunteerApplications();
   }
