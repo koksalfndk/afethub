@@ -48,6 +48,7 @@ export function Footer() {
 
         {col(tr.footer.contribute, [
           { label: tr.reportDisaster.title, onClick: a.openDisasterForm },
+          { label: tr.nav.volunteer, onClick: () => a.go('volunteer') },
           { label: tr.header.track, onClick: () => a.go('track') },
           { label: tr.nav.orgs, onClick: () => a.go('orgs') },
         ])}

@@ -274,6 +274,76 @@ export interface OrgEditRequest {
 }
 
 // ---------------------------------------------------------------------------
+// Volunteer applications
+// ---------------------------------------------------------------------------
+// A volunteer application is a person offering to help, not a member of staff and not
+// an account. Approving one does NOT create a login and does not move a disaster's
+// `volunteers` counter — that counter is who is registered on site.
+export type VolunteerStatus = 'Pending review' | 'Approved' | 'On hold' | 'Rejected' | 'Withdrawn';
+
+export interface VolunteerInput {
+  disasterId: string | null;   // null = general pool
+  fullName: string;
+  phone: string;
+  email: string;
+  province: string;
+  district: string;
+  skills: string[];
+  availability: string;
+  note: string;
+  consent: boolean;
+}
+
+// Coordinator-side shape. Carries contact details, so it never reaches a public screen.
+export interface VolunteerApplication {
+  id: string;
+  disasterId: string | null;
+  disasterName: string;        // '' for the general pool
+  fullName: string;
+  phone: string;
+  email: string;
+  province: string;
+  district: string;
+  skills: string[];
+  availability: string;
+  note: string;
+  status: VolunteerStatus;
+  reviewNote: string;
+  createdLabel: string;
+  reviewedLabel: string;
+}
+
+// ---------------------------------------------------------------------------
+// Staff (coordinator / admin) management
+// ---------------------------------------------------------------------------
+export type StaffRole = 'coordinator' | 'admin';
+
+export interface StaffMember {
+  id: string;
+  fullName: string;
+  email: string;
+  role: StaffRole;
+  createdLabel: string;
+}
+
+// A pending grant for an address that has no account yet. An invite is NOT access: it
+// does nothing until that person completes sign-up and e-mail verification themselves.
+export interface RoleInvite {
+  email: string;
+  role: StaffRole;
+  note: string;
+  createdLabel: string;
+}
+
+// What a coordinator may write on an organization record. Unlike OrgEditable this
+// includes the fields only a coordinator decides.
+export interface OrganizationSave {
+  name: string; kind: OrgKind; scope: OrgScope; province: string; district: string;
+  services: string[]; description: string; website: string; email: string;
+  phone: string; emergencyPhone: string; address: string;
+}
+
+// ---------------------------------------------------------------------------
 // Citizen disaster reports
 //
 // A report is NOT a disaster. It is a claim that something is happening. Reports

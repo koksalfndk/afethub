@@ -61,6 +61,13 @@ const ROUTE_META: Record<Route, RouteMeta> = {
   coordSlider: { title: 'Slider yönetimi', index: false },
   coordDisasters: { title: 'Afet yönetimi', index: false },
   coordOrgEdits: { title: 'Kurum düzeltme talepleri', index: false },
+  coordOrgs: { title: 'Kurum yönetimi', index: false },
+  coordStaff: { title: 'Ekip ve gönüllüler', index: false },
+  volunteer: {
+    title: 'Gönüllü ol',
+    description: 'Afet bölgesinde gönüllü olarak destek vermek için başvurun. Hesap gerekmez; başvurunuz koordinatör incelemesinden sonra değerlendirilir.',
+    index: true,
+  },
   reportDisaster: {
     title: 'Afet bildir',
     description: 'Yangın, deprem, sel veya şiddetli hava olayını bildirin. Aynı olaya ait bildirimler birleştirilir.',

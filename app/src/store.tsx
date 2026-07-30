@@ -3,6 +3,8 @@ import { repo, fallbackToLocal, type Snapshot, type Overview } from './data';
 import type {
   Submission, VerifyKind, Organization, OrganizationInput, DisasterReport, DisasterReportInput,
   BannerSlide, BannerSlideInput, OrgEditRequestInput, OrgEditRequest, DisasterInput,
+  OrganizationSave, OrgStatus, VolunteerInput, VolunteerApplication, VolunteerStatus,
+  StaffMember, StaffRole, RoleInvite,
 } from './types';
 import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
@@ -12,7 +14,7 @@ import { useAuth } from './auth';
 export type Route =
   | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
   | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog' | 'coordSlider' | 'coordDisasters'
-  | 'coordOrgEdits'
+  | 'coordOrgEdits' | 'coordOrgs' | 'coordStaff' | 'volunteer'
   | 'components' | 'system';
 export type Tab = 'overview' | 'needs' | 'locations' | 'announcements' | 'activity';
 export type Device = 'desktop' | 'mobile';
@@ -45,6 +47,9 @@ function toPath(route: Route, tab: Tab, slug: string): string {
     case 'coordSlider': return '/koordinasyon/slider';
     case 'coordDisasters': return '/koordinasyon/afetler';
     case 'coordOrgEdits': return '/koordinasyon/kurum-duzeltmeleri';
+    case 'coordOrgs': return '/koordinasyon/kurumlar';
+    case 'coordStaff': return '/koordinasyon/ekip';
+    case 'volunteer': return '/gonullu';
     case 'system': return '/sistem';
     case 'components': return '/bilesenler';
     default: return '/';
@@ -67,12 +72,15 @@ function fromPath(pathname: string): ParsedPath {
     case 'hakkimizda': return { route: 'about' };
     case 'nasil-calisir': return { route: 'howItWorks' };
     case 'hesabim': return { route: 'account' };
+    case 'gonullu': return { route: 'volunteer' };
     case 'koordinasyon': {
       const s = parts[1];
       const r: Route = s === 'kuyruk' ? 'coordQueue' : s === 'ihtiyaclar' ? 'coordNeeds'
         : s === 'kayit' ? 'coordLog' : s === 'slider' ? 'coordSlider'
         : s === 'afetler' ? 'coordDisasters'
-        : s === 'kurum-duzeltmeleri' ? 'coordOrgEdits' : 'coordHome';
+        : s === 'kurum-duzeltmeleri' ? 'coordOrgEdits'
+        : s === 'kurumlar' ? 'coordOrgs'
+        : s === 'ekip' ? 'coordStaff' : 'coordHome';
       return { route: r, role: 'coordinator' };
     }
     case 'sistem': return { route: 'system' };
@@ -118,6 +126,21 @@ export interface AppApi {
   // Coordinator queue of correction requests against published organization records.
   orgEdits: OrgEditRequest[]; orgEditsLoading: boolean; orgEditsError: string;
   orgEditsPending: number;
+  // Coordinator organization management.
+  saveOrganization: (id: string | null, input: OrganizationSave) => Promise<boolean>;
+  verifyOrganization: (id: string, status: OrgStatus, reason: string) => Promise<boolean>;
+  // Volunteer applications: public submit, coordinator review.
+  volunteers: VolunteerApplication[]; volunteersLoading: boolean; volunteersError: string;
+  volunteersPending: number;
+  reloadVolunteers: () => void;
+  submitVolunteer: (input: VolunteerInput) => Promise<boolean>;
+  reviewVolunteer: (id: string, status: VolunteerStatus, note: string) => Promise<boolean>;
+  // Staff (admin only; the RPCs enforce it).
+  staff: StaffMember[]; invites: RoleInvite[]; staffLoading: boolean; staffError: string;
+  reloadStaff: () => void;
+  grantStaffRole: (email: string, role: StaffRole, note: string) => Promise<'granted' | 'invited' | null>;
+  revokeStaffRole: (userId: string) => Promise<boolean>;
+  cancelRoleInvite: (email: string) => Promise<boolean>;
   reloadOrgEdits: () => void;
   applyOrgEdit: (id: string, fields: string[], note: string) => Promise<boolean>;
   rejectOrgEdit: (id: string, note: string) => Promise<boolean>;
@@ -214,6 +237,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [orgEditsLoading, setOrgEditsLoading] = useState(false);
   const [orgEditsError, setOrgEditsError] = useState('');
   const [orgEditsPending, setOrgEditsPending] = useState(0);
+  const [volunteers, setVolunteers] = useState<VolunteerApplication[]>([]);
+  const [volunteersLoading, setVolunteersLoading] = useState(false);
+  const [volunteersError, setVolunteersError] = useState('');
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [invites, setInvites] = useState<RoleInvite[]>([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [staffError, setStaffError] = useState('');
   const [trackError, setTrackError] = useState('');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -288,6 +318,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Both lists carry contact details, so neither is fetched until its screen asks.
+  const loadVolunteers = async () => {
+    setVolunteersLoading(true); setVolunteersError('');
+    try {
+      setVolunteers(await withTimeout(repo.listVolunteerApplications()));
+    } catch {
+      setVolunteersError(tr.coordVolunteers.loadFailed);
+    } finally {
+      setVolunteersLoading(false);
+    }
+  };
+
+  const loadStaff = async () => {
+    setStaffLoading(true); setStaffError('');
+    try {
+      const r = await withTimeout(repo.listStaff());
+      setStaff(r.staff); setInvites(r.invites);
+    } catch {
+      setStaffError(tr.coordStaff.loadFailed);
+    } finally {
+      setStaffLoading(false);
+    }
+  };
+
   const loadMySubs = async () => {
     if (!auth.user) { setMySubs([]); setMySubsError(''); return; }
     setMySubsLoading(true); setMySubsError('');
@@ -357,6 +411,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     modal, toast, trackedSub, trackError, wizardMode, disasterFormOpen, deliveryOpen,
     mySubs, mySubsLoading, mySubsError,
     orgEdits, orgEditsLoading, orgEditsError, orgEditsPending,
+    volunteers, volunteersLoading, volunteersError,
+    volunteersPending: volunteers.filter((v) => v.status === 'Pending review').length,
+    staff, invites, staffLoading, staffError,
 
     go: (r, extra) => { setRoute(r); if (extra?.tab) setTab(extra.tab); },
     openDisaster: (slug, t) => { setCurrentSlug(slug); setRoute('disaster'); setTab(t ?? 'needs'); if (slug !== currentSlug) loadSnapshot(slug); },
@@ -467,6 +524,64 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     reloadMySubs: () => { void loadMySubs(); },
     reloadOrgEdits: () => { void loadOrgEdits(); },
+    reloadVolunteers: () => { void loadVolunteers(); },
+    reloadStaff: () => { void loadStaff(); },
+    saveOrganization: async (id, input) => {
+      if (unverified) { showToast(tr.auth.verifyFirst); return false; }
+      try {
+        setOrgs(await withTimeout(repo.saveOrganization(id, input)));
+        showToast(id ? tr.coordOrgs.savedEdit : tr.coordOrgs.savedNew);
+        return true;
+      } catch { showToast(tr.coordOrgs.saveFailed); return false; }
+    },
+    verifyOrganization: async (id, status, reason) => {
+      if (unverified) { showToast(tr.auth.verifyFirst); return false; }
+      try {
+        setOrgs(await withTimeout(repo.verifyOrganization(id, status, reason)));
+        showToast(status === 'Verified' ? tr.coordOrgs.verifiedToast : tr.coordOrgs.rejectedToast);
+        return true;
+      } catch { showToast(tr.coordOrgs.saveFailed); return false; }
+    },
+    // Public action: no account, no role check. The form is the only validation the
+    // visitor sees; the table's own constraints are what actually hold.
+    submitVolunteer: async (input) => {
+      try {
+        await withTimeout(repo.submitVolunteerApplication(input));
+        return true;
+      } catch { return false; }
+    },
+    reviewVolunteer: async (id, status, note) => {
+      if (unverified) { showToast(tr.auth.verifyFirst); return false; }
+      try {
+        setVolunteers(await withTimeout(repo.reviewVolunteerApplication(id, status, note)));
+        showToast(tr.coordVolunteers.reviewedToast);
+        return true;
+      } catch { showToast(tr.coordVolunteers.actionFailed); return false; }
+    },
+    grantStaffRole: async (email, role, note) => {
+      if (unverified) { showToast(tr.auth.verifyFirst); return null; }
+      try {
+        const outcome = await withTimeout(repo.grantStaffRole(email, role, note));
+        await loadStaff();
+        showToast(outcome === 'granted' ? tr.coordStaff.grantedToast : tr.coordStaff.invitedToast);
+        return outcome;
+      } catch { showToast(tr.coordStaff.actionFailed); return null; }
+    },
+    revokeStaffRole: async (userId) => {
+      try {
+        await withTimeout(repo.revokeStaffRole(userId));
+        await loadStaff();
+        showToast(tr.coordStaff.revokedToast);
+        return true;
+      } catch { showToast(tr.coordStaff.actionFailed); return false; }
+    },
+    cancelRoleInvite: async (email) => {
+      try {
+        await withTimeout(repo.cancelRoleInvite(email));
+        await loadStaff();
+        return true;
+      } catch { showToast(tr.coordStaff.actionFailed); return false; }
+    },
     // Applying a correction rewrites a published record, so the directory is re-read
     // and the queue refreshed from the source rather than patched in place.
     applyOrgEdit: async (id, fields, note) => {
@@ -571,7 +686,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Every piece of state exposed on `api` must be listed here, or consumers keep the
   // previous value: `deliveryOpen` and `slides` were missing, so the delivery overlay
   // never appeared and the slide list could go stale after a save.
-  }), [snap, loadError, overview, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
+  }), [snap, loadError, overview, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

@@ -5,6 +5,8 @@ import type {
   Organization, OrganizationInput, OrgStatus, OrgKind, OrgScope,
   DisasterReport, DisasterReportInput, ReportStatus, BannerSlide, BannerSlideInput, SlideAction,
   OrgEditRequestInput, OrgEditRequest, OrgEditable, EditRequestStatus, DisasterInput,
+  OrganizationSave, VolunteerInput, VolunteerApplication, VolunteerStatus,
+  StaffMember, StaffRole, RoleInvite,
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
 import type { NeedPayload } from '../needForm';
@@ -351,6 +353,125 @@ export class SupabaseRepo implements Repo {
     const { error } = await this.db.rpc('review_org_edit_request_reject', {
       p_request: id, p_note: note,
     });
+    if (error) throw error;
+  }
+
+  // ---- Coordinator organization management ---------------------------------
+  // Writes go to the base table (coordinator RLS policy from migration 0002); reads still
+  // come back through organizations_public, so the submitter columns never travel.
+  async saveOrganization(id: string | null, input: OrganizationSave): Promise<Organization[]> {
+    const row = {
+      name: input.name.trim(), kind: input.kind, scope: input.scope,
+      province: input.province.trim(), district: input.district.trim(),
+      services: input.services.filter(Boolean), description: input.description.trim(),
+      website: input.website.trim(), email: input.email.trim(), phone: input.phone.trim(),
+      emergency_phone: input.emergencyPhone.trim(), address: input.address.trim(),
+      updated_at: new Date().toISOString(),
+    };
+    if (id) {
+      const { error } = await this.db.from('organizations').update(row).eq('id', id);
+      if (error) throw error;
+    } else {
+      // Created by a coordinator, so it is verified on creation — the person creating it
+      // is the reviewer. `is_official` follows the same rule as verify_organization().
+      const { error } = await this.db.from('organizations').insert({
+        ...row,
+        status: 'Verified',
+        is_official: input.kind === 'Kamu kurumu' || input.kind === 'Belediye',
+        verified_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+    }
+    return this.listOrganizations();
+  }
+
+  // The RPC writes the audit entry and applies the is_official rule in one transaction.
+  async verifyOrganization(id: string, status: OrgStatus, reason: string): Promise<Organization[]> {
+    const { error } = await this.db.rpc('verify_organization', {
+      p_org: id, p_status: status, p_reason: reason,
+    });
+    if (error) throw error;
+    return this.listOrganizations();
+  }
+
+  // ---- Volunteer applications ----------------------------------------------
+  async submitVolunteerApplication(input: VolunteerInput): Promise<void> {
+    const { error } = await this.db.from('volunteer_applications').insert({
+      disaster_id: input.disasterId,
+      full_name: input.fullName.trim(), phone: input.phone.trim(), email: input.email.trim(),
+      province: input.province.trim(), district: input.district.trim(),
+      skills: input.skills.filter(Boolean), availability: input.availability,
+      note: input.note.trim(), consent: input.consent,
+    });
+    if (error) throw error;
+  }
+
+  async listVolunteerApplications(): Promise<VolunteerApplication[]> {
+    const [apps, ds] = await Promise.all([
+      this.db.from('volunteer_applications').select('*').order('created_at', { ascending: false }),
+      this.db.from('disasters').select('id,name'),
+    ]);
+    if (apps.error) throw apps.error;
+    const names = new Map((ds.data ?? []).map((d: Record<string, unknown>) => [String(d.id), String(d.name)] as const));
+    return (apps.data ?? []).map((r: Record<string, unknown>) => ({
+      id: String(r.id),
+      disasterId: r.disaster_id ? String(r.disaster_id) : null,
+      disasterName: r.disaster_id ? (names.get(String(r.disaster_id)) ?? '') : '',
+      fullName: String(r.full_name ?? ''), phone: String(r.phone ?? ''), email: String(r.email ?? ''),
+      province: String(r.province ?? ''), district: String(r.district ?? ''),
+      skills: Array.isArray(r.skills) ? (r.skills as string[]) : [],
+      availability: String(r.availability ?? ''), note: String(r.note ?? ''),
+      status: (r.status as VolunteerStatus) ?? 'Pending review',
+      reviewNote: String(r.review_note ?? ''),
+      createdLabel: r.created_at ? rel(String(r.created_at)) : '',
+      reviewedLabel: r.reviewed_at ? rel(String(r.reviewed_at)) : '',
+    }));
+  }
+
+  async reviewVolunteerApplication(id: string, status: VolunteerStatus, note: string): Promise<VolunteerApplication[]> {
+    const { error } = await this.db.rpc('review_volunteer_application', {
+      p_app: id, p_status: status, p_note: note,
+    });
+    if (error) throw error;
+    return this.listVolunteerApplications();
+  }
+
+  // ---- Staff ----------------------------------------------------------------
+  // staff_directory() is a SECURITY DEFINER function because the e-mail lives in
+  // auth.users, which is not client-readable; it returns nothing unless is_admin().
+  async listStaff(): Promise<{ staff: StaffMember[]; invites: RoleInvite[] }> {
+    const [dir, inv] = await Promise.all([
+      this.db.rpc('staff_directory'),
+      this.db.from('role_invites').select('*').is('accepted_at', null).order('created_at', { ascending: false }),
+    ]);
+    if (dir.error) throw dir.error;
+    const staff: StaffMember[] = ((dir.data ?? []) as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id), fullName: String(r.full_name ?? ''), email: String(r.email ?? ''),
+      role: (r.role as StaffRole) ?? 'coordinator',
+      createdLabel: r.created_at ? rel(String(r.created_at)) : '',
+    }));
+    const invites: RoleInvite[] = ((inv.data ?? []) as Record<string, unknown>[]).map((r) => ({
+      email: String(r.email ?? ''), role: (r.role as StaffRole) ?? 'coordinator',
+      note: String(r.note ?? ''), createdLabel: r.created_at ? rel(String(r.created_at)) : '',
+    }));
+    return { staff, invites };
+  }
+
+  async grantStaffRole(email: string, role: StaffRole, note: string): Promise<'granted' | 'invited'> {
+    const { data, error } = await this.db.rpc('grant_staff_role', {
+      p_email: email, p_role: role, p_note: note,
+    });
+    if (error) throw error;
+    return data === 'granted' ? 'granted' : 'invited';
+  }
+
+  async revokeStaffRole(userId: string): Promise<void> {
+    const { error } = await this.db.rpc('revoke_staff_role', { p_user: userId });
+    if (error) throw error;
+  }
+
+  async cancelRoleInvite(email: string): Promise<void> {
+    const { error } = await this.db.from('role_invites').delete().eq('email', email.trim().toLowerCase());
     if (error) throw error;
   }
 

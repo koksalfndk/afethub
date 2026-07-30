@@ -129,6 +129,7 @@ export function Header() {
         <div style={{ fontSize: 13.5, fontWeight: 700 }}>{loggedIn ? name || tr.header.account : tr.header.profileMenu}</div>
         <div style={{ fontSize: 12, color: C.muted }}>{loggedIn ? (auth.user?.email ?? '') : tr.header.guest}</div>
       </div>
+      {menuRow('people', tr.nav.volunteer, () => a.go('volunteer'))}
       {menuRow('track', tr.header.track, () => a.go('track'))}
       {menuRow('critical', tr.reportDisaster.title, a.openDisasterForm)}
       <div style={{ height: 1, background: C.borderFaint, margin: '6px 2px' }} />
@@ -201,6 +202,7 @@ export function Header() {
         </div>
       )}
       {[...navItems,
+        { label: tr.nav.volunteer, active: a.route === 'volunteer', onClick: () => a.go('volunteer') },
         { label: tr.header.track, active: a.route === 'track', onClick: () => a.go('track') },
         { label: tr.reportDisaster.title, active: a.route === 'reportDisaster', onClick: a.openDisasterForm },
       ].map((n) => (

@@ -140,7 +140,21 @@ export function Home() {
             {presentTypes.map((t) => (
               <button key={t} onClick={() => setType(t)} style={chipStyle(type === t)}>{disasterTypeLabel[t]}</button>
             ))}
-            <button onClick={() => setOnlyActive((v) => !v)} style={chipStyle(onlyActive)}>{tr.dash.onlyActive}</button>
+            {/* A checkbox, not a chip. The type chips above are a single choice — one of
+                them is always on — while this is an independent on/off, and a filled chip
+                said "selected" in exactly the same visual language as the chip next to it.
+                A checkbox states its own state without relying on colour (rules/04
+                §Accessibility: never communicate status with colour alone). */}
+            <label style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, minHeight: 40,
+              padding: '0 13px 0 11px', borderRadius: 20, cursor: 'pointer',
+              background: C.surface, border: `1px solid ${onlyActive ? C.navy : C.borderSoft}`,
+              fontSize: 13, fontWeight: 600, color: C.heading2, whiteSpace: 'nowrap',
+            }}>
+              <input type="checkbox" checked={onlyActive} onChange={(e) => setOnlyActive(e.target.checked)}
+                style={{ width: 17, height: 17, accentColor: C.navy, cursor: 'pointer' }} />
+              {tr.dash.onlyActive}
+            </label>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

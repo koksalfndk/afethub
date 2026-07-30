@@ -1,7 +1,8 @@
 import type {
   LogEntry, Need, Submission, VerifyKind, DeliveryInput, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, BannerSlide, BannerSlideInput, OrgEditRequestInput,
-  OrgEditRequest, Disaster, DisasterInput,
+  OrgEditRequest, Disaster, DisasterInput, OrganizationSave, OrgStatus,
+  VolunteerInput, VolunteerApplication, VolunteerStatus, StaffMember, StaffRole, RoleInvite,
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
 import { genCode, genNrq, remaining, isSameEvent, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS } from './repo';
@@ -26,6 +27,11 @@ let slides: BannerSlide[] = seed.bannerSlides.map((sl) => ({ ...sl }));
 // "pending correction" against a real institution is exactly the kind of sample data
 // that must not look verified (rules/07 §Seed Content).
 let orgEdits: OrgEditRequest[] = [];
+// Volunteer applications and staff both start empty on purpose: an invented "pending
+// volunteer" would be a named person who never applied, and a fake coordinator list
+// would misrepresent who can act on the platform (rules/07 §Seed Content).
+let volunteerApps: VolunteerApplication[] = [];
+let roleInvites: RoleInvite[] = [];
 
 let uid = 0;
 const nextId = (p: string) => `${p}_${Date.now()}_${uid++}`;
@@ -264,6 +270,124 @@ export class LocalRepo implements Repo {
       newValue: note.trim(),
       color: '#D9363E',
     });
+  }
+
+
+  // ---- Coordinator organization management ---------------------------------
+  async saveOrganization(id: string | null, input: OrganizationSave): Promise<Organization[]> {
+    if (id) {
+      const target = orgs.find((o) => o.id === id);
+      if (!target) throw new Error('organization not found');
+      Object.assign(target, { ...input, services: input.services.slice() });
+      addLog(activeDisasterId(), {
+        user: 'Koordinatör', action: 'Kurum kaydı güncellendi',
+        detail: target.name, oldValue: 'Yayındaki kayıt', newValue: 'Güncellendi', color: '#2A6FB0',
+      });
+      return this.listOrganizations();
+    }
+    // A coordinator-created record is verified on creation: the person creating it is the
+    // reviewer. A visitor-submitted record still lands as "Doğrulama bekliyor".
+    const created: Organization = {
+      id: nextId('org'), ...input, services: input.services.slice(),
+      status: 'Verified', isOfficial: input.kind === 'Kamu kurumu' || input.kind === 'Belediye',
+      logo: '', verifiedAt: new Date().toISOString(), createdLabel: NOW,
+    };
+    orgs = [created, ...orgs];
+    addLog(activeDisasterId(), {
+      user: 'Koordinatör', action: 'Kurum eklendi',
+      detail: `${created.name}${created.province ? ` · ${created.province}` : ''}`,
+      oldValue: '—', newValue: 'Doğrulandı', color: '#159947',
+    });
+    return this.listOrganizations();
+  }
+
+  async verifyOrganization(id: string, status: OrgStatus, reason: string): Promise<Organization[]> {
+    const target = orgs.find((o) => o.id === id);
+    if (!target) throw new Error('organization not found');
+    if (status === 'Rejected' && reason.trim().length === 0) throw new Error('reject reason required');
+    const before = target.status;
+    target.status = status;
+    target.verifiedAt = status === 'Verified' ? new Date().toISOString() : null;
+    if (status === 'Verified' && (target.kind === 'Kamu kurumu' || target.kind === 'Belediye')) {
+      target.isOfficial = true;
+    }
+    addLog(activeDisasterId(), {
+      user: 'Koordinatör',
+      action: status === 'Verified' ? 'Kurum doğrulandı' : status === 'Rejected' ? 'Kurum reddedildi' : 'Kurum durumu güncellendi',
+      detail: target.name, oldValue: before, newValue: status,
+      color: status === 'Verified' ? '#159947' : status === 'Rejected' ? '#D9363E' : '#E6A700',
+    });
+    return this.listOrganizations();
+  }
+
+  // ---- Volunteer applications ----------------------------------------------
+  async submitVolunteerApplication(input: VolunteerInput): Promise<void> {
+    if (!input.consent) throw new Error('consent required');
+    if (!input.phone.trim() && !input.email.trim()) throw new Error('contact required');
+    const d = input.disasterId ? seed.disasters.find((x) => x.id === input.disasterId) : undefined;
+    volunteerApps.unshift({
+      id: nextId('vol'),
+      disasterId: input.disasterId, disasterName: d?.name ?? '',
+      fullName: input.fullName.trim(), phone: input.phone.trim(), email: input.email.trim(),
+      province: input.province, district: input.district,
+      skills: input.skills.slice(), availability: input.availability, note: input.note.trim(),
+      status: 'Pending review', reviewNote: '', createdLabel: NOW, reviewedLabel: '',
+    });
+    addLog(d?.id ?? activeDisasterId(), {
+      user: input.fullName.trim() || 'Gönüllü', action: 'Gönüllü başvurusu alındı',
+      detail: [input.province, input.skills[0]].filter(Boolean).join(' · ') || 'Genel havuz',
+      oldValue: '—', newValue: 'Koordinatör incelemesi bekliyor', color: '#E6A700',
+    });
+  }
+
+  async listVolunteerApplications(): Promise<VolunteerApplication[]> {
+    return volunteerApps.map((v) => ({ ...v, skills: v.skills.slice() }));
+  }
+
+  async reviewVolunteerApplication(id: string, status: VolunteerStatus, note: string): Promise<VolunteerApplication[]> {
+    const app = volunteerApps.find((v) => v.id === id);
+    if (!app) throw new Error('application not found');
+    if (app.status !== 'Pending review' && app.status !== 'On hold') throw new Error('application already decided');
+    if ((status === 'Rejected' || status === 'On hold') && note.trim().length < 5) throw new Error('reason required');
+    const before = app.status;
+    app.status = status;
+    app.reviewNote = note.trim();
+    app.reviewedLabel = NOW;
+    addLog(app.disasterId ?? activeDisasterId(), {
+      user: 'Koordinatör', action: 'Gönüllü başvurusu değerlendirildi',
+      detail: app.fullName, oldValue: before, newValue: status,
+      color: status === 'Approved' ? '#159947' : status === 'Rejected' ? '#D9363E' : '#E6A700',
+    });
+    return this.listVolunteerApplications();
+  }
+
+  // ---- Staff ----------------------------------------------------------------
+  // Without a backend there are no accounts to list, so the staff table is empty and
+  // only invites can be recorded. Saying so is better than inventing colleagues.
+  async listStaff(): Promise<{ staff: StaffMember[]; invites: RoleInvite[] }> {
+    return { staff: [], invites: roleInvites.map((i) => ({ ...i })) };
+  }
+
+  async grantStaffRole(email: string, role: StaffRole, note: string): Promise<'granted' | 'invited'> {
+    const clean = email.trim().toLowerCase();
+    if (!clean.includes('@')) throw new Error('invalid e-mail');
+    roleInvites = [
+      { email: clean, role, note: note.trim(), createdLabel: NOW },
+      ...roleInvites.filter((i) => i.email !== clean),
+    ];
+    addLog(activeDisasterId(), {
+      user: 'Yönetici', action: 'Yetki daveti oluşturuldu',
+      detail: clean, oldValue: '—', newValue: role, color: '#E6A700',
+    });
+    return 'invited';
+  }
+
+  async revokeStaffRole(): Promise<void> {
+    throw new Error('no backend');
+  }
+
+  async cancelRoleInvite(email: string): Promise<void> {
+    roleInvites = roleInvites.filter((i) => i.email !== email.trim().toLowerCase());
   }
 
   // Directory entries are public as soon as they are submitted; the pending ones

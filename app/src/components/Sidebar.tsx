@@ -54,11 +54,13 @@ export function Sidebar() {
           {item(tr.nav.disasterAdmin, 'coordDisasters', snap?.disasters.length ?? 0, 'grey', () => a.go('coordDisasters'))}
           {item(tr.nav.reviewQueue, 'coordQueue', pending, 'red', () => a.go('coordQueue'))}
           {item(tr.nav.orgEdits, 'coordOrgEdits', openOrgEdits, openOrgEdits > 0 ? 'red' : 'grey', () => a.go('coordOrgEdits'))}
+          {item(tr.nav.staff, 'coordStaff', a.volunteersPending || null, a.volunteersPending > 0 ? 'red' : 'grey', () => a.go('coordStaff'))}
           {item(tr.nav.needs, 'coordNeeds', snap?.needs.length ?? 0, 'grey', () => a.go('coordNeeds'))}
           {item(tr.nav.auditLog, 'coordLog', snap?.log.length ?? 0, 'grey', () => a.go('coordLog'))}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: C.muted3, padding: '6px 10px' }}>{tr.nav.contentGroup}</span>
+          {item(tr.nav.orgAdmin, 'coordOrgs', a.orgs.length, 'grey', () => a.go('coordOrgs'))}
           {item(tr.nav.sliderAdmin, 'coordSlider', null, 'grey', () => a.go('coordSlider'))}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

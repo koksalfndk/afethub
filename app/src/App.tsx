@@ -25,6 +25,9 @@ import { Account } from './screens/Account';
 import { CoordSlider } from './screens/CoordSlider';
 import { CoordDisasters } from './screens/CoordDisasters';
 import { CoordOrgEdits } from './screens/CoordOrgEdits';
+import { CoordOrgs } from './screens/CoordOrgs';
+import { CoordStaff } from './screens/CoordStaff';
+import { Volunteer } from './screens/Volunteer';
 import { LiveTicker } from './components/LiveTicker';
 import { DisasterReportModal } from './components/DisasterReportModal';
 import { Footer } from './components/Footer';
@@ -42,8 +45,8 @@ export function App() {
   const frame = a.frame; // 412px phone mock-up wrapper (dev preview only)
 
   const screens: Record<string, () => ReactElement | null> = {
-    home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About, howItWorks: HowItWorks, account: Account,
-    coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider, coordDisasters: CoordDisasters, coordOrgEdits: CoordOrgEdits,
+    home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About, howItWorks: HowItWorks, account: Account, volunteer: Volunteer,
+    coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider, coordDisasters: CoordDisasters, coordOrgEdits: CoordOrgEdits, coordOrgs: CoordOrgs, coordStaff: CoordStaff,
     components: Components, system: System,
   };
   const isReport = a.route === 'report';

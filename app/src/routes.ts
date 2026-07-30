@@ -26,6 +26,9 @@ export function routePath(route: Route, tab: Tab, slug: string): string {
     case 'coordSlider': return '/koordinasyon/slider';
     case 'coordDisasters': return '/koordinasyon/afetler';
     case 'coordOrgEdits': return '/koordinasyon/kurum-duzeltmeleri';
+    case 'coordOrgs': return '/koordinasyon/kurumlar';
+    case 'coordStaff': return '/koordinasyon/ekip';
+    case 'volunteer': return '/gonullu';
     case 'system': return '/sistem';
     case 'components': return '/bilesenler';
     default: return '/';

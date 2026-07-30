@@ -3,6 +3,8 @@ import type {
   VerifyKind, DeliveryInput, PriorityKey, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, BannerSlide, BannerSlideInput, SlideAction,
   OrgEditRequestInput, OrgEditable, OrgEditRequest, DisasterInput,
+  OrganizationSave, OrgStatus, VolunteerInput, VolunteerApplication, VolunteerStatus,
+  StaffMember, StaffRole, RoleInvite,
 } from '../types';
 import type { NeedPayload } from '../needForm';
 
@@ -87,6 +89,13 @@ export interface Repo {
   // (rules/05 §Public and Private Views).
   countOpenOrgEditRequests(): Promise<number>;
   listOrgEditRequests(): Promise<OrgEditRequest[]>;
+  // Coordinator-side organization management. `saveOrganization(null, …)` creates a
+  // record that is published straight away — the coordinator creating it is the
+  // reviewer, same reasoning as a coordinator-filed need.
+  saveOrganization(id: string | null, input: OrganizationSave): Promise<Organization[]>;
+  // Verification is a decision about the institution, kept separate from editing its
+  // fields: correcting a phone number must never imply "we checked who these people are".
+  verifyOrganization(id: string, status: OrgStatus, reason: string): Promise<Organization[]>;
   applyOrgEditRequest(id: string, fields: string[], note: string): Promise<Organization[]>;
   rejectOrgEditRequest(id: string, note: string): Promise<void>;
   // Citizen disaster reports. `findSimilarReports` is a *suggestion* pass so the
@@ -109,6 +118,20 @@ export interface Repo {
   // purpose: the address comes from the session server-side, so one account can never
   // list another's submissions by guessing an e-mail.
   listMySubmissions(): Promise<Submission[]>;
+  // Volunteer applications. Submitting needs no account; reading needs a coordinator,
+  // because every row is a named person with a phone number.
+  submitVolunteerApplication(input: VolunteerInput): Promise<void>;
+  listVolunteerApplications(): Promise<VolunteerApplication[]>;
+  reviewVolunteerApplication(id: string, status: VolunteerStatus, note: string): Promise<VolunteerApplication[]>;
+  // Staff. Admin-only, enforced by is_admin() inside the RPCs — not by the screen being
+  // hard to reach (rules/03 §Server-Side Authorization).
+  listStaff(): Promise<{ staff: StaffMember[]; invites: RoleInvite[] }>;
+  // Returns 'granted' when an existing account was changed, 'invited' when the grant was
+  // stored for a future sign-up. The browser cannot create auth users: that needs the
+  // service-role key, which must never ship to a client (rules/03 §Secrets).
+  grantStaffRole(email: string, role: StaffRole, note: string): Promise<'granted' | 'invited'>;
+  revokeStaffRole(userId: string): Promise<void>;
+  cancelRoleInvite(email: string): Promise<void>;
 }
 
 // Shared, pure domain helpers — the invariant lives here and in schema.sql.
@@ -133,6 +156,19 @@ export const isLocalSlideImage = (v: string): boolean =>
   v === ''
   || /^\/banners\/[A-Za-z0-9._-]+\.(webp|png|svg|jpg)$/.test(v)
   || /^upload:[A-Za-z0-9._/-]+\.webp$/.test(v);
+
+// What a volunteer can offer. A fixed list rather than free text so a coordinator can
+// filter on it; "Diğer" plus the note field covers everything else. Shared with the
+// coordinator queue so the two never drift apart.
+export const VOLUNTEER_SKILLS = [
+  'Sahada yardım dağıtımı', 'Depo ve tasnif', 'Nakliye / araç', 'Sağlık personeli',
+  'Psikososyal destek', 'Çeviri', 'Yemek ve ikram', 'Hayvan bakımı',
+  'Teknik (elektrik, tesisat, inşaat)', 'İletişim ve kayıt', 'Diğer',
+] as const;
+
+export const VOLUNTEER_AVAILABILITY = [
+  'Hafta içi gündüz', 'Hafta içi akşam', 'Hafta sonu', 'Tam zamanlı', 'Uzaktan',
+] as const;
 
 // Which editable fields differ between the published record and the proposal.
 // Shared so the UI badge, the validation and the stored `changed_fields` can never
