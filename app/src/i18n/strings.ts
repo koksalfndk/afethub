@@ -142,6 +142,10 @@ export const tr = {
     verified: 'Doğrulanan',
     pending: 'Bekleyen',
     remaining: 'Kalan',
+    loading: 'Yükleniyor…',
+    loadSlow: 'Bağlantı yavaş görünüyor. Veri gelmezse yeniden denemeyi seçebilirsiniz.',
+    loadFailed: 'Veri yüklenemedi. Bağlantınızı kontrol edip yeniden deneyin — girdiğiniz bilgiler kaybolmadı.',
+    retry: 'Yeniden dene',
   },
 
   home: {

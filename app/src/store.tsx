@@ -5,6 +5,7 @@ import type {
 } from './types';
 import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
+import { withTimeout } from './util';
 import { useAuth } from './auth';
 
 export type Route =
@@ -84,6 +85,8 @@ export type WizardMode = 'coord' | 'public';
 
 export interface AppApi {
   snap: Snapshot | null;
+  loadError: string;          // set when even the local fallback failed
+  retryLoad: () => void;
   overview: Overview | null;      // national dashboard (home)
   orgs: Organization[];           // organizations directory
   backend: 'local' | 'supabase';
@@ -135,6 +138,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const initial = fromPath(typeof window !== 'undefined' ? window.location.pathname : '/');
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
+  const [loadError, setLoadError] = useState('');
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [route, setRoute] = useState<Route>(initial.route);
   const [tab, setTab] = useState<Tab>(initial.tab ?? 'needs');
@@ -169,25 +173,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [trackError, setTrackError] = useState('');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load a disaster snapshot (with graceful local fallback when Supabase is empty/unset).
+  // Load a disaster snapshot. Three things can go wrong and all three are handled:
+  // the backend is unset, it answers with nothing, or it never answers at all. The
+  // last case is why every read is wrapped in withTimeout — an emergency screen must
+  // not sit on a spinner forever (rules/04 §Loading States).
   const loadSnapshot = (slug: string) => {
-    let done = false;
-    const useLocal = () => fallbackToLocal().getSnapshot(slug || undefined).then((s) => { done = true; applySnap(s); });
+    setLoadError('');
     const applySnap = (s: Snapshot) => {
       setSnap(s);
+      setLoadError('');
       if (!currentSlug && s.disaster.slug) setCurrentSlug(s.disaster.slug);
       // Handy for debugging which backend served the data.
       if (typeof console !== 'undefined') console.info(`[AfetHUB] backend=${repo.kind} afet=${s.disasters.length} ihtiyaç=${s.needs.length}`);
     };
-    repo.getSnapshot(slug || undefined)
+    const useLocal = (reason: string) => {
+      if (typeof console !== 'undefined') console.warn(`[AfetHUB] yerel veriye düşüldü: ${reason}`);
+      return fallbackToLocal().getSnapshot(slug || undefined)
+        .then(applySnap)
+        .catch(() => setLoadError(tr.common.loadFailed));
+    };
+    withTimeout(repo.getSnapshot(slug || undefined))
       .then((s) => {
-        if (done) return;
-        // Supabase reachable but not seeded (no needs) → show the local seed so the UI is never empty.
-        if (repo.kind === 'supabase' && s.needs.length === 0) { void useLocal(); return; }
+        // Backend reachable but not seeded → show the local seed so the UI is never empty.
+        if (repo.kind === 'supabase' && s.needs.length === 0) { void useLocal('backend boş'); return; }
         applySnap(s);
       })
-      .catch(() => { void useLocal(); });
+      .catch((e: unknown) => { void useLocal(e instanceof Error ? e.message : 'bilinmeyen hata'); });
   };
+
+  const retryLoad = () => { setSnap(null); setLoadError(''); loadSnapshot(currentSlug); };
 
   useEffect(() => { loadSnapshot(currentSlug); /* initial */ // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -195,8 +209,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // National dashboard and the organizations directory load independently of the
   // per-disaster snapshot, so a slow disaster page never blocks the home page.
   useEffect(() => {
-    repo.getOverview().then(setOverview).catch(() => fallbackToLocal().getOverview().then(setOverview));
-    repo.listOrganizations().then(setOrgs).catch(() => fallbackToLocal().listOrganizations().then(setOrgs));
+    withTimeout(repo.getOverview())
+      .then((o) => (repo.kind === 'supabase' && o.disasters.length === 0
+        ? fallbackToLocal().getOverview().then(setOverview)
+        : setOverview(o)))
+      .catch(() => fallbackToLocal().getOverview().then(setOverview).catch(() => setLoadError(tr.common.loadFailed)));
+    withTimeout(repo.listOrganizations())
+      .then(setOrgs)
+      .catch(() => fallbackToLocal().listOrganizations().then(setOrgs).catch(() => undefined));
   }, []);
 
   // Browser back/forward: re-parse the path into state.
@@ -241,7 +261,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const api: AppApi = useMemo(() => ({
-    snap, overview, orgs, backend: repo.kind,
+    snap, loadError, retryLoad, overview, orgs, backend: repo.kind,
     route, tab, device, role, currentSlug, frame, showToolbar: IS_DEV, query, filter, subFilter,
     catFilter, locFilter, onlyCritical, updatedToday,
     form, track, reportStage, lastCode, formError, copied,
@@ -380,7 +400,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [snap, overview, orgs, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, modal, toast, trackedSub, trackError]);
+  }), [snap, loadError, overview, orgs, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

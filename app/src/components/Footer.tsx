@@ -47,10 +47,9 @@ export function Footer() {
         ])}
 
         {col(tr.footer.contribute, [
-          { label: tr.fab.disaster, onClick: () => a.go('reportDisaster') },
-          { label: tr.fab.need, onClick: () => a.openWizard('public') },
-          { label: tr.fab.delivery, onClick: () => a.go('report') },
+          { label: tr.reportDisaster.title, onClick: () => a.go('reportDisaster') },
           { label: tr.header.track, onClick: () => a.go('track') },
+          { label: tr.nav.orgs, onClick: () => a.go('orgs') },
         ])}
       </div>
 

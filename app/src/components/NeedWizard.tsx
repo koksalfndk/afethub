@@ -5,6 +5,7 @@ import { tr, priorityLabel } from '../i18n/strings';
 import { C } from '../theme';
 import { Field, inputStyle, Btn, Chip } from '../ui';
 import { UNIT_PRESETS } from '../util';
+import { PROVINCES } from '../data/trLocations';
 import {
   CATEGORIES, PRIORITIES, PASSENGER_VEHICLES, CARGO_VEHICLES, ANIMALS, PET_NEEDS,
   emptyWizard, buildPayload, detailPairs, type WizardValues,
@@ -324,7 +325,12 @@ function ContactStep({ v, set }: { v: WizardValues; set: SetFn }) {
         <Field label={tr.wizard.fName}><input value={v.name} onChange={(e) => set('name', e.target.value)} style={inputStyle} /></Field>
         <Field label={tr.wizard.fEmail}><input value={v.email} onChange={(e) => set('email', e.target.value)} type="email" style={inputStyle} /></Field>
         <Field label={tr.wizard.fPhone}><input value={v.phone} onChange={(e) => set('phone', e.target.value)} style={inputStyle} /></Field>
-        <Field label={tr.wizard.fCity}><input value={v.city} onChange={(e) => set('city', e.target.value)} style={inputStyle} /></Field>
+        <Field label={tr.wizard.fCity}>
+          <select name="city" autoComplete="address-level1" value={v.city} onChange={(e) => set('city', e.target.value)} style={inputStyle}>
+            <option value="">{tr.orgs.pickProvince}</option>
+            {PROVINCES.map((pr) => <option key={pr} value={pr}>{pr}</option>)}
+          </select>
+        </Field>
       </Grid>
     </>
   );

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useApp } from '../store';
 import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
+import { PROVINCES } from '../data/trLocations';
 import { C } from '../theme';
 import { enrichSorted, cols } from '../select';
 import { Field, inputStyle, eyebrow, StatusBadge } from '../ui';
@@ -119,7 +120,12 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
                 <Field label={tr.report.fields.fullName}><input value={f.name} onChange={(e) => a.setForm('name', e.target.value)} placeholder="Ayşe Yılmaz" style={inputStyle} /></Field>
                 <Field label={tr.report.fields.email}><input value={f.email} onChange={(e) => a.setForm('email', e.target.value)} type="email" placeholder="siz@example.com" style={inputStyle} /></Field>
                 <Field label={tr.report.fields.phone}><input value={f.phone} onChange={(e) => a.setForm('phone', e.target.value)} placeholder="+90 5xx xxx xx xx" style={inputStyle} /></Field>
-                <Field label={tr.report.fields.city}><input value={f.city} onChange={(e) => a.setForm('city', e.target.value)} placeholder="Muğla" style={inputStyle} /></Field>
+                <Field label={tr.report.fields.city}>
+                  <select name="city" autoComplete="address-level1" value={f.city} onChange={(e) => a.setForm('city', e.target.value)} style={inputStyle}>
+                    <option value="">{tr.orgs.pickProvince}</option>
+                    {PROVINCES.map((pr) => <option key={pr} value={pr}>{pr}</option>)}
+                  </select>
+                </Field>
               </div>
             </div>
           </>

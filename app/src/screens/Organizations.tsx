@@ -188,7 +188,7 @@ export function Organizations() {
                 <>
                   <p style={{ fontSize: 12.5, color: C.muted, margin: 0 }}>{tr.orgs.formIntro}</p>
                   <Field label={tr.orgs.fName} full>
-                    <input value={draft.name} onChange={(e) => set('name', e.target.value)} autoFocus style={inputStyle} />
+                    <input name="organization-name" autoComplete="off" value={draft.name} onChange={(e) => set('name', e.target.value)} autoFocus style={inputStyle} />
                   </Field>
                   <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
                     <Field label={tr.orgs.fKind}>
@@ -210,13 +210,13 @@ export function Organizations() {
                 <>
                   <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
                     <Field label={tr.orgs.fProvince}>
-                      <select value={draft.province} onChange={(e) => { set('province', e.target.value); set('district', ''); }} autoFocus style={inputStyle}>
+                      <select name="organization-province" autoComplete="off" value={draft.province} onChange={(e) => { set('province', e.target.value); set('district', ''); }} autoFocus style={inputStyle}>
                         <option value="">{tr.orgs.pickProvince}</option>
                         {PROVINCES.map((pr) => <option key={pr} value={pr}>{pr}</option>)}
                       </select>
                     </Field>
                     <Field label={tr.orgs.fDistrict}>
-                      <select value={draft.district} onChange={(e) => set('district', e.target.value)} disabled={!draft.province} style={{ ...inputStyle, opacity: draft.province ? 1 : .6 }}>
+                      <select name="organization-district" autoComplete="off" value={draft.district} onChange={(e) => set('district', e.target.value)} disabled={!draft.province} style={{ ...inputStyle, opacity: draft.province ? 1 : .6 }}>
                         <option value="">{draft.province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}</option>
                         {districtsOf(draft.province).map((d) => <option key={d} value={d}>{d}</option>)}
                       </select>
@@ -239,7 +239,7 @@ export function Organizations() {
                     </div>
                   </div>
                   <Field label={tr.orgs.fDescription} full>
-                    <textarea value={draft.description} onChange={(e) => set('description', e.target.value)} rows={3} style={{ ...inputStyle, minHeight: 84 }} />
+                    <textarea name="organization-description" autoComplete="off" value={draft.description} onChange={(e) => set('description', e.target.value)} rows={3} style={{ ...inputStyle, minHeight: 84 }} />
                   </Field>
                 </>
               )}
@@ -248,11 +248,11 @@ export function Organizations() {
                 <>
                   <div style={eyebrow}>{tr.orgs.contactSection}</div>
                   <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
-                    <Field label={tr.orgs.fWebsite} full><input value={draft.website} onChange={(e) => set('website', e.target.value)} placeholder="https://" autoFocus style={inputStyle} /></Field>
-                    <Field label={tr.orgs.fEmail}><input type="email" value={draft.email} onChange={(e) => set('email', e.target.value)} style={inputStyle} /></Field>
-                    <Field label={tr.orgs.fPhone}><input value={draft.phone} onChange={(e) => set('phone', e.target.value)} style={inputStyle} /></Field>
-                    <Field label={tr.orgs.fEmergency}><input value={draft.emergencyPhone} onChange={(e) => set('emergencyPhone', e.target.value)} style={inputStyle} /></Field>
-                    <Field label={tr.orgs.fAddress}><input value={draft.address} onChange={(e) => set('address', e.target.value)} style={inputStyle} /></Field>
+                    <Field label={tr.orgs.fWebsite} full><input name="organization-website" autoComplete="off" value={draft.website} onChange={(e) => set('website', e.target.value)} placeholder="https://" autoFocus style={inputStyle} /></Field>
+                    <Field label={tr.orgs.fEmail}><input type="email" name="organization-email" autoComplete="off" value={draft.email} onChange={(e) => set('email', e.target.value)} style={inputStyle} /></Field>
+                    <Field label={tr.orgs.fPhone}><input name="organization-phone" autoComplete="off" value={draft.phone} onChange={(e) => set('phone', e.target.value)} style={inputStyle} /></Field>
+                    <Field label={tr.orgs.fEmergency}><input name="organization-emergency" autoComplete="off" value={draft.emergencyPhone} onChange={(e) => set('emergencyPhone', e.target.value)} style={inputStyle} /></Field>
+                    <Field label={tr.orgs.fAddress}><input name="organization-address" autoComplete="off" value={draft.address} onChange={(e) => set('address', e.target.value)} style={inputStyle} /></Field>
                   </div>
                   {loggedIn ? (
                     // Signed in: the submitter is already known, so we never ask again
@@ -265,9 +265,9 @@ export function Organizations() {
                       <div style={{ ...eyebrow, marginTop: 6 }}>{tr.orgs.submitterSection}</div>
                       <div style={{ fontSize: 12, color: C.muted2, marginTop: -6 }}>{tr.orgs.submitterHint}</div>
                       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
-                        <Field label={tr.orgs.fYourName} full><input value={draft.yourName} onChange={(e) => set('yourName', e.target.value)} style={inputStyle} /></Field>
-                        <Field label={tr.orgs.fYourEmail}><input type="email" value={draft.yourEmail} onChange={(e) => set('yourEmail', e.target.value)} style={inputStyle} /></Field>
-                        <Field label={tr.orgs.fYourPhone}><input value={draft.yourPhone} onChange={(e) => set('yourPhone', e.target.value)} style={inputStyle} /></Field>
+                        <Field label={tr.orgs.fYourName} full><input name="submitter-name" autoComplete="name" value={draft.yourName} onChange={(e) => set('yourName', e.target.value)} style={inputStyle} /></Field>
+                        <Field label={tr.orgs.fYourEmail}><input type="email" name="submitter-email" autoComplete="email" value={draft.yourEmail} onChange={(e) => set('yourEmail', e.target.value)} style={inputStyle} /></Field>
+                        <Field label={tr.orgs.fYourPhone}><input name="submitter-phone" autoComplete="tel" value={draft.yourPhone} onChange={(e) => set('yourPhone', e.target.value)} style={inputStyle} /></Field>
                       </div>
                     </>
                   )}
@@ -299,7 +299,10 @@ export function Organizations() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.surface, border: `1px solid ${C.borderSoft}`, borderRadius: 9, padding: '0 12px', minHeight: 44, maxWidth: 460 }}>
           <Ico n="search" size={15} color={C.muted2} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr.orgs.searchPh} aria-label={tr.orgs.searchPh}
+          {/* Chrome's heuristics happily autofill a bare text input — including a
+              search box. Filters and third-party contact fields are explicitly opted
+              out; only the submitter's own fields below advertise an autofill type. */}
+          <input type="search" name="org-search" autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr.orgs.searchPh} aria-label={tr.orgs.searchPh}
             style={{ border: 0, background: 'none', outline: 'none', fontSize: 14, color: C.navy, padding: '11px 0', width: '100%', minWidth: 0 }} />
         </label>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>

@@ -83,6 +83,7 @@ export function Header() {
     >
       <Ico n="search" size={15} color={C.muted2} />
       <input
+        type="search" name="need-search" autoComplete="off"
         value={a.query}
         onChange={(e) => a.setQuery(e.target.value)}
         placeholder={tr.header.search}
@@ -92,13 +93,15 @@ export function Header() {
     </form>
   );
 
-  // The one primary action in the header.
+  // The global primary action is reporting a disaster. Reporting a delivery or a
+  // need is meaningless without an operation, so those two live on the disaster
+  // page only.
   const reportCta = (
-    <button onClick={goAnd(() => a.go('report'))} className="hv-emergency" style={{
+    <button onClick={goAnd(() => a.go('reportDisaster'))} className="hv-emergency" style={{
       background: G.emergencyBtn, border: '1px solid #BE2A31', borderRadius: 20, padding: '0 17px',
       height: 38, fontSize: 13.5, fontWeight: 600, color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap',
       boxShadow: 'inset 0 1px 0 rgba(255,255,255,.18), 0 2px 6px rgba(191,42,49,.26)',
-    }}>{tr.header.reportAid}</button>
+    }}>{tr.reportDisaster.title}</button>
   );
 
   const avatarInner = auth.profile?.avatarUrl
@@ -130,7 +133,7 @@ export function Header() {
         <div style={{ fontSize: 12, color: C.muted }}>{loggedIn ? (auth.user?.email ?? '') : tr.header.guest}</div>
       </div>
       {menuRow('track', tr.header.track, () => a.go('track'))}
-      {menuRow('need', tr.header.reportNeed, () => a.openWizard('public'))}
+      {menuRow('critical', tr.reportDisaster.title, () => a.go('reportDisaster'))}
       <div style={{ height: 1, background: C.borderFaint, margin: '6px 2px' }} />
       {loggedIn
         ? [
@@ -188,7 +191,7 @@ export function Header() {
       )}
       {[...navItems,
         { label: tr.header.track, active: a.route === 'track', onClick: () => a.go('track') },
-        { label: tr.header.reportNeed, active: false, onClick: () => a.openWizard('public') },
+        { label: tr.reportDisaster.title, active: a.route === 'reportDisaster', onClick: () => a.go('reportDisaster') },
       ].map((n) => (
         <button key={n.label} onClick={goAnd(n.onClick)} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',

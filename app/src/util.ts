@@ -58,3 +58,27 @@ export const isToday = (label: string): boolean => agoMinutes(label) < 1440;
 export const UNIT_PRESETS = [
   'adet', 'kutu', 'paket', 'koli', 'çift', 'kg', 'litre', 'çuval', 'palet', 'top', 'şişe', 'poşet', 'kişi', 'sefer',
 ];
+
+// ---- Network guard -----------------------------------------------------------
+// A hanging request must never leave an emergency screen on an indefinite spinner
+// (rules/04 §Loading States). supabase-js does not time out on its own: a blocked
+// or black-holed connection can keep a promise pending forever. Every read the UI
+// blocks on goes through this.
+export const LOAD_TIMEOUT_MS = 6000;
+
+export class TimeoutError extends Error {
+  constructor(ms: number) {
+    super(`istek ${ms} ms içinde yanıtlanmadı`);
+    this.name = 'TimeoutError';
+  }
+}
+
+export function withTimeout<T>(p: Promise<T>, ms: number = LOAD_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new TimeoutError(ms)), ms);
+    p.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}

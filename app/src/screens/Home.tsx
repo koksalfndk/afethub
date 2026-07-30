@@ -69,14 +69,12 @@ export function Home() {
           <p style={{ fontSize: 14, color: C.muted, margin: '5px 0 0', maxWidth: '68ch' }}>{tr.dash.subtitle}</p>
         </div>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-          <button onClick={() => a.go('report')} className="hv-emergency" style={{
+          {/* Delivery and need reporting need an operation, so they live on the
+              disaster page; the dashboard offers the one action that does not. */}
+          <button onClick={() => a.go('reportDisaster')} className="hv-emergency" style={{
             background: G.emergencyBtn, border: '1px solid #BE2A31', color: '#fff', borderRadius: 10,
             padding: '0 18px', height: 48, fontSize: 14.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
-          }}>{tr.home.reportAid}</button>
-          <button onClick={() => a.openWizard('public')} className="hv-navy" style={{
-            background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 10,
-            padding: '0 18px', height: 48, fontSize: 14.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
-          }}>{tr.header.reportNeed}</button>
+          }}>{tr.reportDisaster.title}</button>
         </div>
       </div>
 

@@ -1,5 +1,7 @@
-import type { ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 import { useApp } from './store';
+import { tr } from './i18n/strings';
+import { LOAD_TIMEOUT_MS } from './util';
 import { C } from './theme';
 import { Toolbar } from './components/Toolbar';
 import { Header } from './components/Header';
@@ -61,7 +63,7 @@ export function App() {
               padding: mob ? '16px 14px' : '24px 28px 40px',
               paddingBottom: mob ? (frame ? 24 : 96) : 40,
             }}>
-              {a.snap ? <Screen /> : <div style={{ padding: 40, color: C.muted }}>Yükleniyor…</div>}
+              {a.snap ? <Screen /> : <LoadState />}
             </main>
           </div>
           <Footer />
@@ -73,6 +75,38 @@ export function App() {
           <Toast />
         </div>
       </div>
+    </div>
+  );
+}
+
+// Loading is bounded and always exits into something actionable: after the read
+// timeout the user gets an explanation and a retry, never an endless spinner
+// (rules/04 §Loading States, §Error States).
+function LoadState() {
+  const a = useApp();
+  const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    if (a.loadError) return;
+    const t = setTimeout(() => setSlow(true), Math.round(LOAD_TIMEOUT_MS / 2));
+    return () => clearTimeout(t);
+  }, [a.loadError]);
+
+  const failed = !!a.loadError;
+  return (
+    <div style={{ padding: '48px 20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10, maxWidth: 520 }}>
+      <div style={{ fontSize: 15.5, fontWeight: 700, color: failed ? C.errorText : C.heading2 }}>
+        {failed ? tr.common.loadFailed : tr.common.loading}
+      </div>
+      {!failed && slow && (
+        <div style={{ fontSize: 13.5, color: C.muted }}>{tr.common.loadSlow}</div>
+      )}
+      {(failed || slow) && (
+        <button onClick={a.retryLoad} style={{
+          marginTop: 4, background: C.navy, border: `1px solid ${C.navy}`, color: '#fff',
+          borderRadius: 10, padding: '0 18px', height: 46, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+        }}>{tr.common.retry}</button>
+      )}
     </div>
   );
 }
