@@ -223,6 +223,45 @@ export function Home() {
             <div style={{ fontSize: 11.5, color: C.muted2 }}>{tr.common.remainingUnchanged}</div>
           </section>
 
+          {/* Citizen reports: a claim count, not a verified fact. Duplicates about
+              the same event are merged, so this is "n kişi bildirdi", not n rows. */}
+          <section style={{ background: 'linear-gradient(160deg,#FFFFFF,#FFFDF4 60%,#FFF8E5)', border: '1px solid #F2DFA8', borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <Ico n="critical" size={15} color={C.warningText} />
+                <span style={eyebrow}>{tr.dashReports.title}</span>
+              </span>
+              <span className="tnum" style={{ fontSize: 11.5, color: C.muted2 }}>{ov.reports.length}</span>
+            </div>
+            <div style={{ fontSize: 11.5, color: C.muted2, marginTop: -6 }}>{tr.dashReports.note}</div>
+            {ov.reports.length > 0 ? ov.reports.slice(0, 4).map((r) => (
+              <div key={r.id} style={{ background: C.surface, border: '1px solid #F2DFA8', borderLeft: `3px solid ${C.warning}`, borderRadius: 10, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: C.navy }}>
+                      {disasterTypeLabel[r.type]} · {[r.province, r.district].filter(Boolean).join(' / ')}
+                    </span>
+                    <span style={{ display: 'block', fontSize: 12, color: C.muted2, marginTop: 1 }}>{r.locationNote}</span>
+                  </span>
+                  <span className="tnum" style={{ fontSize: 12.5, fontWeight: 700, color: C.warningText, whiteSpace: 'nowrap' }}>
+                    {tr.reportDisaster.reportedBy(r.reportCount)}
+                  </span>
+                </div>
+                <span className="tnum" style={{ fontSize: 11.5, color: C.muted2 }}>
+                  {tr.reportDisaster.observedOn(r.occurredOn)} · {tr.reportDisaster.lastReport(r.lastReportLabel)}
+                </span>
+                <button onClick={() => void a.confirmDisasterReport(r.id)} className="hv-navy" style={{
+                  alignSelf: 'flex-start', background: C.surface, border: `1px solid ${C.borderSoft}`,
+                  color: C.navy, borderRadius: 8, padding: '8px 12px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', minHeight: 40,
+                }}>{tr.dashReports.confirm}</button>
+              </div>
+            )) : <div style={{ fontSize: 13, color: C.muted }}>{tr.dashReports.empty}</div>}
+            <button onClick={() => a.go('reportDisaster')} style={{
+              background: G.emergencyBtn, border: '1px solid #BE2A31', color: '#fff', borderRadius: 10,
+              height: 44, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', width: '100%',
+            }}>{tr.dashReports.all}</button>
+          </section>
+
           <section style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <LiveDot color={C.success} /><span style={eyebrow}>{tr.dash.feedTitle}</span>

@@ -161,3 +161,39 @@ export interface OrganizationInput {
   phone: string; emergencyPhone: string; address: string;
   submittedByName: string; submittedByEmail: string; submittedByPhone: string;
 }
+
+// ---------------------------------------------------------------------------
+// Citizen disaster reports
+//
+// A report is NOT a disaster. It is a claim that something is happening. Reports
+// about the same event are merged so the dashboard shows one entry with
+// "n kişi bildirdi" instead of a wall of duplicates, and a coordinator turns a
+// sufficiently corroborated report into a real operation (rules/02 §Need Requests
+// applies the same shape: a request is never automatically a published record).
+// ---------------------------------------------------------------------------
+export type ReportStatus = 'Pending verification' | 'Merged' | 'Published' | 'Rejected';
+
+export interface DisasterReport {
+  id: string;
+  type: DisasterType;
+  province: string;
+  district: string;
+  locationNote: string;      // landmark / neighbourhood, free text
+  occurredOn: string;        // YYYY-MM-DD — the day the event was observed
+  description: string;
+  reportCount: number;       // how many people reported this same event
+  status: ReportStatus;
+  disasterSlug: string | null; // set once a coordinator opens an operation from it
+  createdLabel: string;
+  lastReportLabel: string;
+}
+
+export interface DisasterReportInput {
+  type: DisasterType;
+  province: string;
+  district: string;
+  locationNote: string;
+  occurredOn: string;
+  description: string;
+  name: string; email: string; phone: string;
+}

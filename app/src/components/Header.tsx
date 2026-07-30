@@ -162,8 +162,19 @@ export function Header() {
     </div>
   ) : null;
 
+  // Opens over the page (fixed + backdrop) so the layout never shifts down.
   const drawer = (
-    <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: '10px 12px 14px' }}>
+    <>
+      <div onClick={() => setDrawerOpen(false)} style={{
+        position: 'absolute', top: '100%', left: 0, right: 0, height: '100vh',
+        background: 'rgba(11,30,48,.38)', zIndex: 28,
+      }} />
+      <div className="anim-in" style={{
+        position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 29,
+        maxHeight: 'calc(100vh - 120px)', overflowY: 'auto',
+        background: C.surface, borderBottom: `1px solid ${C.border}`, padding: '10px 12px 14px',
+        boxShadow: '0 16px 34px rgba(16,42,67,.18)',
+      }}>
       {auth.enabled && !loggedIn && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
           <button onClick={goAnd(() => auth.openModal('signIn'))} className="hv-navy" style={{
@@ -186,7 +197,8 @@ export function Header() {
           fontSize: 15, fontWeight: 600, color: n.active ? C.emergency : C.navy, cursor: 'pointer',
         }}>{n.label}<Ico n="chev" size={16} color={C.muted3} /></button>
       ))}
-    </div>
+      </div>
+    </>
   );
 
   return (

@@ -1,12 +1,14 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { repo, fallbackToLocal, type Snapshot, type Overview } from './data';
-import type { Submission, VerifyKind, Organization, OrganizationInput } from './types';
+import type {
+  Submission, VerifyKind, Organization, OrganizationInput, DisasterReport, DisasterReportInput,
+} from './types';
 import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
 import { useAuth } from './auth';
 
 export type Route =
-  | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs'
+  | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster'
   | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog'
   | 'components' | 'system';
 export type Tab = 'overview' | 'needs' | 'locations' | 'announcements' | 'activity';
@@ -29,6 +31,7 @@ function toPath(route: Route, tab: Tab, slug: string): string {
     case 'track': return '/takip';
     case 'needReq': return '/talep';
     case 'orgs': return '/kurumlar';
+    case 'reportDisaster': return '/afet-bildir';
     case 'coordHome': return '/koordinasyon';
     case 'coordQueue': return '/koordinasyon/kuyruk';
     case 'coordNeeds': return '/koordinasyon/ihtiyaclar';
@@ -51,6 +54,7 @@ function fromPath(pathname: string): ParsedPath {
     case 'takip': return { route: 'track' };
     case 'talep': return { route: 'needReq' };
     case 'kurumlar': return { route: 'orgs' };
+    case 'afet-bildir': return { route: 'reportDisaster' };
     case 'koordinasyon': {
       const s = parts[1];
       const r: Route = s === 'kuyruk' ? 'coordQueue' : s === 'ihtiyaclar' ? 'coordNeeds' : s === 'kayit' ? 'coordLog' : 'coordHome';
@@ -113,6 +117,9 @@ export interface AppApi {
   doTrack: () => void; fillDemoCode: () => void;
   showToast: (m: string) => void;
   submitOrganization: (input: OrganizationInput) => Promise<boolean>;
+  findSimilarReports: (input: DisasterReportInput) => Promise<DisasterReport[]>;
+  submitDisasterReport: (input: DisasterReportInput) => Promise<{ report: DisasterReport; merged: boolean } | null>;
+  confirmDisasterReport: (reportId: string) => Promise<boolean>;
 }
 
 const Ctx = createContext<AppApi | null>(null);
@@ -336,6 +343,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
     },
     showToast,
+    findSimilarReports: (input) => repo.findSimilarReports(input).catch(() => []),
+    submitDisasterReport: async (input) => {
+      try {
+        const res = await repo.submitDisasterReport(input);
+        setOverview(await repo.getOverview());
+        showToast(res.merged ? tr.reportDisaster.mergedToast(res.report.reportCount) : tr.reportDisaster.sentToast);
+        return res;
+      } catch {
+        showToast(tr.reportDisaster.sendError);
+        return null;
+      }
+    },
+    confirmDisasterReport: async (reportId) => {
+      try {
+        const r = await repo.confirmDisasterReport(reportId);
+        setOverview(await repo.getOverview());
+        showToast(tr.reportDisaster.confirmedToast(r.reportCount));
+        return true;
+      } catch {
+        showToast(tr.reportDisaster.sendError);
+        return false;
+      }
+    },
     submitOrganization: async (input) => {
       try {
         await repo.submitOrganization(input);

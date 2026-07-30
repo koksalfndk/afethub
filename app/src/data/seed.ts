@@ -1,4 +1,6 @@
-import type { Disaster, Location, Need, Submission, LogEntry, Announcement, Organization } from '../types';
+import type {
+  Disaster, Location, Need, Submission, LogEntry, Announcement, Organization, DisasterReport,
+} from '../types';
 
 // ---------------------------------------------------------------------------
 // DEMO SEED — sample content, not verified operational data.
@@ -317,58 +319,106 @@ export const announcements: Announcement[] = [
 export const organizations: Organization[] = [
   {
     id: 'org1', name: 'AFAD — Afet ve Acil Durum Yönetimi Başkanlığı', kind: 'Kamu kurumu', scope: 'Ulusal',
-    province: '', district: '', services: ['Arama kurtarma', 'Koordinasyon', 'Barınma', 'Acil yardım'],
-    description: 'Afet ve acil durumlarda ulusal koordinasyonu yürüten kamu kurumu. Acil çağrı için 112 kullanılır.',
+    province: '', district: '', services: ['Afet koordinasyonu', 'Arama kurtarma', 'Barınma', 'Acil yardım', 'Hasar tespiti'],
+    description: 'Afet ve acil durumlarda ulusal düzeyde koordinasyonu yürüten kamu kurumu. İl afet ve acil durum müdürlükleri (İl AFAD) üzerinden sahada çalışır. Acil çağrı için 112 kullanılır.',
     website: 'https://www.afad.gov.tr', email: '', phone: '122', emergencyPhone: '112',
     address: 'Ankara', status: 'Verified', isOfficial: true, verifiedAt: '2026-07-21', createdLabel: '9 gün önce',
   },
   {
     id: 'org2', name: 'Türk Kızılay', kind: 'Dernek', scope: 'Ulusal',
-    province: '', district: '', services: ['Kan', 'Beslenme', 'Barınma', 'Psikososyal destek'],
-    description: 'Afetlerde beslenme, barınma ve kan tedariki alanlarında çalışan ulusal yardım kuruluşu.',
+    province: '', district: '', services: ['Beslenme', 'Barınma', 'Kan tedariki', 'Psikososyal destek', 'Lojistik'],
+    description: 'Afetlerde beslenme, barınma, kan tedariki ve psikososyal destek alanlarında çalışan ulusal yardım kuruluşu. Kan bağışı ve yardım hattı için 168 kullanılır.',
     website: 'https://www.kizilay.org.tr', email: '', phone: '168', emergencyPhone: '',
     address: 'Ankara', status: 'Verified', isOfficial: true, verifiedAt: '2026-07-21', createdLabel: '9 gün önce',
   },
   {
-    id: 'org3', name: 'Orman Genel Müdürlüğü', kind: 'Kamu kurumu', scope: 'Ulusal',
-    province: '', district: '', services: ['Orman yangınıyla mücadele', 'Yangın ihbarı'],
-    description: 'Orman yangınlarının söndürülmesinden sorumlu kamu kurumu. Yangın ihbarı için 177 aranır.',
+    id: 'org3', name: 'UMKE — Ulusal Medikal Kurtarma Ekipleri', kind: 'Kamu kurumu', scope: 'Ulusal',
+    province: '', district: '', services: ['Afet bölgesinde sağlık', 'Medikal kurtarma', 'Triyaj', 'Saha hastanesi'],
+    description: 'Sağlık Bakanlığı bünyesinde, afet ve acil durumlarda sahada medikal kurtarma ve sağlık hizmeti veren ekipler. Acil sağlık çağrısı 112 üzerinden yapılır.',
+    website: 'https://www.saglik.gov.tr', email: '', phone: '', emergencyPhone: '112',
+    address: 'Ankara', status: 'Verified', isOfficial: true, verifiedAt: '2026-07-21', createdLabel: '9 gün önce',
+  },
+  {
+    id: 'org4', name: 'Orman Genel Müdürlüğü', kind: 'Kamu kurumu', scope: 'Ulusal',
+    province: '', district: '', services: ['Orman yangınıyla mücadele', 'Yangın ihbarı', 'Havadan müdahale'],
+    description: 'Orman yangınlarının önlenmesi ve söndürülmesinden sorumlu kamu kurumu. Yangın ihbarı için 177 aranır.',
     website: 'https://www.ogm.gov.tr', email: '', phone: '177', emergencyPhone: '177',
     address: 'Ankara', status: 'Verified', isOfficial: true, verifiedAt: '2026-07-21', createdLabel: '9 gün önce',
   },
   {
-    id: 'org4', name: 'AKUT Arama Kurtarma Derneği', kind: 'Dernek', scope: 'Ulusal',
-    province: '', district: '', services: ['Arama kurtarma', 'Eğitim'],
-    description: 'Gönüllü arama kurtarma derneği.',
+    id: 'org5', name: 'AKOM — İstanbul Afet Koordinasyon Merkezi', kind: 'Belediye', scope: 'İl',
+    province: 'İstanbul', district: '', services: ['Afet koordinasyonu', 'Hava durumu uyarısı', 'Lojistik', 'Tahliye desteği'],
+    description: 'İstanbul Büyükşehir Belediyesi bünyesinde ilin afet ve olağanüstü durum koordinasyonunu yürüten merkez. Belediye çağrı merkezi 153 üzerinden erişilir.',
+    website: 'https://akom.ibb.gov.tr', email: '', phone: '153', emergencyPhone: '',
+    address: 'İstanbul', status: 'Verified', isOfficial: true, verifiedAt: '2026-07-22', createdLabel: '8 gün önce',
+  },
+  {
+    id: 'org6', name: 'AKUT Arama Kurtarma Derneği', kind: 'Dernek', scope: 'Ulusal',
+    province: '', district: '', services: ['Arama kurtarma', 'Dağ kurtarma', 'Eğitim', 'Gönüllü koordinasyonu'],
+    description: 'Gönüllülerden oluşan arama kurtarma derneği. Deprem, çığ, kayıp kişi ve dağ kazalarında sahada görev alır; kurtarma eğitimleri düzenler.',
     website: 'https://www.akut.org.tr', email: '', phone: '', emergencyPhone: '',
     address: 'İstanbul', status: 'Verified', isOfficial: false, verifiedAt: '2026-07-22', createdLabel: '8 gün önce',
   },
   {
-    id: 'org5', name: 'Muğla Büyükşehir Belediyesi Afet Koordinasyon Merkezi', kind: 'Belediye', scope: 'İl',
+    id: 'org7', name: 'TEMA Vakfı', kind: 'Vakıf', scope: 'Ulusal',
+    province: '', district: '', services: ['Yangın sonrası ağaçlandırma', 'Erozyonla mücadele', 'Toprak ve su', 'Gönüllü eğitimi'],
+    description: 'Türkiye Erozyonla Mücadele, Ağaçlandırma ve Doğal Varlıkları Koruma Vakfı. Yangın sonrası rehabilitasyon, ağaçlandırma ve erozyon çalışmalarında gönüllü koordinasyonu yapar.',
+    website: 'https://www.tema.org.tr', email: '', phone: '', emergencyPhone: '',
+    address: 'İstanbul', status: 'Verified', isOfficial: false, verifiedAt: '2026-07-23', createdLabel: '7 gün önce',
+  },
+  {
+    id: 'org8', name: 'Muğla Büyükşehir Belediyesi Afet Koordinasyon Merkezi', kind: 'Belediye', scope: 'İl',
     province: 'Muğla', district: '', services: ['Lojistik', 'Su tedariki', 'Tahliye desteği'],
     description: 'Demo kayıt: il düzeyinde yardım kabulü ve lojistik koordinasyonu.',
     website: '', email: 'demo-afet@ornek.gov.tr', phone: '+90 252 000 00 00', emergencyPhone: '',
     address: 'Menteşe, Muğla', status: 'Verified', isOfficial: true, verifiedAt: '2026-07-23', createdLabel: '7 gün önce',
   },
   {
-    id: 'org6', name: 'Seydikemer Gönüllü İtfaiye Destek Grubu', kind: 'Gönüllü grubu', scope: 'İlçe',
+    id: 'org9', name: 'Seydikemer Gönüllü İtfaiye Destek Grubu', kind: 'Gönüllü grubu', scope: 'İlçe',
     province: 'Muğla', district: 'Seydikemer', services: ['Söndürme desteği', 'Su ikmali', 'Lojistik'],
     description: 'Demo kayıt: ilçedeki gönüllü söndürme ve su ikmal desteği.',
     website: '', email: 'demo-gonullu@ornek.org', phone: '+90 555 000 00 01', emergencyPhone: '',
     address: 'Seydikemer, Muğla', status: 'Pending verification', isOfficial: false, verifiedAt: null, createdLabel: '2 saat önce',
   },
   {
-    id: 'org7', name: 'Kastamonu Yardımlaşma Vakfı', kind: 'Vakıf', scope: 'İl',
+    id: 'org10', name: 'Kastamonu Yardımlaşma Vakfı', kind: 'Vakıf', scope: 'İl',
     province: 'Kastamonu', district: '', services: ['Gıda', 'Barınma', 'Temizlik malzemesi'],
     description: 'Demo kayıt: sel bölgesinde gıda ve temizlik malzemesi dağıtımı.',
     website: '', email: 'demo-vakif@ornek.org', phone: '+90 366 000 00 02', emergencyPhone: '',
     address: 'Merkez, Kastamonu', status: 'Pending verification', isOfficial: false, verifiedAt: null, createdLabel: '5 saat önce',
   },
   {
-    id: 'org8', name: 'Çanakkale Veteriner Hekimler Odası', kind: 'Meslek odası', scope: 'İl',
+    id: 'org11', name: 'Çanakkale Veteriner Hekimler Odası', kind: 'Meslek odası', scope: 'İl',
     province: 'Çanakkale', district: '', services: ['Hayvan sağlığı', 'Barınak desteği'],
     description: 'Demo kayıt: yangın bölgesinde hayvan sağlığı desteği.',
     website: '', email: 'demo-oda@ornek.org', phone: '+90 286 000 00 03', emergencyPhone: '',
     address: 'Merkez, Çanakkale', status: 'Pending verification', isOfficial: false, verifiedAt: null, createdLabel: '1 gün önce',
+  },
+];
+
+// Citizen reports awaiting coordinator review. `reportCount` is how many people
+// reported the same event after de-duplication — the dashboard shows it as
+// "n kişi bildirdi", which is a claim count, never a verified fact.
+export const reports: DisasterReport[] = [
+  {
+    id: 'rep1', type: 'Wildfire', province: 'İzmir', district: 'Karaburun',
+    locationNote: 'Sarpıncık yolu, kıyı sırtı', occurredOn: '2026-07-30',
+    description: 'Sırtta duman görülüyor, rüzgâr kuzeyden. Henüz ekip gelmedi.',
+    reportCount: 7, status: 'Pending verification', disasterSlug: null,
+    createdLabel: '38 dakika önce', lastReportLabel: '6 dakika önce',
+  },
+  {
+    id: 'rep2', type: 'Flood', province: 'Rize', district: 'Ardeşen',
+    locationNote: 'Dere kenarı, alt mahalle', occurredOn: '2026-07-29',
+    description: 'Sağanak sonrası dere taştı, iki sokak su altında.',
+    reportCount: 3, status: 'Pending verification', disasterSlug: null,
+    createdLabel: '5 saat önce', lastReportLabel: '2 saat önce',
+  },
+  {
+    id: 'rep3', type: 'Storm', province: 'Ankara', district: 'Çankaya',
+    locationNote: 'Ayrancı, ağaç devrilmesi', occurredOn: '2026-07-29',
+    description: 'Fırtınada ağaçlar devrildi, bir sokak kapandı.',
+    reportCount: 2, status: 'Pending verification', disasterSlug: null,
+    createdLabel: '1 gün önce', lastReportLabel: '20 saat önce',
   },
 ];

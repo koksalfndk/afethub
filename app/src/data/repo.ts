@@ -1,6 +1,7 @@
 import type {
   Disaster, Location, Need, Submission, LogEntry, Announcement,
   VerifyKind, DeliveryInput, PriorityKey, Organization, OrganizationInput,
+  DisasterReport, DisasterReportInput,
 } from '../types';
 import type { NeedPayload } from '../needForm';
 
@@ -46,9 +47,10 @@ export interface Overview {
     activeDisasters: number; activeNeeds: number; verifiedSubs: number;
     pendingSubs: number; volunteers: number; deliveryPoints: number;
   };
-  log: LogEntry[];   // newest first, across every operation
-  urgent: TopNeed[]; // most urgent open needs, across every operation
-  demo: boolean;     // any visible record is sample content
+  log: LogEntry[];      // newest first, across every operation
+  urgent: TopNeed[];    // most urgent open needs, across every operation
+  reports: DisasterReport[]; // citizen reports still awaiting coordinator review
+  demo: boolean;        // any visible record is sample content
 }
 
 export interface CreateDeliveryResult {
@@ -65,6 +67,12 @@ export interface Repo {
   // carry "Doğrulama bekliyor" until a coordinator verifies them.
   listOrganizations(): Promise<Organization[]>;
   submitOrganization(input: OrganizationInput): Promise<Organization>;
+  // Citizen disaster reports. `findSimilarReports` is a *suggestion* pass so the
+  // reporter can confirm an existing report instead of creating a duplicate; the
+  // merge rule itself is enforced when the report is written.
+  findSimilarReports(input: DisasterReportInput): Promise<DisasterReport[]>;
+  submitDisasterReport(input: DisasterReportInput): Promise<{ report: DisasterReport; merged: boolean }>;
+  confirmDisasterReport(reportId: string): Promise<DisasterReport>;
   createDelivery(input: DeliveryInput): Promise<CreateDeliveryResult>;
   verifySubmission(subId: string, kind: VerifyKind, qty: number, reason: string): Promise<Snapshot>;
   publishNeed(p: NeedPayload): Promise<Snapshot>;
@@ -79,3 +87,28 @@ export const remaining = (n: Need): number => Math.max(0, n.required - n.verifie
 export const pct = (n: Need): number => Math.min(100, Math.round((n.verified / n.required) * 100));
 export const genCode = (r: number): string => 'AFT-' + (4900 + Math.floor(r * 90));
 export const genNrq = (r: number): string => 'NRQ-' + (120 + Math.floor(r * 80));
+
+// ---- Report de-duplication rule (shared by client suggestions and the writer) --
+// Two reports describe the same event when they share the disaster type and the
+// province, were observed within REPORT_DAY_WINDOW days of each other, and name
+// the same district (or the district is left blank on one side). Keep this rule in
+// one place: the SQL trigger in migration 0003 mirrors it exactly.
+export const REPORT_DAY_WINDOW = 2;
+
+const norm = (v: string) => v.trim().toLocaleLowerCase('tr');
+const dayDiff = (a: string, b: string): number => {
+  const t1 = Date.parse(a), t2 = Date.parse(b);
+  if (Number.isNaN(t1) || Number.isNaN(t2)) return Number.POSITIVE_INFINITY;
+  return Math.abs(t1 - t2) / 86_400_000;
+};
+
+export function isSameEvent(
+  a: { type: string; province: string; district: string; occurredOn: string },
+  b: { type: string; province: string; district: string; occurredOn: string },
+): boolean {
+  if (a.type !== b.type) return false;
+  if (norm(a.province) !== norm(b.province)) return false;
+  const da = norm(a.district), db = norm(b.district);
+  if (da && db && da !== db) return false;
+  return dayDiff(a.occurredOn, b.occurredOn) <= REPORT_DAY_WINDOW;
+}

@@ -46,6 +46,11 @@ const ROUTE_META: Record<Route, RouteMeta> = {
     description: 'Sahadaki bir ihtiyacı koordinatör incelemesi için iletin.',
     index: true,
   },
+  reportDisaster: {
+    title: 'Afet bildir',
+    description: 'Yangın, deprem, sel veya şiddetli hava olayını bildirin. Aynı olaya ait bildirimler birleştirilir.',
+    index: true,
+  },
   orgs: {
     title: 'Kurumlar ve dernekler',
     description: 'Afet ve acil durumlarda çalışan kamu kurumları, belediyeler, dernekler, vakıflar ve gönüllü gruplarının iletişim bilgileri.',

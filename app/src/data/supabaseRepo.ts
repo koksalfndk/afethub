@@ -3,10 +3,11 @@ import type {
   Disaster, Location, Need, Submission, LogEntry, Announcement,
   VerifyKind, DeliveryInput, PriorityKey, StatusKey, DisasterType,
   Organization, OrganizationInput, OrgStatus, OrgKind, OrgScope,
+  DisasterReport, DisasterReportInput, ReportStatus,
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
 import type { NeedPayload } from '../needForm';
-import { genCode, genNrq } from './repo';
+import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW } from './repo';
 import { PRI } from '../theme';
 
 // Turkish relative-time formatter for DB timestamps.
@@ -155,7 +156,10 @@ export class SupabaseRepo implements Repo {
     }).sort((x, y) => (x.disaster.status === 'Active' ? 0 : 1) - (y.disaster.status === 'Active' ? 0 : 1));
 
     const active = cards.filter((c) => c.disaster.status === 'Active');
-    const lg = await this.db.from('audit_log').select('*').order('created_at', { ascending: false }).limit(12);
+    const [lg, rep] = await Promise.all([
+      this.db.from('audit_log').select('*').order('created_at', { ascending: false }).limit(12),
+      this.db.from('disaster_reports_public').select('*').eq('status', 'Pending verification').limit(12),
+    ]);
     const byId = new Map(disasters.map((d) => [d.id, d] as const));
 
     return {
@@ -178,6 +182,7 @@ export class SupabaseRepo implements Repo {
       urgent: active.flatMap((c) => topOf(c.disaster, 3))
         .sort((x, y) => (PRI[x.priority] ?? PRI.Normal).rank - (PRI[y.priority] ?? PRI.Normal).rank)
         .slice(0, 6),
+      reports: (rep.data ?? []).map(this.mapReport).sort((x, y) => y.reportCount - x.reportCount),
       demo: cards.some((c) => c.disaster.demo === true),
     };
   }
@@ -221,6 +226,54 @@ export class SupabaseRepo implements Repo {
       emergencyPhone: input.emergencyPhone.trim(), address: input.address.trim(),
       status: 'Pending verification', isOfficial: false, verifiedAt: null, createdLabel: 'az önce',
     };
+  }
+
+  private mapReport = (r: Record<string, unknown>): DisasterReport => ({
+    id: String(r.id), type: (r.type as DisasterType) ?? 'Other',
+    province: String(r.province ?? ''), district: String(r.district ?? ''),
+    locationNote: String(r.location_note ?? ''),
+    occurredOn: String(r.occurred_on ?? '').slice(0, 10),
+    description: String(r.description ?? ''),
+    reportCount: Number(r.report_count ?? 1),
+    status: (r.status as ReportStatus) ?? 'Pending verification',
+    disasterSlug: r.disaster_slug ? String(r.disaster_slug) : null,
+    createdLabel: r.created_at ? rel(String(r.created_at)) : '',
+    lastReportLabel: r.last_report_at ? rel(String(r.last_report_at)) : '',
+  });
+
+  // Narrow server-side by type/province/date window, then apply the shared rule so
+  // client and server agree on what "same event" means.
+  async findSimilarReports(input: DisasterReportInput): Promise<DisasterReport[]> {
+    const from = new Date(Date.parse(input.occurredOn) - REPORT_DAY_WINDOW * 86_400_000);
+    const to = new Date(Date.parse(input.occurredOn) + REPORT_DAY_WINDOW * 86_400_000);
+    const { data } = await this.db.from('disaster_reports_public').select('*')
+      .eq('type', input.type)
+      .eq('status', 'Pending verification')
+      .gte('occurred_on', from.toISOString().slice(0, 10))
+      .lte('occurred_on', to.toISOString().slice(0, 10));
+    return (data ?? []).map(this.mapReport)
+      .filter((r) => isSameEvent(r, input))
+      .sort((x, y) => y.reportCount - x.reportCount);
+  }
+
+  // The RPC owns the merge decision transactionally (migration 0003): it either
+  // increments an existing report or inserts a new one, and writes the audit event.
+  async submitDisasterReport(input: DisasterReportInput): Promise<{ report: DisasterReport; merged: boolean }> {
+    const { data, error } = await this.db.rpc('submit_disaster_report', {
+      p_type: input.type, p_province: input.province.trim(), p_district: input.district.trim(),
+      p_location_note: input.locationNote.trim(), p_occurred_on: input.occurredOn,
+      p_description: input.description.trim(),
+      p_name: input.name.trim(), p_email: input.email.trim(), p_phone: input.phone.trim(),
+    }).single();
+    if (error) throw error;
+    const row = data as Record<string, unknown>;
+    return { report: this.mapReport(row), merged: row.merged === true };
+  }
+
+  async confirmDisasterReport(reportId: string): Promise<DisasterReport> {
+    const { data, error } = await this.db.rpc('confirm_disaster_report', { p_report: reportId }).single();
+    if (error) throw error;
+    return this.mapReport(data as Record<string, unknown>);
   }
 
   async createDelivery(f: DeliveryInput): Promise<CreateDeliveryResult> {

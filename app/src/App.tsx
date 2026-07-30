@@ -16,6 +16,7 @@ import { Disaster } from './screens/Disaster';
 import { Track } from './screens/Track';
 import { NeedRequest } from './screens/NeedRequest';
 import { Organizations } from './screens/Organizations';
+import { ReportDisaster } from './screens/ReportDisaster';
 import { CoordHome } from './screens/CoordHome';
 import { CoordQueue } from './screens/CoordQueue';
 import { CoordNeeds } from './screens/CoordNeeds';
@@ -30,7 +31,7 @@ export function App() {
   const frame = a.frame; // 412px phone mock-up wrapper (dev preview only)
 
   const screens: Record<string, () => ReactElement | null> = {
-    home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations,
+    home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster,
     coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog,
     components: Components, system: System,
   };
@@ -52,7 +53,12 @@ export function App() {
           <AccountBanner />
           <div style={{ display: 'flex', alignItems: 'stretch' }}>
             {coord && !mob && <Sidebar />}
-            <main style={{ flex: 1, minWidth: 0, padding: mob ? '16px 14px' : '24px 28px 40px', paddingBottom: mob ? 20 : 40 }}>
+            {/* The mobile bottom bar is fixed, so reserve its height here. */}
+            <main style={{
+              flex: 1, minWidth: 0,
+              padding: mob ? '16px 14px' : '24px 28px 40px',
+              paddingBottom: mob ? (frame ? 24 : 96) : 40,
+            }}>
               {a.snap ? <Screen /> : <div style={{ padding: 40, color: C.muted }}>Yükleniyor…</div>}
             </main>
           </div>

@@ -1,8 +1,9 @@
 import type {
   LogEntry, Need, Submission, VerifyKind, DeliveryInput, Organization, OrganizationInput,
+  DisasterReport, DisasterReportInput,
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
-import { genCode, genNrq, remaining } from './repo';
+import { genCode, genNrq, remaining, isSameEvent } from './repo';
 import { agoMinutes } from '../util';
 import { PRI } from '../theme';
 import type { NeedPayload } from '../needForm';
@@ -18,6 +19,7 @@ let subs: Submission[] = seed.subs.map((s) => ({ ...s }));
 let log: LogEntry[] = seed.log.map((l) => ({ ...l }));
 const verifiedTotals: Record<string, number> = { ...seed.verifiedTotals };
 let orgs: Organization[] = seed.organizations.map((o) => ({ ...o }));
+let reports: DisasterReport[] = seed.reports.map((r) => ({ ...r }));
 
 let uid = 0;
 const nextId = (p: string) => `${p}_${Date.now()}_${uid++}`;
@@ -119,6 +121,12 @@ export class LocalRepo implements Repo {
         deliveryPoints: active.reduce((x, c) => x + c.deliveryPoints, 0),
       },
       log: log.slice().sort(byRecency).slice(0, 12).map((l) => ({ ...l })),
+      reports: reports
+        .filter((r) => r.status === 'Pending verification')
+        .slice()
+        .sort((x, y) => y.reportCount - x.reportCount
+          || agoMinutes(x.lastReportLabel) - agoMinutes(y.lastReportLabel))
+        .map((r) => ({ ...r })),
       urgent: active
         .flatMap((c) => topOf(c.disaster.id, 3))
         .sort((x, y) => (PRI[x.priority] ?? PRI.Normal).rank - (PRI[y.priority] ?? PRI.Normal).rank)
@@ -136,6 +144,62 @@ export class LocalRepo implements Repo {
       .slice()
       .sort((x, y) => rank(x) - rank(y) || x.name.localeCompare(y.name, 'tr'))
       .map((o) => ({ ...o }));
+  }
+
+  // Suggestion pass: what the reporter probably means before they create a new row.
+  async findSimilarReports(input: DisasterReportInput): Promise<DisasterReport[]> {
+    return reports
+      .filter((r) => r.status === 'Pending verification' && isSameEvent(r, input))
+      .sort((x, y) => y.reportCount - x.reportCount)
+      .map((r) => ({ ...r }));
+  }
+
+  // Writing a report applies the merge rule itself, so a duplicate cannot be
+  // created by racing the suggestion step or by skipping the UI.
+  async submitDisasterReport(input: DisasterReportInput): Promise<{ report: DisasterReport; merged: boolean }> {
+    const existing = reports.find((r) => r.status === 'Pending verification' && isSameEvent(r, input));
+    if (existing) {
+      const merged = { ...existing, reportCount: existing.reportCount + 1, lastReportLabel: NOW };
+      reports = reports.map((r) => (r.id === existing.id ? merged : r));
+      addLog(activeDisasterId(), {
+        user: input.name || 'Misafir', action: 'Afet bildirimi birleştirildi',
+        detail: `${merged.province}${merged.district ? ' / ' + merged.district : ''} · ${merged.type}`,
+        oldValue: `${existing.reportCount} kişi bildirdi`, newValue: `${merged.reportCount} kişi bildirdi`,
+        color: '#E6A700',
+      });
+      return { report: { ...merged }, merged: true };
+    }
+
+    const created: DisasterReport = {
+      id: nextId('rep'), type: input.type,
+      province: input.province.trim(), district: input.district.trim(),
+      locationNote: input.locationNote.trim(), occurredOn: input.occurredOn,
+      description: input.description.trim(),
+      reportCount: 1, status: 'Pending verification', disasterSlug: null,
+      createdLabel: NOW, lastReportLabel: NOW,
+    };
+    reports = [created, ...reports];
+    addLog(activeDisasterId(), {
+      user: input.name || 'Misafir', action: 'Afet bildirimi gönderildi',
+      detail: `${created.province}${created.district ? ' / ' + created.district : ''} · ${created.type}`,
+      oldValue: '—', newValue: '1 kişi bildirdi', color: '#E6A700',
+    });
+    return { report: { ...created }, merged: false };
+  }
+
+  // "Ben de bildiriyorum" on an existing report.
+  async confirmDisasterReport(reportId: string): Promise<DisasterReport> {
+    const r = reports.find((x) => x.id === reportId);
+    if (!r) throw new Error('report not found');
+    const next = { ...r, reportCount: r.reportCount + 1, lastReportLabel: NOW };
+    reports = reports.map((x) => (x.id === reportId ? next : x));
+    addLog(activeDisasterId(), {
+      user: 'Misafir', action: 'Afet bildirimi doğrulandı',
+      detail: `${next.province}${next.district ? ' / ' + next.district : ''} · ${next.type}`,
+      oldValue: `${r.reportCount} kişi bildirdi`, newValue: `${next.reportCount} kişi bildirdi`,
+      color: '#E6A700',
+    });
+    return { ...next };
   }
 
   async submitOrganization(input: OrganizationInput): Promise<Organization> {

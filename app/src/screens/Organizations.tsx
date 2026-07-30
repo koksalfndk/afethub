@@ -38,6 +38,7 @@ export function Organizations() {
   const [province, setProvince] = useState('');
   const [onlyVerified, setOnlyVerified] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  const [step, setStep] = useState(0);
   const [draft, setDraft] = useState(emptyDraft);
   const [err, setErr] = useState('');
   const [done, setDone] = useState(false);
@@ -60,6 +61,17 @@ export function Organizations() {
     && (!province || o.province === province)
     && (!onlyVerified || o.status === 'Verified'));
 
+  const openForm = () => { setStep(0); setErr(''); setDone(false); setFormOpen(true); };
+  const closeForm = () => { setFormOpen(false); setErr(''); };
+
+  // Step gate: each step only blocks on what it actually asked for.
+  const nextStep = () => {
+    if (step === 0 && draft.name.trim().length < 2) return setErr(tr.orgs.errName);
+    if (step === 2) { void submit(); return; }
+    setErr('');
+    setStep((v) => Math.min(2, v + 1));
+  };
+
   const submit = async () => {
     if (draft.name.trim().length < 2) return setErr(tr.orgs.errName);
     if (!draft.website.trim() && !draft.email.trim() && !draft.phone.trim()) return setErr(tr.orgs.errContact);
@@ -72,7 +84,7 @@ export function Organizations() {
       phone: draft.phone, emergencyPhone: draft.emergencyPhone, address: draft.address,
       submittedByName: draft.yourName, submittedByEmail: draft.yourEmail, submittedByPhone: draft.yourPhone,
     });
-    if (ok) { setDone(true); setFormOpen(false); setDraft(emptyDraft); }
+    if (ok) { setDone(true); setFormOpen(false); setStep(0); setDraft(emptyDraft); }
   };
 
   const contactRow = (icon: IcoName, label: string, value: string, href?: string) => (
@@ -95,11 +107,11 @@ export function Organizations() {
           <h1 style={{ fontSize: L.h2, fontWeight: 700, letterSpacing: '-.02em', margin: 0, color: C.navy }}>{tr.orgs.title}</h1>
           <div style={{ fontSize: 13.5, color: C.muted, marginTop: 4, maxWidth: '70ch' }}>{tr.orgs.subtitle}</div>
         </div>
-        <button onClick={() => { setFormOpen((v) => !v); setDone(false); }} className="hv-emergency" style={{
+        <button onClick={openForm} className="hv-emergency" style={{
           background: G.emergencyBtn, border: '1px solid #BE2A31', color: '#fff', borderRadius: 10,
           padding: '0 18px', height: 48, fontSize: 14.5, fontWeight: 600, cursor: 'pointer',
           display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap',
-        }}><Ico n={formOpen ? 'close' : 'plus'} size={16} />{formOpen ? tr.orgs.cancel : tr.orgs.addBtn}</button>
+        }}><Ico n="plus" size={16} />{tr.orgs.addBtn}</button>
       </div>
 
       {/* AfetHUB claims no official affiliation (rules/03). */}
@@ -117,71 +129,114 @@ export function Organizations() {
         </div>
       )}
 
+      {/* Compact step-by-step modal: three short screens instead of one long form
+          (rules/04 §Forms — progressive disclosure on public emergency forms). */}
       {formOpen && (
-        <section className="anim-in" style={{ background: C.surface, border: `1px solid ${C.border}`, borderTop: `3px solid ${C.navy}`, borderRadius: 14, padding: 18 }}>
-          <h2 style={{ fontSize: 16.5, fontWeight: 700, margin: 0, color: C.navy }}>{tr.orgs.formTitle}</h2>
-          <p style={{ fontSize: 13, color: C.muted, margin: '5px 0 16px', maxWidth: '72ch' }}>{tr.orgs.formIntro}</p>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: mob ? 'flex-end' : 'center', justifyContent: 'center', padding: mob ? 0 : 20 }}>
+          <div onClick={closeForm} style={{ position: 'absolute', inset: 0, background: 'rgba(11,30,48,.46)' }} />
+          <div className="anim-in" role="dialog" aria-modal="true" aria-label={tr.orgs.formTitle} style={{
+            position: 'relative', width: '100%', maxWidth: 560, maxHeight: mob ? '92vh' : '88vh', overflowY: 'auto',
+            background: C.surface, border: `1px solid ${C.border}`,
+            borderRadius: mob ? '16px 16px 0 0' : 14, boxShadow: '0 26px 60px rgba(16,42,67,.28)',
+          }}>
+            <i style={{ position: 'absolute', inset: '0 0 auto 0', height: 4, background: G.heroRibbon }} />
+            <div style={{ padding: '16px 18px 12px', borderBottom: `1px solid ${C.borderFaint}` }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 16.5, fontWeight: 700, color: C.navy }}>{tr.orgs.formTitle}</div>
+                  <div className="tnum" style={{ fontSize: 12, color: C.muted2, marginTop: 2 }}>
+                    {tr.orgs.stepOf(step + 1, 3)} · {tr.orgs.stepNames[step]}
+                  </div>
+                </div>
+                <button onClick={closeForm} aria-label={tr.orgs.cancel} style={{
+                  width: 34, height: 34, borderRadius: 10, border: `1px solid ${C.borderSoft}`, background: C.surface,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: '0 0 34px',
+                }}><Ico n="close" size={16} /></button>
+              </div>
+              <div style={{ display: 'flex', gap: 4, marginTop: 12 }}>
+                {[0, 1, 2].map((i) => (
+                  <span key={i} style={{ flex: 1, height: 3, borderRadius: 3, background: i <= step ? C.emergency : C.borderFaint }} />
+                ))}
+              </div>
+            </div>
 
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: L.form }}>
-            <Field label={tr.orgs.fName} full>
-              <input value={draft.name} onChange={(e) => set('name', e.target.value)} style={inputStyle} />
-            </Field>
-            <Field label={tr.orgs.fKind}>
-              <select value={draft.kind} onChange={(e) => set('kind', e.target.value as OrgKind)} style={inputStyle}>
-                {ORG_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-              </select>
-            </Field>
-            <Field label={tr.orgs.fScope}>
-              <select value={draft.scope} onChange={(e) => set('scope', e.target.value as OrgScope)} style={inputStyle}>
-                {ORG_SCOPES.map((k) => <option key={k} value={k}>{k}</option>)}
-              </select>
-            </Field>
-            <Field label={tr.orgs.fProvince}>
-              <input value={draft.province} onChange={(e) => set('province', e.target.value)} style={inputStyle} />
-            </Field>
-            <Field label={tr.orgs.fDistrict}>
-              <input value={draft.district} onChange={(e) => set('district', e.target.value)} style={inputStyle} />
-            </Field>
-            <Field label={tr.orgs.fServices} hint={`(${tr.orgs.fServicesHint})`} full>
-              <input value={draft.services} onChange={(e) => set('services', e.target.value)} placeholder="Arama kurtarma, Lojistik, Gıda" style={inputStyle} />
-            </Field>
-            <Field label={tr.orgs.fDescription} full>
-              <textarea value={draft.description} onChange={(e) => set('description', e.target.value)} rows={3} style={{ ...inputStyle, minHeight: 84 }} />
-            </Field>
-          </div>
+            <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {step === 0 && (
+                <>
+                  <p style={{ fontSize: 12.5, color: C.muted, margin: 0 }}>{tr.orgs.formIntro}</p>
+                  <Field label={tr.orgs.fName} full>
+                    <input value={draft.name} onChange={(e) => set('name', e.target.value)} autoFocus style={inputStyle} />
+                  </Field>
+                  <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
+                    <Field label={tr.orgs.fKind}>
+                      <select value={draft.kind} onChange={(e) => set('kind', e.target.value as OrgKind)} style={inputStyle}>
+                        {ORG_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
+                      </select>
+                    </Field>
+                    <Field label={tr.orgs.fScope}>
+                      <select value={draft.scope} onChange={(e) => set('scope', e.target.value as OrgScope)} style={inputStyle}>
+                        {ORG_SCOPES.map((k) => <option key={k} value={k}>{k}</option>)}
+                      </select>
+                    </Field>
+                  </div>
+                  <div style={{ fontSize: 12, color: C.muted2 }}>{tr.orgs.errOfficialClaim}</div>
+                </>
+              )}
 
-          <div style={{ ...eyebrow, marginTop: 18 }}>{tr.orgs.contactSection}</div>
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: L.form, marginTop: 10 }}>
-            <Field label={tr.orgs.fWebsite}><input value={draft.website} onChange={(e) => set('website', e.target.value)} placeholder="https://" style={inputStyle} /></Field>
-            <Field label={tr.orgs.fEmail}><input type="email" value={draft.email} onChange={(e) => set('email', e.target.value)} style={inputStyle} /></Field>
-            <Field label={tr.orgs.fPhone}><input value={draft.phone} onChange={(e) => set('phone', e.target.value)} style={inputStyle} /></Field>
-            <Field label={tr.orgs.fEmergency}><input value={draft.emergencyPhone} onChange={(e) => set('emergencyPhone', e.target.value)} style={inputStyle} /></Field>
-            <Field label={tr.orgs.fAddress} full><input value={draft.address} onChange={(e) => set('address', e.target.value)} style={inputStyle} /></Field>
-          </div>
+              {step === 1 && (
+                <>
+                  <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
+                    <Field label={tr.orgs.fProvince}><input value={draft.province} onChange={(e) => set('province', e.target.value)} autoFocus style={inputStyle} /></Field>
+                    <Field label={tr.orgs.fDistrict}><input value={draft.district} onChange={(e) => set('district', e.target.value)} style={inputStyle} /></Field>
+                  </div>
+                  <Field label={tr.orgs.fServices} hint={`(${tr.orgs.fServicesHint})`} full>
+                    <input value={draft.services} onChange={(e) => set('services', e.target.value)} placeholder="Arama kurtarma, Lojistik, Gıda" style={inputStyle} />
+                  </Field>
+                  <Field label={tr.orgs.fDescription} full>
+                    <textarea value={draft.description} onChange={(e) => set('description', e.target.value)} rows={3} style={{ ...inputStyle, minHeight: 84 }} />
+                  </Field>
+                </>
+              )}
 
-          <div style={{ ...eyebrow, marginTop: 18 }}>{tr.orgs.submitterSection}</div>
-          <div style={{ fontSize: 12.5, color: C.muted2, marginTop: 4 }}>{tr.orgs.submitterHint}</div>
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: L.form, marginTop: 10 }}>
-            <Field label={tr.orgs.fYourName}><input value={draft.yourName} onChange={(e) => set('yourName', e.target.value)} style={inputStyle} /></Field>
-            <Field label={tr.orgs.fYourEmail}><input type="email" value={draft.yourEmail} onChange={(e) => set('yourEmail', e.target.value)} style={inputStyle} /></Field>
-            <Field label={tr.orgs.fYourPhone}><input value={draft.yourPhone} onChange={(e) => set('yourPhone', e.target.value)} style={inputStyle} /></Field>
-          </div>
+              {step === 2 && (
+                <>
+                  <div style={eyebrow}>{tr.orgs.contactSection}</div>
+                  <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
+                    <Field label={tr.orgs.fWebsite} full><input value={draft.website} onChange={(e) => set('website', e.target.value)} placeholder="https://" autoFocus style={inputStyle} /></Field>
+                    <Field label={tr.orgs.fEmail}><input type="email" value={draft.email} onChange={(e) => set('email', e.target.value)} style={inputStyle} /></Field>
+                    <Field label={tr.orgs.fPhone}><input value={draft.phone} onChange={(e) => set('phone', e.target.value)} style={inputStyle} /></Field>
+                    <Field label={tr.orgs.fEmergency}><input value={draft.emergencyPhone} onChange={(e) => set('emergencyPhone', e.target.value)} style={inputStyle} /></Field>
+                    <Field label={tr.orgs.fAddress}><input value={draft.address} onChange={(e) => set('address', e.target.value)} style={inputStyle} /></Field>
+                  </div>
+                  <div style={{ ...eyebrow, marginTop: 6 }}>{tr.orgs.submitterSection}</div>
+                  <div style={{ fontSize: 12, color: C.muted2, marginTop: -6 }}>{tr.orgs.submitterHint}</div>
+                  <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
+                    <Field label={tr.orgs.fYourName} full><input value={draft.yourName} onChange={(e) => set('yourName', e.target.value)} style={inputStyle} /></Field>
+                    <Field label={tr.orgs.fYourEmail}><input type="email" value={draft.yourEmail} onChange={(e) => set('yourEmail', e.target.value)} style={inputStyle} /></Field>
+                    <Field label={tr.orgs.fYourPhone}><input value={draft.yourPhone} onChange={(e) => set('yourPhone', e.target.value)} style={inputStyle} /></Field>
+                  </div>
+                </>
+              )}
 
-          <div style={{ fontSize: 12.5, color: C.muted2, marginTop: 14 }}>{tr.orgs.errOfficialClaim}</div>
-          {err && (
-            <div style={{ marginTop: 12, background: C.errorSurface, border: `1px solid ${C.errorBorder}`, color: C.errorText, borderRadius: 9, padding: '10px 12px', fontSize: 13.5 }}>{err}</div>
-          )}
-          <div style={{ display: 'flex', gap: 9, marginTop: 16, flexWrap: 'wrap' }}>
-            <button onClick={() => void submit()} className="hv-emergency" style={{
-              background: G.emergencyBtn, border: '1px solid #BE2A31', color: '#fff', borderRadius: 10,
-              padding: '0 20px', height: 48, fontSize: 14.5, fontWeight: 600, cursor: 'pointer',
-            }}>{tr.orgs.submit}</button>
-            <button onClick={() => { setFormOpen(false); setErr(''); }} className="hv-navy" style={{
-              background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 10,
-              padding: '0 18px', height: 48, fontSize: 14, fontWeight: 600, cursor: 'pointer',
-            }}>{tr.orgs.cancel}</button>
+              {err && (
+                <div style={{ background: C.errorSurface, border: `1px solid ${C.errorBorder}`, color: C.errorText, borderRadius: 9, padding: '10px 12px', fontSize: 13.5 }}>{err}</div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 9, padding: '0 18px 18px', flexWrap: 'wrap' }}>
+              {step > 0 && (
+                <button onClick={() => { setErr(''); setStep((v) => v - 1); }} className="hv-navy" style={{
+                  background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 10,
+                  padding: '0 18px', height: 48, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                }}>{tr.orgs.back}</button>
+              )}
+              <button onClick={nextStep} className="hv-emergency" style={{
+                flex: 1, minWidth: 150, background: G.emergencyBtn, border: '1px solid #BE2A31', color: '#fff',
+                borderRadius: 10, height: 48, fontSize: 14.5, fontWeight: 600, cursor: 'pointer',
+              }}>{step === 2 ? tr.orgs.submit : tr.orgs.next}</button>
+            </div>
           </div>
-        </section>
+        </div>
       )}
 
       {/* Filters */}
