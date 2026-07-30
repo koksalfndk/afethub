@@ -75,6 +75,7 @@ export function Volunteer() {
     availability: '',
     note: '',
     consent: false,
+    standingConsent: false,
   });
 
   const [step, setStep] = useState(0);
@@ -98,13 +99,23 @@ export function Volunteer() {
   const mine = a.myVolunteer;
   const openCount = mine.filter((x) => x.status === 'Pending review' || x.status === 'On hold' || x.status === 'Approved').length;
 
-  useEffect(() => { a.reloadMyVolunteer(); }, [loggedIn]);
+  useEffect(() => { if (auth.ready) a.reloadMyVolunteer(); }, [loggedIn, auth.ready]);
+
+  // Which card this page opens on is decided ONCE, and only after two questions have
+  // actually been answered: is there a session, and does it have applications.
+  //
+  // The bug this fixes: the first render happens before the session resolves, so
+  // `loggedIn` was false, the effect settled on the form and never looked again — which
+  // is what sent someone arriving from the receipt e-mail into a blank application form
+  // instead of their own list. Waiting for `auth.ready` AND for the first fetch to
+  // finish (loaded, not merely "not loading") is what makes the answer meaningful.
   useEffect(() => {
+    if (!auth.ready || settled.current) return;
     if (!loggedIn) { setView('form'); settled.current = true; return; }
-    if (a.myVolunteerLoading || settled.current) return;
+    if (!a.myVolunteerLoaded) return;
     settled.current = true;
     setView(mine.length > 0 ? 'list' : 'form');
-  }, [loggedIn, a.myVolunteerLoading, mine.length]);
+  }, [auth.ready, loggedIn, a.myVolunteerLoaded, mine.length]);
 
   // One card leaves before the other arrives, so the two never overlap. 160ms matches
   // the outgoing keyframe in index.css; reduced-motion collapses both to nothing.
@@ -144,6 +155,7 @@ export function Volunteer() {
       availability: app.availability, note: app.note,
       // Consent was given when the application was filed; editing does not withdraw it.
       consent: true,
+      standingConsent: app.standingConsent,
     });
     setDial(p.dial || DEFAULT_DIAL);
     setEditingId(app.id); setStep(0); setErr(''); setDone(false);
@@ -306,19 +318,39 @@ export function Volunteer() {
                   </div>
                 )}
 
-                {/* An approved application cannot be edited — changing the terms of
-                    something a coordinator already accepted would undo their decision
-                    without telling them. Withdrawing stays available, and the reason is
-                    stated rather than left as a missing button. The database refuses it
-                    too (migration 0019). */}
-                {app.status === 'Approved' && (
-                  <div style={{ fontSize: 12, color: C.muted2 }}>{tr.volunteerMine.approvedNoEdit}</div>
+                {/* The standing permission, switchable in EVERY status. It is the one
+                    control an approved volunteer keeps, and it has to be: a consent you
+                    cannot take back is not a consent (migration 0021). */}
+                {!closed && (
+                  <label style={{
+                    display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer',
+                    background: app.standingConsent ? '#EAF7EE' : C.canvas,
+                    border: `1px solid ${app.standingConsent ? '#BFE3CB' : C.borderFaint}`,
+                    borderRadius: 9, padding: '9px 11px',
+                  }}>
+                    <input type="checkbox" checked={app.standingConsent}
+                      onChange={(e) => { void a.setMyVolunteerConsent(app.id, e.target.checked); }}
+                      style={{ width: 17, height: 17, accentColor: C.success }} />
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: C.navy }}>
+                        {tr.volunteerMine.consentTitle} · {app.standingConsent ? tr.volunteerMine.consentOn : tr.volunteerMine.consentOff}
+                      </span>
+                      <span style={{ display: 'block', fontSize: 12, color: C.muted2 }}>{tr.volunteerMine.consentLabel}</span>
+                    </span>
+                  </label>
                 )}
-                {!closed && withdrawing !== app.id && (
+
+                {/* An approved application can be neither edited nor withdrawn here:
+                    changing or removing what a coordinator already accepted would alter
+                    the roster they are counting on without telling them. Both rules are
+                    enforced by the database (migrations 0019 and 0021); the reason is
+                    written out rather than left as two missing buttons. */}
+                {app.status === 'Approved' && (
+                  <div style={{ fontSize: 12, color: C.muted2 }}>{tr.volunteerMine.approvedNoWithdraw}</div>
+                )}
+                {!closed && app.status !== 'Approved' && withdrawing !== app.id && (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {app.status !== 'Approved' && (
-                      <button onClick={() => startEdit(app)} className="hv-navy" style={smallBtn}>{tr.volunteerMine.edit}</button>
-                    )}
+                    <button onClick={() => startEdit(app)} className="hv-navy" style={smallBtn}>{tr.volunteerMine.edit}</button>
                     <button onClick={() => setWithdrawing(app.id)} style={{ ...smallBtn, color: C.emergency }}>
                       {tr.volunteerMine.withdraw}
                     </button>
@@ -484,6 +516,25 @@ export function Volunteer() {
                 placeholder={tr.volunteerForm.fNotePh} maxLength={1200}
                 style={{ ...inputStyle, minHeight: 88, resize: 'vertical' }} />
             </Field>
+
+            {/* A second, separate permission. It is not bundled into the storage consent
+                on purpose: "you may keep my number" and "you may call me about any
+                nearby disaster without asking" are different things to agree to
+                (rules/03 §Data Minimization). Off by default. */}
+            <label style={{
+              display: 'grid', gridTemplateColumns: '22px minmax(0,1fr)', gap: 10, alignItems: 'start',
+              background: C.surface, border: `1px solid ${v.standingConsent ? C.navy : C.borderFaint}`,
+              borderRadius: 10, padding: '12px 13px', cursor: 'pointer',
+            }}>
+              <input type="checkbox" checked={v.standingConsent}
+                onChange={(e) => set('standingConsent', e.target.checked)}
+                style={{ width: 18, height: 18, marginTop: 2, accentColor: C.navy }} />
+              <span>
+                <span style={{ fontSize: 13.5, color: C.navy, fontWeight: 700 }}>{tr.volunteerMine.consentTitle}</span>
+                <span style={{ display: 'block', fontSize: 13, color: C.text, marginTop: 2 }}>{tr.volunteerMine.consentLabel}</span>
+                <span style={{ display: 'block', fontSize: 12.5, color: C.muted3, marginTop: 3 }}>{tr.volunteerMine.consentHint}</span>
+              </span>
+            </label>
 
             {!editingId && (
               <label style={{

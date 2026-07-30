@@ -12,7 +12,7 @@ import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
 import { withTimeout } from './util';
 import { useAuth } from './auth';
-import { sendStaffInvite, sendVolunteerReceipt } from './data/sendEmail';
+import { sendStaffInvite, sendVolunteerReceipt, sendVolunteerApproved } from './data/sendEmail';
 
 export type Route =
   | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
@@ -151,10 +151,14 @@ export interface AppApi {
   reloadVolunteers: () => void;
   submitVolunteer: (input: VolunteerInput) => Promise<boolean>;
   // The signed-in visitor's own applications, for the panel above the form.
-  myVolunteer: VolunteerApplication[]; myVolunteerLoading: boolean;
+  // `myVolunteerLoaded` is separate from `…Loading`: "not loading" is also true BEFORE
+  // the first fetch starts, and a screen that decides what to show on that reads an
+  // empty list as "this person has no applications".
+  myVolunteer: VolunteerApplication[]; myVolunteerLoading: boolean; myVolunteerLoaded: boolean;
   reloadMyVolunteer: () => void;
   updateMyVolunteer: (id: string, input: VolunteerInput) => Promise<boolean>;
   withdrawMyVolunteer: (id: string) => Promise<boolean>;
+  setMyVolunteerConsent: (id: string, on: boolean) => Promise<boolean>;
   reviewVolunteer: (id: string, status: VolunteerStatus, note: string) => Promise<boolean>;
   // Staff (admin only; the RPCs enforce it).
   staff: StaffMember[]; invites: RoleInvite[]; staffLoading: boolean; staffError: string;
@@ -289,6 +293,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [volunteers, setVolunteers] = useState<VolunteerApplication[]>([]);
   const [myVolunteer, setMyVolunteer] = useState<VolunteerApplication[]>([]);
   const [myVolunteerLoading, setMyVolunteerLoading] = useState(false);
+  const [myVolunteerLoaded, setMyVolunteerLoaded] = useState(false);
   const [volunteersLoading, setVolunteersLoading] = useState(false);
   const [volunteersError, setVolunteersError] = useState('');
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -379,7 +384,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Own applications: loaded only for a signed-in account, because that is the only
   // thing the server can match them on.
   const loadMyVolunteer = async () => {
-    if (!auth.enabled || !auth.user) { setMyVolunteer([]); return; }
+    if (!auth.enabled || !auth.user) { setMyVolunteer([]); setMyVolunteerLoaded(true); return; }
     setMyVolunteerLoading(true);
     try {
       setMyVolunteer(await withTimeout(repo.listMyVolunteerApplications()));
@@ -387,6 +392,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMyVolunteer([]);
     } finally {
       setMyVolunteerLoading(false);
+      setMyVolunteerLoaded(true);
     }
   };
 
@@ -547,7 +553,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     mySubs, mySubsLoading, mySubsError,
     orgEdits, orgEditsLoading, orgEditsError, orgEditsPending,
     reportQueue, reportQueueLoading, reportQueueError,
-    myVolunteer, myVolunteerLoading,
+    myVolunteer, myVolunteerLoading, myVolunteerLoaded,
     systemLog, systemLogLoading, systemLogError, volunteerFilter,
     volunteers, volunteersLoading, volunteersError,
     volunteersPending: volunteers.filter((v) => v.status === 'Pending review').length,
@@ -729,11 +735,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return true;
       } catch { return false; }
     },
-    reloadMyVolunteer: () => { void loadMyVolunteer(); },
+    reloadMyVolunteer: () => { setMyVolunteerLoaded(false); void loadMyVolunteer(); },
     updateMyVolunteer: async (id, input) => {
       try {
         setMyVolunteer(await withTimeout(repo.updateMyVolunteerApplication(id, input)));
         showToast(tr.volunteerMine.updatedToast);
+        return true;
+      } catch { showToast(tr.volunteerMine.actionFailed); return false; }
+    },
+    setMyVolunteerConsent: async (id, on) => {
+      try {
+        setMyVolunteer(await withTimeout(repo.setMyVolunteerConsent(id, on)));
+        showToast(on ? tr.volunteerMine.consentOnToast : tr.volunteerMine.consentOffToast);
         return true;
       } catch { showToast(tr.volunteerMine.actionFailed); return false; }
     },
@@ -748,7 +761,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (unverified) { showToast(tr.auth.verifyFirst); return false; }
       try {
         setVolunteers(await withTimeout(repo.reviewVolunteerApplication(id, status, note)));
-        showToast(tr.coordVolunteers.reviewedToast);
+        // Telling the applicant is a separate thing that can fail on its own: the
+        // decision is already recorded either way, and the toast says only what we
+        // actually know — that the provider accepted the message.
+        if (status === 'Approved') {
+          const mailed = await sendVolunteerApproved(id);
+          showToast(mailed ? tr.coordVolunteers.approvedMailedToast : tr.coordVolunteers.approvedNoMailToast);
+        } else {
+          showToast(tr.coordVolunteers.reviewedToast);
+        }
         return true;
       } catch { showToast(tr.coordVolunteers.actionFailed); return false; }
     },
@@ -933,7 +954,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Every piece of state exposed on `api` must be listed here, or consumers keep the
   // previous value: `deliveryOpen` and `slides` were missing, so the delivery overlay
   // never appeared and the slide list could go stale after a save.
-  }), [snap, loadError, overview, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, systemLog, systemLogLoading, systemLogError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
+  }), [snap, loadError, overview, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

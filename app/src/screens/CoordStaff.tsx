@@ -112,6 +112,23 @@ function VolunteerCard({ app }: { app: VolunteerApplication }) {
 
       {err && <div style={{ fontSize: 13, color: C.emergency, fontWeight: 600 }}>{err}</div>}
 
+      {/* The standing permission. A coordinator needs to see it before they pick up the
+          phone: it is the difference between an expected call and an unsolicited one. */}
+      {app.standingConsent && (
+        <div style={{
+          display: 'flex', alignItems: 'flex-start', gap: 8,
+          background: '#EAF7EE', border: '1px solid #BFE3CB', borderRadius: 9, padding: '9px 11px',
+        }}>
+          <span style={{ paddingTop: 1 }}><Ico n="verified" size={14} color={C.success} /></span>
+          <span>
+            <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: C.successText }}>
+              {tr.coordVolunteers.standingBadge}
+            </span>
+            <span style={{ display: 'block', fontSize: 12, color: C.heading2 }}>{tr.coordVolunteers.standingHint}</span>
+          </span>
+        </div>
+      )}
+
       {/* Shift state. Only an approved application can carry it — the same rule the RPC
           enforces (migration 0017) — and the badge says since when, because nothing
           closes a shift automatically. */}

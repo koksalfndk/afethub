@@ -314,6 +314,9 @@ export interface OrgEditRequest {
 export type VolunteerStatus = 'Pending review' | 'Approved' | 'On hold' | 'Rejected' | 'Withdrawn';
 
 export interface VolunteerInput {
+  // See VolunteerApplication.standingConsent. Separate from `consent`, which is the
+  // permission to store the contact details at all.
+  standingConsent: boolean;
   disasterId: string | null;   // null = general pool
   fullName: string;
   phone: string;
@@ -351,6 +354,11 @@ export interface VolunteerApplication {
   // `shiftSinceLabel` is shown next to it rather than left implicit.
   onShift: boolean;
   shiftSinceLabel: string;
+  // "Aktif gönüllü": standing permission for coordinators to make contact about a
+  // disaster near this person without asking first. Off by default and revocable at any
+  // time — including on an approved application, because a consent that cannot be taken
+  // back is not a consent (rules/03 §Data Minimization).
+  standingConsent: boolean;
 }
 
 // ---------------------------------------------------------------------------

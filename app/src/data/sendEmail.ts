@@ -84,3 +84,24 @@ export async function sendVolunteerReceipt(applicationId: string): Promise<boole
     return false;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Volunteer approval notice
+// ---------------------------------------------------------------------------
+// Takes only the application id. The Edge Function forwards the coordinator's own token
+// to `volunteer_approval_context()` (migration 0020), which is behind is_coordinator()
+// and only answers for a row that is actually Approved and has not been mailed yet.
+// Returns false for "not sent" of any kind — the caller must never present a failed
+// notice as a failed approval.
+export async function sendVolunteerApproved(applicationId: string): Promise<boolean> {
+  if (!supabase || !applicationId) return false;
+  try {
+    const { data, error } = await supabase.functions.invoke('send-volunteer-approved', {
+      body: { applicationId },
+    });
+    if (error) return false;
+    return data?.ok === true && data?.skipped !== true;
+  } catch {
+    return false;
+  }
+}

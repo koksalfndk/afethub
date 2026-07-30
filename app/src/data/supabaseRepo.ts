@@ -483,6 +483,7 @@ export class SupabaseRepo implements Repo {
       province: input.province.trim(), district: input.district.trim(),
       skills: input.skills.filter(Boolean), availability: input.availability,
       note: input.note.trim(), consent: input.consent,
+      standing_contact_consent: input.standingConsent,
     }).select('id').single();
     if (error) throw error;
     return String((data as Record<string, unknown>)?.id ?? '');
@@ -508,6 +509,7 @@ export class SupabaseRepo implements Repo {
       reviewedLabel: r.reviewed_at ? rel(String(r.reviewed_at)) : '',
       onShift: r.on_shift === true,
       shiftSinceLabel: r.shift_since ? rel(String(r.shift_since)) : '',
+      standingConsent: r.standing_contact_consent === true,
     }));
   }
 
@@ -516,7 +518,7 @@ export class SupabaseRepo implements Repo {
       p_app: id, p_disaster: input.disasterId, p_full_name: input.fullName.trim(),
       p_phone: input.phone.trim(), p_province: input.province.trim(), p_district: input.district.trim(),
       p_skills: input.skills.filter(Boolean), p_availability: input.availability,
-      p_note: input.note.trim(),
+      p_note: input.note.trim(), p_standing: input.standingConsent,
     });
     if (error) throw error;
     return this.listMyVolunteerApplications();
@@ -524,6 +526,12 @@ export class SupabaseRepo implements Repo {
 
   async withdrawMyVolunteerApplication(id: string): Promise<VolunteerApplication[]> {
     const { error } = await this.db.rpc('withdraw_my_volunteer_application', { p_app: id });
+    if (error) throw error;
+    return this.listMyVolunteerApplications();
+  }
+
+  async setMyVolunteerConsent(id: string, on: boolean): Promise<VolunteerApplication[]> {
+    const { error } = await this.db.rpc('set_my_volunteer_consent', { p_app: id, p_on: on });
     if (error) throw error;
     return this.listMyVolunteerApplications();
   }
@@ -549,6 +557,7 @@ export class SupabaseRepo implements Repo {
       reviewedLabel: r.reviewed_at ? rel(String(r.reviewed_at)) : '',
       onShift: r.on_shift === true,
       shiftSinceLabel: r.shift_since ? rel(String(r.shift_since)) : '',
+      standingConsent: r.standing_contact_consent === true,
     }));
   }
 

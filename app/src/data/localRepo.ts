@@ -488,7 +488,7 @@ export class LocalRepo implements Repo {
       province: input.province, district: input.district,
       skills: input.skills.slice(), availability: input.availability, note: input.note.trim(),
       status: 'Pending review', reviewNote: '', createdLabel: NOW, reviewedLabel: '',
-      onShift: false, shiftSinceLabel: '',
+      onShift: false, shiftSinceLabel: '', standingConsent: input.standingConsent,
     });
     addLog(d?.id ?? activeDisasterId(), {
       user: input.fullName.trim() || 'Gönüllü', action: 'Gönüllü başvurusu alındı',
@@ -532,9 +532,25 @@ export class LocalRepo implements Repo {
     return this.listMyVolunteerApplications();
   }
 
+  async setMyVolunteerConsent(id: string, on: boolean): Promise<VolunteerApplication[]> {
+    const app = volunteerApps.find((v) => v.id === id);
+    if (!app) throw new Error('not authorized');
+    app.standingConsent = on;
+    addLog(activeDisasterId(), {
+      user: app.fullName || 'Gönüllü',
+      action: on ? 'Aktif gönüllü izni verildi' : 'Aktif gönüllü izni geri alındı',
+      detail: app.fullName, oldValue: on ? 'İzin yok' : 'İzinli',
+      newValue: on ? 'İzinli' : 'İzin yok', color: '#2A6FB0',
+    });
+    return this.listMyVolunteerApplications();
+  }
+
   async withdrawMyVolunteerApplication(id: string): Promise<VolunteerApplication[]> {
     const app = volunteerApps.find((v) => v.id === id);
     if (!app) throw new Error('not authorized');
+    // Mirrors migration 0021: once accepted, the roster does not change without the
+    // coordinator knowing.
+    if (app.status === 'Approved') throw new Error('an approved application cannot be withdrawn');
     const before = app.status;
     app.status = 'Withdrawn';
     app.onShift = false;

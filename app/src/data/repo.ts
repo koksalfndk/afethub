@@ -158,6 +158,10 @@ export interface Repo {
   listMyVolunteerApplications(): Promise<VolunteerApplication[]>;
   updateMyVolunteerApplication(id: string, input: VolunteerInput): Promise<VolunteerApplication[]>;
   withdrawMyVolunteerApplication(id: string): Promise<VolunteerApplication[]>;
+  // The standing "call me about nearby disasters" permission. Its own call because it
+  // stays available in every status — it is the one control an approved volunteer keeps
+  // (migration 0021).
+  setMyVolunteerConsent(id: string, on: boolean): Promise<VolunteerApplication[]>;
   reviewVolunteerApplication(id: string, status: VolunteerStatus, note: string): Promise<VolunteerApplication[]>;
   // Staff. Admin-only, enforced by is_admin() inside the RPCs — not by the screen being
   // hard to reach (rules/03 §Server-Side Authorization).
