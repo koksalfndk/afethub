@@ -1,13 +1,13 @@
 // Supabase Edge Function: send-volunteer-receipt
 // ---------------------------------------------------------------------------
 // One fixed e-mail: the receipt for a volunteer application, with what the person
-// submitted and where their application now sits in the process.
+// submitted, its reference number, and where the application now sits in the process.
 //
 // Why it can be called without a session: the volunteer form itself requires no account
 // (CLAUDE.md §Primary Product Rule), so the confirmation for it cannot require one
 // either. What keeps this from being a mailer for anyone who asks is that it accepts
 // ONLY an application id and reads everything else — including the recipient address —
-// from the database through `volunteer_receipt_context()` (migration 0018), which:
+// from the database through `volunteer_receipt_context()` (migrations 0018/0019), which:
 //   * answers only for an application created in the last 15 minutes,
 //   * marks receipt_sent_at on the way out, so one application yields one e-mail,
 //   * returns nothing at all for an id that does not exist.
@@ -55,6 +55,7 @@ interface Ctx {
   availability: string;
   note: string;
   phone: string;
+  code: string;
   created_at: string;
 }
 
@@ -102,6 +103,7 @@ const btn = (href: string, label: string) => `<table role="presentation" cellpad
 function summary(c: Ctx): string {
   const place = [c.district, c.province].filter(Boolean).join(', ');
   const rows: [string, string][] = ([
+    ['Başvuru no', c.code],
     ['Operasyon', c.disaster_name || 'Genel gönüllü havuzu'],
     ['Ad Soyad', c.full_name],
     ['Konum', place],
@@ -218,14 +220,16 @@ Deno.serve(async (req: Request) => {
     <h1 style="${S.h1}">Gönüllü başvurunuz alındı</h1>
     <p style="${S.p}">
       Merhaba ${esc(c.full_name || 'gönüllü')}, AfetHUB’a gönüllü başvurusu yaptığınız için teşekkür ederiz.
-      Aşağıda başvurunuzun bir özetini ve sürecin nasıl ilerlediğini bulacaksınız.
+      Başvuru numaranız <strong style="color:#102A43;">${esc(c.code)}</strong>. Aşağıda başvurunuzun
+      bir özetini ve sürecin nasıl ilerlediğini bulacaksınız.
     </p>
     ${summary(c)}
     ${steps()}
     ${btn(`${APP_ORIGIN}/gonullu`, 'Başvurumu görüntüle')}
     <p style="${S.faint}">
-      Başvurunuzu bu adresten güncelleyebilir veya geri çekebilirsiniz. Bilgileriniz herkese açık
-      hiçbir sayfada görünmez; yalnızca koordinatörler görebilir.
+      Aynı e-posta ile giriş yaptığınızda başvurunuzu bu adresten görebilir, güncelleyebilir
+      veya geri çekebilirsiniz. Onaylanmış bir başvuru düzenlenemez; yalnızca geri çekilebilir.
+      Bilgileriniz herkese açık hiçbir sayfada görünmez; yalnızca koordinatörler görebilir.
     </p>
   `);
 

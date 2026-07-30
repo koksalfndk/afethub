@@ -42,6 +42,10 @@ let roleInvites: RoleInvite[] = [];
 // Who confirmed which report. The pair is what makes one e-mail count once, exactly
 // as the unique constraint does in migration 0016.
 let confirmations: { reportId: string; email: string }[] = [];
+// Mirrors gen_volunteer_code() in migration 0019: readable, non-sequential, no 0/O/1/I.
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const localVolunteerCode = () => 'GNL-' + Array.from({ length: 6 },
+  () => CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]).join('');
 const rejectReasons: Record<string, string> = {};
 
 let uid = 0;
@@ -478,7 +482,7 @@ export class LocalRepo implements Repo {
     const d = input.disasterId ? seed.disasters.find((x) => x.id === input.disasterId) : undefined;
     const id = nextId('vol');
     volunteerApps.unshift({
-      id,
+      id, code: localVolunteerCode(),
       disasterId: input.disasterId, disasterName: d?.name ?? '',
       fullName: input.fullName.trim(), phone: input.phone.trim(), email: input.email.trim(),
       province: input.province, district: input.district,

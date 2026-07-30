@@ -495,7 +495,7 @@ export class SupabaseRepo implements Repo {
     const { data, error } = await this.db.rpc('my_volunteer_applications');
     if (error) throw error;
     return (data ?? []).map((r: Record<string, unknown>) => ({
-      id: String(r.id),
+      id: String(r.id), code: String(r.code ?? ''),
       disasterId: r.disaster_id ? String(r.disaster_id) : null,
       disasterName: String(r.disaster_name ?? ''),
       fullName: String(r.full_name ?? ''), phone: String(r.phone ?? ''), email: String(r.email ?? ''),
@@ -536,7 +536,7 @@ export class SupabaseRepo implements Repo {
     if (apps.error) throw apps.error;
     const names = new Map((ds.data ?? []).map((d: Record<string, unknown>) => [String(d.id), String(d.name)] as const));
     return (apps.data ?? []).map((r: Record<string, unknown>) => ({
-      id: String(r.id),
+      id: String(r.id), code: String(r.code ?? ''),
       disasterId: r.disaster_id ? String(r.disaster_id) : null,
       disasterName: r.disaster_id ? (names.get(String(r.disaster_id)) ?? '') : '',
       fullName: String(r.full_name ?? ''), phone: String(r.phone ?? ''), email: String(r.email ?? ''),

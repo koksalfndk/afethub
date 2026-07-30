@@ -329,6 +329,9 @@ export interface VolunteerInput {
 // Coordinator-side shape. Carries contact details, so it never reaches a public screen.
 export interface VolunteerApplication {
   id: string;
+  // Human-readable reference, "GNL-XXXXXX". A number to quote on the phone, never a
+  // credential: knowing it grants nothing (migration 0019, same rule as tracking codes).
+  code: string;
   disasterId: string | null;
   disasterName: string;        // '' for the general pool
   fullName: string;

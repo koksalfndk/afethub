@@ -43,6 +43,18 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 @media (max-width: 1040px) { .hdr-track { display: none !important; } }
 @media (max-width: 900px) { .hdr-nav { display: none !important; } }
 
+/* Card swap on /gonullu: the list and the form are alternatives, so one leaves to the
+   left as the other arrives from the right. Direction is reversed on the way back, so
+   the movement says which way you are going rather than just "something changed". */
+@keyframes card-in-right { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+@keyframes card-in-left  { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
+@keyframes card-out-left  { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(-26px); } }
+@keyframes card-out-right { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(26px); } }
+.card-in-right  { animation: card-in-right .2s cubic-bezier(.22,.61,.36,1) both; }
+.card-in-left   { animation: card-in-left .2s cubic-bezier(.22,.61,.36,1) both; }
+.card-out-left  { animation: card-out-left .16s ease-in both; }
+.card-out-right { animation: card-out-right .16s ease-in both; }
+
 /* Respect reduced-motion preferences (WCAG 2.2 — rule 04). */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

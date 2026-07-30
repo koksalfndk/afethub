@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../store';
 import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
@@ -32,8 +32,10 @@ import type { VolunteerApplication, VolunteerInput, VolunteerStatus } from '../t
 //     Distinctions — do not imply completion).
 //   * Consent is a real checkbox, not implied by submitting: the row keeps a phone
 //     number and a district (rules/03 §Data Minimization).
-//   * Editing an approved application is stated to send it back for review before the
-//     save, not after (rules/02 §Status Transitions).
+//   * An approved application cannot be edited at all: changing the terms of something
+//     a coordinator already accepted would undo their decision without telling them.
+//     Withdrawing stays available, and the database refuses the edit either way
+//     (migration 0019, rules/02 §Status Transitions).
 
 const STEPS = 3;
 
@@ -83,15 +85,48 @@ export function Volunteer() {
   const [done, setDone] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [withdrawing, setWithdrawing] = useState<string | null>(null);
-  // With applications on file the form starts collapsed: the visitor came back to check
-  // on something, not to fill the same form again.
-  const [formOpen, setFormOpen] = useState(false);
+  // The list and the form are alternatives, not a stack: with applications on file the
+  // visitor came back to check on something, so that is what they land on.
+  const [view, setView] = useState<'list' | 'form'>('form');
+  // '' while nothing is moving; otherwise the class the arriving card animates with.
+  const [anim, setAnim] = useState<'' | 'fwd' | 'back'>('');
+  const [leaving, setLeaving] = useState(false);
+  // Set once the first load has answered "does this account have applications". Without
+  // it the empty first render would decide, and the list would never get a chance.
+  const settled = useRef(false);
 
   const mine = a.myVolunteer;
   const openCount = mine.filter((x) => x.status === 'Pending review' || x.status === 'On hold' || x.status === 'Approved').length;
 
   useEffect(() => { a.reloadMyVolunteer(); }, [loggedIn]);
-  useEffect(() => { if (!loggedIn || mine.length === 0) setFormOpen(true); }, [loggedIn, mine.length]);
+  useEffect(() => {
+    if (!loggedIn) { setView('form'); settled.current = true; return; }
+    if (a.myVolunteerLoading || settled.current) return;
+    settled.current = true;
+    setView(mine.length > 0 ? 'list' : 'form');
+  }, [loggedIn, a.myVolunteerLoading, mine.length]);
+
+  // One card leaves before the other arrives, so the two never overlap. 160ms matches
+  // the outgoing keyframe in index.css; reduced-motion collapses both to nothing.
+  const swapTo = (next: 'list' | 'form', dir: 'fwd' | 'back', prepare?: () => void) => {
+    prepare?.();
+    setLeaving(true);
+    toTop();
+    window.setTimeout(() => {
+      setView(next);
+      setAnim(dir);
+      setLeaving(false);
+    }, 160);
+  };
+  // The card that replaces the current one starts at the top of the page. Without this
+  // the visitor stayed at their old scroll offset and landed in the footer of a much
+  // shorter card (rules/04 §Forms — a clear success state has to be visible).
+  const toTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  const cardClass = (which: 'list' | 'form') => {
+    if (leaving && view === which) return anim === 'back' ? 'card-out-right' : 'card-out-left';
+    if (view === which && anim) return anim === 'fwd' ? 'card-in-right' : 'card-in-left';
+    return undefined;
+  };
 
   const set = <K extends keyof VolunteerInput>(k: K, val: VolunteerInput[K]) =>
     setV((d) => ({ ...d, [k]: val }));
@@ -100,6 +135,9 @@ export function Volunteer() {
 
   const startEdit = (app: VolunteerApplication) => {
     const p = splitPhone(app.phone);
+    setEditV(app, p);
+  };
+  const setEditV = (app: VolunteerApplication, p: { dial: string; rest: string }) => {
     setV({
       disasterId: app.disasterId, fullName: app.fullName, phone: p.rest, email: app.email,
       province: app.province, district: app.district, skills: app.skills.slice(),
@@ -108,23 +146,28 @@ export function Volunteer() {
       consent: true,
     });
     setDial(p.dial || DEFAULT_DIAL);
-    setEditingId(app.id); setStep(0); setErr(''); setDone(false); setFormOpen(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setEditingId(app.id); setStep(0); setErr(''); setDone(false);
+    swapTo('form', 'fwd');
   };
   const startNew = () => {
-    setV(blank()); setDial(savedPhone.dial || DEFAULT_DIAL);
-    setEditingId(null); setStep(0); setErr(''); setDone(false); setFormOpen(true);
+    swapTo('form', 'fwd', () => {
+      setV(blank()); setDial(savedPhone.dial || DEFAULT_DIAL);
+      setEditingId(null); setStep(0); setErr(''); setDone(false);
+    });
+  };
+  const backToList = () => {
+    swapTo('list', 'back', () => { setEditingId(null); setErr(''); });
   };
 
   const next = () => {
     if (step === 0) {
       if (!v.province) { setErr(tr.volunteerForm.errProvince); return; }
-      setErr(''); setStep(1); return;
+      setErr(''); setStep(1); toTop(); return;
     }
     if (step === 1) {
       if (v.fullName.trim().length < 2) { setErr(tr.volunteerForm.errName); return; }
       if (!v.phone.trim() && !v.email.trim()) { setErr(tr.volunteerForm.errContact); return; }
-      setErr(''); setStep(2);
+      setErr(''); setStep(2); toTop();
     }
   };
 
@@ -143,8 +186,8 @@ export function Volunteer() {
       : await a.submitVolunteer(payload);
     setBusy(false);
     if (!ok) { setErr(tr.volunteerForm.errSubmit); return; }
-    if (editingId) { setEditingId(null); setFormOpen(false); }
-    else setDone(true);
+    if (editingId) backToList();
+    else { setDone(true); toTop(); }
   };
 
   const card = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12 } as const;
@@ -173,7 +216,15 @@ export function Volunteer() {
           <p style={{ fontSize: 14.5, color: C.text, margin: '8px auto 0', maxWidth: '52ch' }}>{tr.volunteerForm.doneBody}</p>
           <p style={{ fontSize: 13, color: C.muted, margin: '8px auto 0', maxWidth: '52ch' }}>{tr.volunteerForm.doneMail}</p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' }}>
-            <button onClick={() => { setDone(false); startNew(); }} style={secondary}>{tr.volunteerForm.doneAgain}</button>
+            {/* A signed-in visitor has somewhere to go back to, and it is the list that
+                now contains what they just filed — offering "yeni başvuru" first would
+                push them into filling the same form again. */}
+            {loggedIn ? (
+              <button onClick={() => { setDone(false); setView('list'); setAnim('back'); toTop(); a.reloadMyVolunteer(); }}
+                className="hv-navy" style={secondary}>{tr.volunteerMine.viewMine}</button>
+            ) : (
+              <button onClick={() => { setDone(false); startNew(); }} style={secondary}>{tr.volunteerForm.doneAgain}</button>
+            )}
             <button onClick={() => a.go('home')} style={{
               background: G.navyBtn, border: `1px solid ${C.navy}`, color: '#fff', borderRadius: 10,
               height: 50, padding: '0 18px', fontSize: 14.5, fontWeight: 600, cursor: 'pointer',
@@ -195,8 +246,8 @@ export function Volunteer() {
       </div>
 
       {/* ---- Own applications, above the form ---- */}
-      {loggedIn && mine.length > 0 && (
-        <section style={{ ...card, padding: mob ? 14 : 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {loggedIn && mine.length > 0 && view === 'list' && (
+        <section className={cardClass('list')} style={{ ...card, padding: mob ? 14 : 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
             <div>
               <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: C.navy }}>{tr.volunteerMine.title}</h2>
@@ -216,8 +267,17 @@ export function Volunteer() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 14.5, fontWeight: 700, color: C.navy }}>
-                      {app.disasterName || tr.volunteerMine.generalPool}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 14.5, fontWeight: 700, color: C.navy }}>
+                        {app.disasterName || tr.volunteerMine.generalPool}
+                      </span>
+                      {app.code && (
+                        <span className="tnum" style={{
+                          fontSize: 11.5, fontWeight: 700, letterSpacing: '.04em', color: C.muted,
+                          background: C.canvas, border: `1px solid ${C.borderFaint}`,
+                          borderRadius: 6, padding: '2px 7px',
+                        }}>{app.code}</span>
+                      )}
                     </div>
                     <div className="tnum" style={{ fontSize: 12, color: C.muted2, marginTop: 2 }}>
                       {[place, tr.volunteerMine.appliedAt(app.createdLabel)].filter(Boolean).join(' · ')}
@@ -246,9 +306,19 @@ export function Volunteer() {
                   </div>
                 )}
 
+                {/* An approved application cannot be edited — changing the terms of
+                    something a coordinator already accepted would undo their decision
+                    without telling them. Withdrawing stays available, and the reason is
+                    stated rather than left as a missing button. The database refuses it
+                    too (migration 0019). */}
+                {app.status === 'Approved' && (
+                  <div style={{ fontSize: 12, color: C.muted2 }}>{tr.volunteerMine.approvedNoEdit}</div>
+                )}
                 {!closed && withdrawing !== app.id && (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button onClick={() => startEdit(app)} className="hv-navy" style={smallBtn}>{tr.volunteerMine.edit}</button>
+                    {app.status !== 'Approved' && (
+                      <button onClick={() => startEdit(app)} className="hv-navy" style={smallBtn}>{tr.volunteerMine.edit}</button>
+                    )}
                     <button onClick={() => setWithdrawing(app.id)} style={{ ...smallBtn, color: C.emergency }}>
                       {tr.volunteerMine.withdraw}
                     </button>
@@ -271,31 +341,41 @@ export function Volunteer() {
             );
           })}
 
-          {!formOpen && (
-            <button onClick={startNew} className="hv-navy" style={{ ...smallBtn, alignSelf: 'flex-start', height: 46 }}>
-              {tr.volunteerMine.newApplication}
-            </button>
-          )}
+          <button onClick={startNew} className="hv-navy" style={{ ...smallBtn, alignSelf: 'flex-start', height: 46 }}>
+            {tr.volunteerMine.newApplication}
+          </button>
         </section>
       )}
 
       {/* Said before the form, not after: what approval does and does not mean. */}
-      {formOpen && (
-        <div style={{
+      {view === 'form' && (
+        <div className={cardClass('form')} style={{
           background: G.chip, border: `1px solid ${C.borderFaint}`, borderLeft: `3px solid ${C.info}`,
           borderRadius: 10, padding: '11px 13px', fontSize: 13.5, color: C.text,
         }}>{tr.volunteerForm.honestNote}</div>
       )}
 
-      {formOpen && (
-      <section style={{ ...card, padding: mob ? 15 : 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {view === 'form' && (
+      <section className={cardClass('form')} style={{ ...card, padding: mob ? 15 : 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {/* Where the visitor is, and how much is left. A bar with no words would be
             decoration (rules/04 §Quantity Display, same principle). */}
         <div>
           <div className="tnum" style={{ fontSize: 12.5, color: C.muted2 }}>
             {tr.volunteerForm.stepOf(step + 1, STEPS)} · {tr.volunteerForm.steps[step]}
-            {editingId && ` · ${tr.volunteerMine.edit}`}
           </div>
+          {/* Which record is being changed, by its number. Editing a form that looks
+              identical to the "new application" form without saying so is how someone
+              overwrites the wrong record. */}
+          {editingId && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 7, marginTop: 8,
+              background: C.chipNavyBg, border: `1px solid ${C.borderFaint}`, borderRadius: 9,
+              padding: '8px 11px', fontSize: 13, color: C.navy, fontWeight: 600,
+            }}>
+              <Ico n="need" size={14} color={C.muted2} />
+              {tr.volunteerMine.editing(mine.find((x) => x.id === editingId)?.code ?? '')}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
             {[0, 1, 2].map((i) => (
               <span key={i} style={{ flex: 1, height: 3, borderRadius: 3, background: i <= step ? C.emergency : C.borderFaint }} />
@@ -405,15 +485,6 @@ export function Volunteer() {
                 style={{ ...inputStyle, minHeight: 88, resize: 'vertical' }} />
             </Field>
 
-            {/* Editing an approved application sends it back to review. Said here, before
-                the save, because afterwards it would be a surprise. */}
-            {editingId && mine.find((x) => x.id === editingId)?.status === 'Approved' && (
-              <div style={{
-                background: '#FFFDF4', border: '1px solid #F2DFA8', borderLeft: `3px solid ${C.warning}`,
-                borderRadius: 10, padding: '10px 12px', fontSize: 13, color: C.warningText, fontWeight: 600,
-              }}>{tr.volunteerMine.editApprovedWarn}</div>
-            )}
-
             {!editingId && (
               <label style={{
                 display: 'grid', gridTemplateColumns: '22px minmax(0,1fr)', gap: 10, alignItems: 'start',
@@ -439,7 +510,7 @@ export function Volunteer() {
 
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
           {step > 0 && (
-            <button onClick={() => { setErr(''); setStep((x) => x - 1); }} className="hv-navy" style={secondary}>
+            <button onClick={() => { setErr(''); setStep((x) => x - 1); toTop(); }} className="hv-navy" style={secondary}>
               {tr.volunteerForm.back}
             </button>
           )}
@@ -453,8 +524,8 @@ export function Volunteer() {
               {busy ? tr.volunteerForm.submitting : editingId ? tr.volunteerMine.save : tr.volunteerForm.submit}
             </button>
           )}
-          {(editingId || (loggedIn && mine.length > 0)) && (
-            <button onClick={() => { setEditingId(null); setFormOpen(false); setErr(''); }} style={secondary}>
+          {loggedIn && mine.length > 0 && (
+            <button onClick={backToList} style={secondary}>
               {editingId ? tr.volunteerMine.cancel : tr.volunteerMine.hideForm}
             </button>
           )}
