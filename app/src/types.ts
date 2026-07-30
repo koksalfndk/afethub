@@ -150,6 +150,11 @@ export interface Organization {
   address: string;
   status: OrgStatus;
   isOfficial: boolean;      // only a coordinator may set this
+  // Path to a locally hosted logo (public/logos/*.webp), '' when there is none.
+  // Coordinator-set only, and deliberately NOT part of OrganizationInput: letting a
+  // visitor supply an image URL would mean rendering a third-party asset that can
+  // spoof an institution and track our visitors (rules/03 §File Uploads).
+  logo: string;
   verifiedAt: string | null;
   createdLabel: string;     // display string
 }

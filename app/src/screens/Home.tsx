@@ -61,16 +61,8 @@ export function Home() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
-        <div>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, ...eyebrow }}>
-            <LiveDot color={C.success} />{tr.home.liveOps}
-          </span>
-          <h1 style={{ fontSize: L.h2, fontWeight: 700, letterSpacing: '-.02em', margin: '7px 0 0', color: C.navy }}>{tr.dash.title}</h1>
-          <p style={{ fontSize: 14, color: C.muted, margin: '5px 0 0', maxWidth: '68ch' }}>{tr.dash.subtitle}</p>
-        </div>
-      </div>
-
+      {/* The banner is the page head now: the old eyebrow + title + blurb block
+          repeated what the banner already says. */}
       <HeroBanner />
 
       {/* Sample content must be labelled so it can never pass as verified live data. */}

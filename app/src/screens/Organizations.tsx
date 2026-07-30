@@ -42,6 +42,31 @@ function StatusBadge({ o }: { o: Organization }) {
   );
 }
 
+// Logo tile. Records without a logo — every visitor-submitted one — get an initial
+// monogram, so the card grid keeps one alignment instead of two. The logo is
+// decorative here: the name is already the accessible label, hence alt="".
+function OrgLogo({ org }: { org: Organization }) {
+  const box = {
+    width: 46, height: 46, flex: '0 0 46px', borderRadius: 10,
+    border: `1px solid ${C.borderFaint}`, background: C.surface,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+  } as const;
+  if (!org.logo) {
+    return (
+      <span style={{ ...box, background: G.chip, color: C.muted, fontSize: 17, fontWeight: 700 }} aria-hidden="true">
+        {org.name.trim().charAt(0).toLocaleUpperCase('tr')}
+      </span>
+    );
+  }
+  return (
+    <span style={box}>
+      {/* Explicit width/height prevents layout shift while the asset loads (rules/09 §8). */}
+      <img src={org.logo} alt="" width={38} height={38} loading="lazy" decoding="async"
+        style={{ width: 38, height: 38, objectFit: 'contain', display: 'block' }} />
+    </span>
+  );
+}
+
 export function Organizations() {
   const a = useApp();
   const auth = useAuth();
@@ -52,8 +77,12 @@ export function Organizations() {
   const [q, setQ] = useState('');
   const [kind, setKind] = useState('');
   const [province, setProvince] = useState('');
+  const [service, setService] = useState('');
   const [onlyVerified, setOnlyVerified] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  const [fixOrg, setFixOrg] = useState<Organization | null>(null);
+  const [fixNote, setFixNote] = useState('');
+  const [fixSent, setFixSent] = useState(false);
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState(emptyDraft);
   const [err, setErr] = useState('');
@@ -66,6 +95,13 @@ export function Organizations() {
     [a.orgs],
   );
 
+  // Service areas come from the records themselves, so the filter can never offer a
+  // value that matches nothing.
+  const serviceOptions = useMemo(
+    () => Array.from(new Set(a.orgs.flatMap((o) => o.services))).sort((x, y) => x.localeCompare(y, 'tr')),
+    [a.orgs],
+  );
+
   const needle = q.trim().toLowerCase();
   const visible = a.orgs.filter((o) =>
     (!needle
@@ -74,6 +110,7 @@ export function Organizations() {
       || o.district.toLowerCase().includes(needle)
       || o.services.some((sv) => sv.toLowerCase().includes(needle)))
     && (!kind || o.kind === kind)
+    && (!service || o.services.includes(service))
     && (!province || o.province === province)
     && (!onlyVerified || o.status === 'Verified'));
 
@@ -295,6 +332,54 @@ export function Organizations() {
         </div>
       )}
 
+      {/* Correction request: goes to the coordinator as a note; nobody edits a
+          verified record straight from the public page. */}
+      {fixOrg && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 72, display: 'flex', alignItems: mob ? 'flex-end' : 'center', justifyContent: 'center', padding: mob ? 0 : 20 }}>
+          <div onClick={() => { setFixOrg(null); setFixSent(false); setFixNote(''); }} style={{ position: 'absolute', inset: 0, background: 'rgba(11,30,48,.46)' }} />
+          <div className="anim-in" role="dialog" aria-modal="true" aria-label={tr.orgs.fixTitle} style={{
+            position: 'relative', width: '100%', maxWidth: 520, background: C.surface,
+            border: `1px solid ${C.border}`, borderRadius: mob ? '16px 16px 0 0' : 14,
+            boxShadow: '0 26px 60px rgba(16,42,67,.28)', padding: 18,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 16.5, fontWeight: 700, color: C.navy }}>{tr.orgs.fixTitle}</div>
+                <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>{fixOrg.name}</div>
+              </div>
+              <button onClick={() => { setFixOrg(null); setFixSent(false); setFixNote(''); }} aria-label={tr.orgs.cancel} style={{
+                width: 34, height: 34, borderRadius: 10, border: `1px solid ${C.borderSoft}`, background: C.surface,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: '0 0 34px',
+              }}><Ico n="close" size={16} /></button>
+            </div>
+            {fixSent ? (
+              <div style={{ marginTop: 14, background: '#EAF7EF', border: '1px solid #C9E9D6', borderRadius: 11, padding: 14 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 700, color: C.successText }}>{tr.orgs.fixDoneTitle}</div>
+                <div style={{ fontSize: 13, color: C.heading2, marginTop: 3 }}>{tr.orgs.fixDoneBody}</div>
+              </div>
+            ) : (
+              <>
+                <p style={{ fontSize: 13, color: C.muted, margin: '10px 0 12px' }}>{tr.orgs.fixIntro}</p>
+                <Field label={tr.orgs.fixNote} full>
+                  <textarea name="fix-note" autoComplete="off" value={fixNote} onChange={(e) => setFixNote(e.target.value)} rows={4} autoFocus
+                    placeholder={tr.orgs.fixNotePh} style={{ ...inputStyle, minHeight: 100 }} />
+                </Field>
+                {err && <div style={{ marginTop: 10, background: C.errorSurface, border: `1px solid ${C.errorBorder}`, color: C.errorText, borderRadius: 9, padding: '10px 12px', fontSize: 13.5 }}>{err}</div>}
+                <button onClick={() => {
+                  if (fixNote.trim().length < 10) return setErr(tr.orgs.fixErrNote);
+                  setErr('');
+                  a.showToast(tr.orgs.fixSentToast);
+                  setFixSent(true);
+                }} className="hv-emergency" style={{
+                  marginTop: 14, width: '100%', background: G.emergencyBtn, border: '1px solid #BE2A31',
+                  color: '#fff', borderRadius: 10, height: 48, fontSize: 14.5, fontWeight: 600, cursor: 'pointer',
+                }}>{tr.orgs.fixSubmit}</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.surface, border: `1px solid ${C.borderSoft}`, borderRadius: 9, padding: '0 12px', minHeight: 44, maxWidth: 460 }}>
@@ -310,6 +395,10 @@ export function Organizations() {
             <option value="">{tr.orgs.allKinds}</option>
             {ORG_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
           </select>
+          <select value={service} onChange={(e) => setService(e.target.value)} aria-label={tr.orgs.allServices} style={filterSelectStyle}>
+            <option value="">{tr.orgs.allServices}</option>
+            {serviceOptions.map((sv) => <option key={sv} value={sv}>{sv}</option>)}
+          </select>
           <select value={province} onChange={(e) => setProvince(e.target.value)} aria-label={tr.orgs.allProvinces} style={filterSelectStyle}>
             <option value="">{tr.orgs.allProvinces}</option>
             {provinces.map((k) => <option key={k} value={k}>{k}</option>)}
@@ -321,7 +410,13 @@ export function Organizations() {
       </div>
 
       {visible.length > 0 ? (
-        <div style={{ display: 'grid', gap: 13, gridTemplateColumns: mob ? '1fr' : 'repeat(auto-fill, minmax(380px, 1fr))' }}>
+        <div style={{
+          display: 'grid', gap: 13,
+          // minmax(0,…) removes the automatic min-content floor and min(380px,100%) keeps
+          // the 380px card width from becoming a floor on a narrow phone — both of which
+          // pushed the grid wider than the viewport.
+          gridTemplateColumns: mob ? 'minmax(0,1fr)' : 'repeat(auto-fill, minmax(min(380px,100%), 1fr))',
+        }}>
           {visible.map((o) => {
             const pending = o.status === 'Pending verification';
             return (
@@ -331,10 +426,13 @@ export function Organizations() {
                 display: 'flex', flexDirection: 'column', gap: 11, height: '100%',
               }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: C.navy }}>{o.name}</div>
-                    <div style={{ fontSize: 12.5, color: C.muted2, marginTop: 3 }}>
-                      {o.kind} · {o.scope === 'Ulusal' ? tr.orgs.national : [o.province, o.district].filter(Boolean).join(' / ') || o.scope}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11, minWidth: 0 }}>
+                    <OrgLogo org={o} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: C.navy }}>{o.name}</div>
+                      <div style={{ fontSize: 12.5, color: C.muted2, marginTop: 3 }}>
+                        {o.kind} · {o.scope === 'Ulusal' ? tr.orgs.national : [o.province, o.district].filter(Boolean).join(' / ') || o.scope}
+                      </div>
                     </div>
                   </div>
                   <StatusBadge o={o} />
@@ -366,8 +464,19 @@ export function Organizations() {
                   {contactRow('pin', tr.orgs.address, o.address)}
                 </div>
 
-                <div style={{ marginTop: 'auto', fontSize: 11.5, color: C.muted2 }}>
-                  {pending ? tr.orgs.pendingNote : tr.orgs.addedAgo(o.createdLabel)}
+                <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 11.5, color: C.muted2, flex: '1 1 160px' }}>
+                    {pending ? tr.orgs.pendingNote : tr.orgs.addedAgo(o.createdLabel)}
+                  </span>
+                  {/* A verified record is the one people rely on, so it needs a route for
+                      "this is wrong" that does not let anyone edit it in place. */}
+                  {!pending && (
+                    <button onClick={() => setFixOrg(o)} className="hv-navy" style={{
+                      background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.heading2,
+                      borderRadius: 8, padding: '7px 11px', fontSize: 12, fontWeight: 600,
+                      cursor: 'pointer', minHeight: 38, whiteSpace: 'nowrap',
+                    }}>{tr.orgs.fixRequest}</button>
+                  )}
                 </div>
               </article>
             );

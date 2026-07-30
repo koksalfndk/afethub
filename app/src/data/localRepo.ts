@@ -220,6 +220,8 @@ export class LocalRepo implements Repo {
       address: input.address.trim(),
       status: 'Pending verification',
       isOfficial: false,
+      // Logos are coordinator-set only; a submitted entry starts without one.
+      logo: '',
       verifiedAt: null,
       createdLabel: NOW,
     };

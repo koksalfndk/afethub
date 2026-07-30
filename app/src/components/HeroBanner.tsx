@@ -13,6 +13,25 @@ import { Ico } from '../ui';
 // informational surface where a photo is allowed).
 interface Slide { key: string; image: string; tint: string; title: string; body: string; cta: string; onClick: () => void }
 
+// Self-contained backdrop drawn under the (optional) photo. Without it a missing
+// file left the right half of the banner as flat empty tint. Abstract contour lines
+// carry no claim about a real event, which is what keeps this acceptable where a
+// dramatic photograph would not be (rules/04 §Visual Language, rules/07 §Seed Content).
+function artLayer(tint: string): string {
+  const line = (i: number): string => {
+    const y = 96 + i * 46;
+    const o = (0.26 - i * 0.03).toFixed(2);
+    return `<path d="M-40 ${y} C 150 ${y - 46} 300 ${y + 42} 470 ${y - 14} S 700 ${y - 58} 860 ${y + 16}"`
+      + ` fill="none" stroke="${tint}" stroke-opacity="${o}" stroke-width="2"/>`;
+  };
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid slice">'
+    + `<circle cx="628" cy="128" r="104" fill="${tint}" opacity=".06"/>`
+    + `<circle cx="628" cy="128" r="62" fill="${tint}" opacity=".06"/>`
+    + [0, 1, 2, 3, 4, 5, 6].map(line).join('')
+    + '</svg>';
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
 export function HeroBanner() {
   const a = useApp();
   const mob = a.device === 'mobile';
@@ -50,29 +69,36 @@ export function HeroBanner() {
       aria-roledescription="carousel" aria-label={tr.banner.label}
       style={{
         position: 'relative', overflow: 'hidden', borderRadius: 14,
-        border: `1px solid ${C.border}`, background: C.surface, minHeight: mob ? 300 : 260,
-        display: 'grid', gridTemplateColumns: mob ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)',
+        border: `1px solid ${C.border}`, background: C.surface,
+        minHeight: mob ? 380 : 340, display: 'flex', alignItems: 'center',
       }}
     >
-      {/* Right: photo (or gradient stand-in). Left: white panel, with the gradient
-          layer bridging the two so the text always sits on solid white. */}
+      {/* The image is full-bleed and the white panel is painted on top of it with a
+          single wide gradient. Splitting the surface into two columns left a visible
+          seam where the photo began; one layer over one image has no edge to show. */}
       <div style={{
-        position: mob ? 'absolute' : 'relative', inset: mob ? 0 : undefined,
-        gridColumn: mob ? undefined : 2, minHeight: mob ? undefined : 260,
-        backgroundImage: `url(${s.image})`, backgroundSize: 'cover', backgroundPosition: 'center',
-        backgroundColor: `color-mix(in srgb, ${s.tint} 12%, #E7EEF4)`,
+        position: 'absolute', inset: 0,
+        // Photo first, generated artwork behind it: a real file at the slide's path
+        // simply covers the artwork, so dropping images into public/banners/ needs no
+        // code change and a missing file is never a blank frame.
+        backgroundImage: `url(${s.image}), ${artLayer(s.tint)}`,
+        backgroundSize: 'cover, cover',
+        backgroundPosition: mob ? 'center top, center' : 'right center, right center',
+        backgroundRepeat: 'no-repeat, no-repeat',
+        backgroundColor: `color-mix(in srgb, ${s.tint} 9%, #EAF0F5)`,
       }} />
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
         background: mob
-          ? 'linear-gradient(180deg, #FFFFFF 0%, rgba(255,255,255,.94) 46%, rgba(255,255,255,.55) 74%, rgba(255,255,255,0) 100%)'
-          : 'linear-gradient(90deg, #FFFFFF 0%, #FFFFFF 38%, rgba(255,255,255,.82) 52%, rgba(255,255,255,0) 72%)',
+          ? 'linear-gradient(185deg, #FFFFFF 0%, #FFFFFF 30%, rgba(255,255,255,.97) 40%, rgba(255,255,255,.86) 52%, rgba(255,255,255,.6) 65%, rgba(255,255,255,.28) 80%, rgba(255,255,255,0) 100%)'
+          : 'linear-gradient(100deg, #FFFFFF 0%, #FFFFFF 32%, rgba(255,255,255,.985) 40%, rgba(255,255,255,.92) 48%, rgba(255,255,255,.74) 57%, rgba(255,255,255,.46) 68%, rgba(255,255,255,.18) 80%, rgba(255,255,255,0) 94%)',
       }} />
 
       <div style={{
-        position: 'relative', gridColumn: 1, gridRow: 1, zIndex: 2,
-        padding: mob ? '20px 18px 22px' : '30px 32px',
-        display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10, maxWidth: mob ? '100%' : 460,
+        position: 'relative', zIndex: 2,
+        padding: mob ? '24px 20px 26px' : '36px 38px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 11,
+        maxWidth: mob ? '100%' : 500, width: '100%',
       }}>
         <span style={{
           alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7,
@@ -82,7 +108,7 @@ export function HeroBanner() {
         }}>
           <Ico n="critical" size={12} color={s.tint} />{tr.banner.label}
         </span>
-        <h2 style={{ fontSize: mob ? 22 : 26, fontWeight: 700, letterSpacing: '-.025em', lineHeight: 1.12, margin: 0, color: C.navy }}>{s.title}</h2>
+        <h2 style={{ fontSize: mob ? 24 : 30, fontWeight: 700, letterSpacing: '-.025em', lineHeight: 1.12, margin: 0, color: C.navy }}>{s.title}</h2>
         <p style={{ fontSize: 14, color: C.text, margin: 0, maxWidth: '44ch' }}>{s.body}</p>
         <button onClick={s.onClick} className="hv-emergency" style={{
           alignSelf: 'flex-start', marginTop: 4, background: G.emergencyBtn, border: '1px solid #BE2A31',

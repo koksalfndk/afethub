@@ -51,7 +51,11 @@ export function App() {
         <div style={{
           width: '100%', maxWidth: frame ? 412 : 'none', background: C.canvas,
           border: frame ? `1px solid ${C.borderSoft}` : '0', borderRadius: frame ? 20 : 0,
-          overflow: 'hidden', boxShadow: frame ? '0 18px 44px rgba(16,42,67,.14)' : 'none',
+          // Clipping is only needed to round off the phone mock-up. Keeping it on the
+          // real shell silently disabled `position: sticky` for every descendant —
+          // that is what broke the bottom nav and the disaster rail.
+          overflow: frame ? 'hidden' : 'visible',
+          boxShadow: frame ? '0 18px 44px rgba(16,42,67,.14)' : 'none',
           minHeight: 720, position: 'relative',
         }}>
           <Header />

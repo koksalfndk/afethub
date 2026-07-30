@@ -1,5 +1,5 @@
 import { useApp } from '../store';
-import { tr } from '../i18n/strings';
+import { tr, disasterTypeLabel } from '../i18n/strings';
 import { C, G } from '../theme';
 import { enrichSorted, cols } from '../select';
 import { PriorityBadge, ProgressBar, Chip, StatCard, LiveDot, Ico, eyebrow, filterSelectStyle, washCard, type IcoName } from '../ui';
@@ -7,6 +7,7 @@ import { detailPairs } from '../needForm';
 import { LocationMap } from '../components/LocationMap';
 import { isToday, formatDate } from '../util';
 import type { Filter, Tab } from '../store';
+import type { DisasterType } from '../types';
 
 const FILTERS: Filter[] = ['All', 'Critical', 'Urgent', 'Normal', 'Completed'];
 
@@ -15,6 +16,10 @@ const SECTION_GROUPS: [string, Tab[]][] = [
   ['Operasyon', ['overview', 'needs', 'locations']],
   ['Kayıtlar', ['announcements', 'activity']],
 ];
+const TYPE_ICON: Record<DisasterType, IcoName> = {
+  Wildfire: 'critical', Flood: 'activity', Earthquake: 'critical',
+  Storm: 'activity', Evacuation: 'people', Other: 'need',
+};
 const SECTION_ICON: Record<Tab, IcoName> = {
   overview: 'activity', needs: 'need', locations: 'pin', announcements: 'critical', activity: 'activity',
 };
@@ -89,7 +94,86 @@ export function Disaster() {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{
+      display: mob ? 'flex' : 'grid', flexDirection: mob ? 'column' : undefined,
+      gridTemplateColumns: mob ? undefined : '272px minmax(0,1fr)',
+      gap: mob ? 20 : 26,
+      // In the mobile column layout the cross axis is horizontal, so `start` would
+      // shrink-wrap the content to its max-content width and overflow the viewport.
+      alignItems: mob ? 'stretch' : 'start',
+    }}>
+      {!mob && (
+        <aside aria-label={tr.disaster.sectionsLabel} style={{
+          // Negative margins pull the rail out to the header's bottom edge and the
+          // left edge of the page, so it reads as the shell's menu rather than a card
+          // floating inside the content. main's padding is 24px/28px.
+          alignSelf: 'stretch', margin: '-24px 0 -40px -28px',
+          // A slightly recessed panel: the menu is a different surface from the white
+          // content cards, so it reads as navigation without needing a heavy border.
+          background: C.chipNavyBg, borderRight: `1px solid ${C.borderSoft}`,
+          minHeight: 'calc(100vh - 63px)',
+        }}>
+          {/* The rail column is as tall as the page so its edge runs the full length;
+              the menu itself is what stays in view. Sticking the tall column instead
+              does nothing — a sticky element taller than the viewport scrolls away. */}
+          <div style={{
+            position: 'sticky', top: 0, padding: '18px 12px 22px',
+            display: 'flex', flexDirection: 'column', gap: 3,
+            maxHeight: '100vh', overflowY: 'auto',
+          }}>
+          <div style={{ ...cardBase, background: C.surface, padding: 12, marginBottom: 6 }}>
+            <i style={{ position: 'absolute', inset: '0 0 auto 0', height: 3, background: G.heroRibbon }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <LiveDot color={C.success} /><span style={eyebrow}>{tr.home.liveOps}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 7 }}>
+              <span style={{
+                width: 30, height: 30, borderRadius: 9, flex: '0 0 30px', display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                background: C.errorSurface, border: `1px solid ${C.errorBorder}`,
+              }}><Ico n={TYPE_ICON[a.snap.disaster.type]} size={17} color={C.emergency} /></span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>{a.snap.disaster.name}</div>
+                <div style={{ fontSize: 11.5, color: C.muted2 }}>{disasterTypeLabel[a.snap.disaster.type]}</div>
+              </div>
+            </div>
+            <div className="tnum" style={{ fontSize: 11.5, color: C.muted, marginTop: 6 }}>
+              {a.snap.disaster.province} · {tr.common.updated(a.snap.disaster.updatedLabel)}
+            </div>
+            <button onClick={() => a.go('report')} className="hv-emergency" style={{ ...opBtn(true), width: '100%', marginTop: 10 }}>{tr.home.reportAid}</button>
+            <button onClick={() => a.openWizard('public')} className="hv-navy" style={{ ...opBtn(false), width: '100%', marginTop: 7 }}>{tr.header.reportNeed}</button>
+          </div>
+          {SECTION_GROUPS.map(([group, keys]) => (
+            <div key={group}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: C.muted3, padding: '10px 11px 5px' }}>{group}</div>
+              {keys.map((k) => {
+                const t = tabs.find((x) => x.key === k)!;
+                const on = a.tab === k;
+                const n = sectionCount[k];
+                return (
+                  <button key={k} onClick={() => a.setTab(k)} aria-current={on ? 'page' : undefined} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+                    background: on ? G.navActive : 'none', border: 0, borderRadius: 10, padding: '10px 11px',
+                    fontSize: 14, fontWeight: 600, color: on ? '#fff' : C.heading2, cursor: 'pointer', minHeight: 44,
+                  }}>
+                    <Ico n={SECTION_ICON[k]} size={17} color={on ? '#fff' : C.muted} />
+                    <span style={{ flex: 1 }}>{t.label}</span>
+                    {n ? (
+                      <span className="tnum" style={{
+                        fontSize: 11.5, fontWeight: 700, borderRadius: 20, padding: '2px 8px',
+                        background: on ? 'rgba(255,255,255,.18)' : (k === 'needs' ? C.errorSurface : C.borderFaint),
+                        color: on ? '#fff' : (k === 'needs' ? C.errorText : C.muted),
+                      }}>{n}</span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+          </div>
+        </aside>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
       <div>
         <button onClick={() => a.go('home')} style={{ background: 'none', border: 0, padding: 0, fontSize: 13, fontWeight: 600, color: C.muted, cursor: 'pointer' }}>{tr.disaster.allDisasters}</button>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginTop: 8 }}>
@@ -134,54 +218,6 @@ export function Disaster() {
         </>
       ) : null}
 
-      <div style={{ display: mob ? 'block' : 'grid', gridTemplateColumns: mob ? undefined : '260px minmax(0,1fr)', gap: 18, alignItems: 'start' }}>
-      {!mob && (
-        <aside style={{
-          background: G.surfaceSoft, border: `1px solid ${C.border}`, borderRadius: 14,
-          padding: 12, display: 'flex', flexDirection: 'column', gap: 3, position: 'sticky', top: 16,
-        }}>
-          <div style={{ ...cardBase, background: C.surface, padding: 12, marginBottom: 6 }}>
-            <i style={{ position: 'absolute', inset: '0 0 auto 0', height: 3, background: G.heroRibbon }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <LiveDot color={C.success} /><span style={eyebrow}>{tr.home.liveOps}</span>
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: C.navy, marginTop: 6 }}>{a.snap.disaster.name}</div>
-            <div className="tnum" style={{ fontSize: 11.5, color: C.muted, marginTop: 2 }}>
-              {a.snap.disaster.province} · {tr.common.updated(a.snap.disaster.updatedLabel)}
-            </div>
-            <button onClick={() => a.go('report')} className="hv-emergency" style={{ ...opBtn(true), width: '100%', marginTop: 10 }}>{tr.home.reportAid}</button>
-            <button onClick={() => a.openWizard('public')} className="hv-navy" style={{ ...opBtn(false), width: '100%', marginTop: 7 }}>{tr.header.reportNeed}</button>
-          </div>
-          {SECTION_GROUPS.map(([group, keys]) => (
-            <div key={group}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: C.muted3, padding: '10px 11px 5px' }}>{group}</div>
-              {keys.map((k) => {
-                const t = tabs.find((x) => x.key === k)!;
-                const on = a.tab === k;
-                const n = sectionCount[k];
-                return (
-                  <button key={k} onClick={() => a.setTab(k)} aria-current={on ? 'page' : undefined} style={{
-                    display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
-                    background: on ? G.navActive : 'none', border: 0, borderRadius: 10, padding: '10px 11px',
-                    fontSize: 14, fontWeight: 600, color: on ? '#fff' : C.heading2, cursor: 'pointer', minHeight: 44,
-                  }}>
-                    <Ico n={SECTION_ICON[k]} size={17} color={on ? '#fff' : C.muted} />
-                    <span style={{ flex: 1 }}>{t.label}</span>
-                    {n ? (
-                      <span className="tnum" style={{
-                        fontSize: 11.5, fontWeight: 700, borderRadius: 20, padding: '2px 8px',
-                        background: on ? 'rgba(255,255,255,.18)' : (k === 'needs' ? C.errorSurface : C.borderFaint),
-                        color: on ? '#fff' : (k === 'needs' ? C.errorText : C.muted),
-                      }}>{n}</span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </aside>
-      )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
       {a.tab === 'overview' && (
         <div style={{ display: 'grid', gap: 14, gridTemplateColumns: L.two }}>
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 }}>
@@ -402,7 +438,6 @@ export function Disaster() {
           </div>
         </div>
       )}
-      </div>
       </div>
     </div>
   );

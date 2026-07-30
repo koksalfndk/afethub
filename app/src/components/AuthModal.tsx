@@ -44,7 +44,7 @@ export function AuthModal() {
     <div onClick={auth.closeModal} style={{ position: 'fixed', inset: 0, background: 'rgba(11,30,48,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 90 }}>
       <div onClick={(e) => e.stopPropagation()} className="anim-in" style={{ background: C.surface, borderRadius: 14, width: '100%', maxWidth: 420, boxShadow: '0 18px 48px rgba(11,30,48,.28)', overflow: 'hidden' }}>
         <div style={{ padding: '18px 20px 0' }}>
-          <img src="/logo_horizontal.png" alt={tr.brand} style={{ height: 26, marginBottom: 12, display: 'block' }} />
+          <img src="/logo_horizontal.webp" alt={tr.brand} style={{ height: 26, marginBottom: 12, display: 'block' }} />
           <div style={{ fontSize: 18, fontWeight: 700, color: C.navy }}>{mode === 'signIn' ? tr.auth.signInTitle : tr.auth.signUpTitle}</div>
           <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>{tr.auth.intro}</div>
           <div style={{ display: 'flex', gap: 4, background: C.canvas, border: `1px solid ${C.border}`, borderRadius: 10, padding: 4, marginTop: 14 }}>

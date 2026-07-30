@@ -199,6 +199,7 @@ export class SupabaseRepo implements Repo {
       email: String(r.email ?? ''), phone: String(r.phone ?? ''),
       emergencyPhone: String(r.emergency_phone ?? ''), address: String(r.address ?? ''),
       status: r.status as OrgStatus, isOfficial: r.is_official === true,
+      logo: String(r.logo ?? ''),
       verifiedAt: r.verified_at ? String(r.verified_at) : null,
       createdLabel: r.created_at ? rel(String(r.created_at)) : '',
     }));
@@ -224,7 +225,7 @@ export class SupabaseRepo implements Repo {
       services: input.services.filter(Boolean), description: input.description.trim(),
       website: input.website.trim(), email: input.email.trim(), phone: input.phone.trim(),
       emergencyPhone: input.emergencyPhone.trim(), address: input.address.trim(),
-      status: 'Pending verification', isOfficial: false, verifiedAt: null, createdLabel: 'az önce',
+      status: 'Pending verification', isOfficial: false, logo: '', verifiedAt: null, createdLabel: 'az önce',
     };
   }
 

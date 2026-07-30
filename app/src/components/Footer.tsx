@@ -27,7 +27,7 @@ export function Footer() {
     <footer style={{ background: G.surfaceSoft, borderTop: `1px solid ${C.border}`, padding: mob ? '22px 14px 26px' : '28px 28px 32px' }}>
       <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', justifyContent: 'space-between' }}>
         <div style={{ flex: '1 1 260px', minWidth: 240, maxWidth: 380 }}>
-          <img src="/logo_horizontal.png" alt={tr.brand} style={{ height: 30, width: 'auto', display: 'block' }} />
+          <img src="/logo_horizontal.webp" alt={tr.brand} style={{ height: 30, width: 'auto', display: 'block' }} />
           <p style={{ fontSize: 12.5, lineHeight: 1.55, color: C.muted, margin: '10px 0 0' }}>{tr.footer.blurb}</p>
           <div style={{
             marginTop: 12, background: C.errorSurface, border: `1px solid ${C.errorBorder}`,

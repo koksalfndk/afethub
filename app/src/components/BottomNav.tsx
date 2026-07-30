@@ -54,7 +54,9 @@ export function BottomNav() {
         padding: '5px 4px calc(7px + env(safe-area-inset-bottom))',
         boxShadow: '0 -6px 20px rgba(16,42,67,.07)',
       }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 72px 1fr 1fr', alignItems: 'center', gap: 2 }}>
+        {/* minmax(0,…): a bare 1fr keeps a min-content floor, so a long label ("Hakkımızda")
+            would widen the whole bar past the viewport instead of being truncated. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) 72px minmax(0,1fr) minmax(0,1fr)', alignItems: 'center', gap: 2 }}>
           {left.map(tab)}
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             {/* One tap, one destination: the disaster report form opens on its

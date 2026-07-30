@@ -337,6 +337,7 @@ export const tr = {
     addBtn: 'Kurum Ekle',
     searchPh: 'Kurum adı, il veya hizmet ara…',
     allKinds: 'Tüm türler',
+    allServices: 'Tüm hizmet alanları',
     allProvinces: 'Tüm iller',
     allDistricts: 'İlçe seçin',
     pickProvince: 'İl seçin',
@@ -356,6 +357,16 @@ export const tr = {
     address: 'Adres',
     addedAgo: (t: string) => `${t} eklendi`,
     pendingNote: 'Bu kayıt bir kullanıcı tarafından gönderildi ve koordinatör doğrulaması bekliyor.',
+    fixRequest: 'Düzeltme Talebi Gönder',
+    fixTitle: 'Düzeltme talebi',
+    fixIntro: 'Doğrulanmış kayıtlar herkese açık sayfada doğrudan düzenlenemez. Neyin hatalı olduğunu yazın; bir koordinatör kontrol edip günceller.',
+    fixNote: 'Neyi düzeltmek gerekiyor?',
+    fixNotePh: 'Örn. telefon numarası değişti, doğrusu: … / adres eksik / bu kurum artık faaliyette değil',
+    fixErrNote: 'Lütfen neyin hatalı olduğunu en az bir cümleyle yazın.',
+    fixSubmit: 'Talebi Gönder',
+    fixSentToast: 'Düzeltme talebi koordinatöre iletildi',
+    fixDoneTitle: 'Talebiniz alındı',
+    fixDoneBody: 'Bir koordinatör kaydı kontrol edip gerekirse güncelleyecek. Kayıt o ana kadar olduğu gibi kalır.',
     // submit form
     formTitle: 'Kurum veya dernek ekle',
     formIntro: 'Hesap gerekmez. Kaydınız hemen listede görünür ve bir koordinatör doğrulayana kadar “Doğrulanmayı Bekliyor” etiketi taşır.',
@@ -387,6 +398,7 @@ export const tr = {
 
   disaster: {
     allDisasters: '← Tüm afetler',
+    sectionsLabel: 'Operasyon bölümleri',
     openedUpdated: (region: string, opened: string, upd: string) => `${region} · Koordinasyon ${opened}'de açıldı · ${upd} güncellendi`,
     active: 'Aktif',
     tabs: { overview: 'Genel bakış', needs: 'İhtiyaçlar', locations: 'Teslim noktaları', announcements: 'Duyurular', activity: 'Hareketler' },
