@@ -1,16 +1,30 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../store';
+import { useAuth } from '../auth';
+import { PROVINCES, districtsOf } from '../data/trLocations';
 import { tr, orgStatusLabel, ORG_KINDS, ORG_SCOPES } from '../i18n/strings';
 import { C, G } from '../theme';
 import { cols } from '../select';
-import { Chip, Field, Ico, filterSelectStyle, inputStyle, eyebrow, type IcoName } from '../ui';
+import { Chip, Field, Ico, filterSelectStyle, inputStyle, labelText, eyebrow, type IcoName } from '../ui';
 import type { OrgKind, OrgScope, Organization } from '../types';
 
 const emptyDraft = {
   name: '', kind: 'Dernek' as OrgKind, scope: 'İl' as OrgScope, province: '', district: '',
-  services: '', description: '', website: '', email: '', phone: '', emergencyPhone: '', address: '',
+  services: [] as string[], description: '', website: '', email: '', phone: '', emergencyPhone: '', address: '',
   yourName: '', yourEmail: '', yourPhone: '',
 };
+
+// Selectable service tags. Free text is intentionally not offered: a fixed
+// vocabulary keeps the directory filterable and prevents 20 spellings of the
+// same capability.
+const SERVICE_TAGS = [
+  'Arama kurtarma', 'Afet koordinasyonu', 'Lojistik', 'Gıda', 'İçme suyu', 'Barınma',
+  'Sağlık', 'Psikososyal destek', 'Hayvan sağlığı', 'Söndürme desteği', 'Su ikmali',
+  'Temizlik malzemesi', 'Tahliye desteği', 'Eğitim', 'Gönüllü koordinasyonu',
+  'Hasar tespiti', 'Ağaçlandırma', 'Kan bağışı',
+];
+
+const normName = (v: string) => v.trim().toLocaleLowerCase('tr').replace(/\s+/g, ' ');
 
 function StatusBadge({ o }: { o: Organization }) {
   const pending = o.status === 'Pending verification';
@@ -30,6 +44,8 @@ function StatusBadge({ o }: { o: Organization }) {
 
 export function Organizations() {
   const a = useApp();
+  const auth = useAuth();
+  const loggedIn = auth.enabled && !!auth.user;
   const mob = a.device === 'mobile';
   const L = cols(mob);
 
@@ -65,8 +81,12 @@ export function Organizations() {
   const closeForm = () => { setFormOpen(false); setErr(''); };
 
   // Step gate: each step only blocks on what it actually asked for.
+  // An entry that already exists must be corrected, not duplicated.
+  const duplicate = a.orgs.find((o) => normName(o.name) === normName(draft.name));
+
   const nextStep = () => {
     if (step === 0 && draft.name.trim().length < 2) return setErr(tr.orgs.errName);
+    if (step === 0 && duplicate) return setErr(tr.orgs.errDuplicate(duplicate.name));
     if (step === 2) { void submit(); return; }
     setErr('');
     setStep((v) => Math.min(2, v + 1));
@@ -74,15 +94,18 @@ export function Organizations() {
 
   const submit = async () => {
     if (draft.name.trim().length < 2) return setErr(tr.orgs.errName);
+    if (duplicate) return setErr(tr.orgs.errDuplicate(duplicate.name));
     if (!draft.website.trim() && !draft.email.trim() && !draft.phone.trim()) return setErr(tr.orgs.errContact);
-    if (!draft.yourName.trim() || !draft.yourEmail.trim()) return setErr(tr.orgs.errSubmitter);
+    const byName = loggedIn ? (auth.profile?.fullName || 'Gönüllü') : draft.yourName;
+    const byEmail = loggedIn ? (auth.user?.email || '') : draft.yourEmail;
+    if (!byName.trim() || !byEmail.trim()) return setErr(tr.orgs.errSubmitter);
     setErr('');
     const ok = await a.submitOrganization({
       name: draft.name, kind: draft.kind, scope: draft.scope, province: draft.province, district: draft.district,
-      services: draft.services.split(',').map((x) => x.trim()).filter(Boolean),
+      services: draft.services,
       description: draft.description, website: draft.website, email: draft.email,
       phone: draft.phone, emergencyPhone: draft.emergencyPhone, address: draft.address,
-      submittedByName: draft.yourName, submittedByEmail: draft.yourEmail, submittedByPhone: draft.yourPhone,
+      submittedByName: byName, submittedByEmail: byEmail, submittedByPhone: draft.yourPhone,
     });
     if (ok) { setDone(true); setFormOpen(false); setStep(0); setDraft(emptyDraft); }
   };
@@ -186,12 +209,35 @@ export function Organizations() {
               {step === 1 && (
                 <>
                   <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
-                    <Field label={tr.orgs.fProvince}><input value={draft.province} onChange={(e) => set('province', e.target.value)} autoFocus style={inputStyle} /></Field>
-                    <Field label={tr.orgs.fDistrict}><input value={draft.district} onChange={(e) => set('district', e.target.value)} style={inputStyle} /></Field>
+                    <Field label={tr.orgs.fProvince}>
+                      <select value={draft.province} onChange={(e) => { set('province', e.target.value); set('district', ''); }} autoFocus style={inputStyle}>
+                        <option value="">{tr.orgs.pickProvince}</option>
+                        {PROVINCES.map((pr) => <option key={pr} value={pr}>{pr}</option>)}
+                      </select>
+                    </Field>
+                    <Field label={tr.orgs.fDistrict}>
+                      <select value={draft.district} onChange={(e) => set('district', e.target.value)} disabled={!draft.province} style={{ ...inputStyle, opacity: draft.province ? 1 : .6 }}>
+                        <option value="">{draft.province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}</option>
+                        {districtsOf(draft.province).map((d) => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </Field>
                   </div>
-                  <Field label={tr.orgs.fServices} hint={`(${tr.orgs.fServicesHint})`} full>
-                    <input value={draft.services} onChange={(e) => set('services', e.target.value)} placeholder="Arama kurtarma, Lojistik, Gıda" style={inputStyle} />
-                  </Field>
+                  <div>
+                    <div style={{ ...labelText, marginBottom: 7 }}>{tr.orgs.fServices}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {SERVICE_TAGS.map((t) => {
+                        const on = draft.services.includes(t);
+                        return (
+                          <button key={t} type="button" onClick={() => set('services', on ? draft.services.filter((x) => x !== t) : [...draft.services, t])}
+                            aria-pressed={on} style={{
+                              background: on ? C.navy : C.surface, border: `1px solid ${on ? C.navy : C.borderSoft}`,
+                              color: on ? '#fff' : C.heading2, borderRadius: 20, padding: '7px 12px',
+                              fontSize: 12.5, fontWeight: 600, cursor: 'pointer', minHeight: 36,
+                            }}>{t}</button>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <Field label={tr.orgs.fDescription} full>
                     <textarea value={draft.description} onChange={(e) => set('description', e.target.value)} rows={3} style={{ ...inputStyle, minHeight: 84 }} />
                   </Field>
@@ -208,13 +254,23 @@ export function Organizations() {
                     <Field label={tr.orgs.fEmergency}><input value={draft.emergencyPhone} onChange={(e) => set('emergencyPhone', e.target.value)} style={inputStyle} /></Field>
                     <Field label={tr.orgs.fAddress}><input value={draft.address} onChange={(e) => set('address', e.target.value)} style={inputStyle} /></Field>
                   </div>
-                  <div style={{ ...eyebrow, marginTop: 6 }}>{tr.orgs.submitterSection}</div>
-                  <div style={{ fontSize: 12, color: C.muted2, marginTop: -6 }}>{tr.orgs.submitterHint}</div>
-                  <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
-                    <Field label={tr.orgs.fYourName} full><input value={draft.yourName} onChange={(e) => set('yourName', e.target.value)} style={inputStyle} /></Field>
-                    <Field label={tr.orgs.fYourEmail}><input type="email" value={draft.yourEmail} onChange={(e) => set('yourEmail', e.target.value)} style={inputStyle} /></Field>
-                    <Field label={tr.orgs.fYourPhone}><input value={draft.yourPhone} onChange={(e) => set('yourPhone', e.target.value)} style={inputStyle} /></Field>
-                  </div>
+                  {loggedIn ? (
+                    // Signed in: the submitter is already known, so we never ask again
+                    // (rules/01 §Registration — never re-request name/email/city).
+                    <div style={{ background: C.canvas, border: `1px solid ${C.borderFaint}`, borderRadius: 10, padding: '11px 13px', fontSize: 12.5, color: C.heading2 }}>
+                      {tr.orgs.submitterKnown(auth.profile?.fullName || auth.user?.email || '')}
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ ...eyebrow, marginTop: 6 }}>{tr.orgs.submitterSection}</div>
+                      <div style={{ fontSize: 12, color: C.muted2, marginTop: -6 }}>{tr.orgs.submitterHint}</div>
+                      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
+                        <Field label={tr.orgs.fYourName} full><input value={draft.yourName} onChange={(e) => set('yourName', e.target.value)} style={inputStyle} /></Field>
+                        <Field label={tr.orgs.fYourEmail}><input type="email" value={draft.yourEmail} onChange={(e) => set('yourEmail', e.target.value)} style={inputStyle} /></Field>
+                        <Field label={tr.orgs.fYourPhone}><input value={draft.yourPhone} onChange={(e) => set('yourPhone', e.target.value)} style={inputStyle} /></Field>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
 
@@ -262,14 +318,14 @@ export function Organizations() {
       </div>
 
       {visible.length > 0 ? (
-        <div style={{ display: 'grid', gap: 13, gridTemplateColumns: mob ? '1fr' : 'repeat(auto-fill, minmax(380px, 1fr))', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gap: 13, gridTemplateColumns: mob ? '1fr' : 'repeat(auto-fill, minmax(380px, 1fr))' }}>
           {visible.map((o) => {
             const pending = o.status === 'Pending verification';
             return (
               <article key={o.id} style={{
                 background: C.surface, border: `1px solid ${C.border}`,
                 borderTop: `3px solid ${pending ? C.warning : C.success}`, borderRadius: 14, padding: 16,
-                display: 'flex', flexDirection: 'column', gap: 11,
+                display: 'flex', flexDirection: 'column', gap: 11, height: '100%',
               }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                   <div style={{ minWidth: 0 }}>

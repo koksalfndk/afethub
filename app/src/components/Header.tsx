@@ -54,7 +54,6 @@ export function Header() {
     // as a tab and in the delivery-points panel on the home page.
     : [
         { label: tr.nav.activeDisasters, active: a.route === 'home', onClick: () => a.go('home') },
-        { label: tr.nav.needs, active: a.route === 'disaster' && a.tab === 'needs', onClick: () => a.go('disaster', { tab: 'needs' }) },
         { label: tr.nav.orgs, active: a.route === 'orgs', onClick: () => a.go('orgs') },
         { label: tr.nav.howItWorks, active: a.route === 'system', onClick: () => a.go('system') },
       ];

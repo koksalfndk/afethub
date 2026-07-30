@@ -192,6 +192,41 @@ export const tr = {
     ],
   },
 
+  footer: {
+    blurb: 'AfetHUB, afetlerde doğrulanmış ihtiyaçları, gelen fiziksel yardımı, gönüllüleri ve teslim noktalarını tek yerde koordine eden bağımsız bir sivil platformdur.',
+    emergency: 'Acil ve hayati tehlike durumlarında 112’yi arayın. Orman yangını ihbarı: 177.',
+    platform: 'Platform',
+    contribute: 'Katkı ver',
+    about: 'Hakkımızda',
+    copyright: '© 2026 AfetHUB — bağımsız sivil koordinasyon platformu',
+    dataNote: 'Bu sürümdeki afet ve miktar bilgileri demo veridir.',
+  },
+
+  about: {
+    title: 'Ne yapıyoruz, neyi yapmıyoruz',
+    lead: 'AfetHUB afetlerde neyin gerektiğini, neyin ulaştığını, neyin doğrulama beklediğini ve neyin hâlâ eksik olduğunu herkese açık biçimde gösterir. Para toplamaz; fiziksel yardımın koordinasyonuna odaklanır.',
+    formulaTitle: 'Tek bir kural her şeyi belirler',
+    formula: 'Kalan miktar = Gerekli miktar − Doğrulanan miktar',
+    formulaBody: 'Bir vatandaşın bildirdiği teslimat, koordinatör teslim noktasında sayıp onaylayana kadar kalan miktarı düşürmez. Bekleyen bildirimler bilgi amaçlıdır; reddedilen miktarlar hiçbir zaman düşülmez. Bu yüzden sayfalarda “bildirilen” ile “doğrulanan” asla tek bir sayıda birleştirilmez.',
+    principles: [
+      { title: 'Doğrulama olmadan tamamlandı demiyoruz', body: 'Her miktar değişikliği bir koordinatör kararına ve gerekçesine bağlıdır; karar değiştirilemez bir denetim kaydına yazılır.' },
+      { title: 'Hesap istemiyoruz', body: 'İhtiyaçları görmek, teslimat bildirmek, ihtiyaç veya afet bildirmek, gönderi takip etmek için hesap gerekmez. Hesap yalnızca bilgilerinizi tekrar girmemek için vardır.' },
+      { title: 'Kişisel veriyi yaymıyoruz', body: 'Bildirim yapanın adı, e-postası ve telefonu herkese açık ekranlarda yayınlanmaz; yalnızca operasyonel ihtiyacı olan yetkili koordinatör görür.' },
+      { title: 'Yapay aciliyet üretmiyoruz', body: 'Kırmızı ve “kritik” etiketi yalnızca gerçekten kritik bilgi için kullanılır. Sahte geri sayım, sahte kıtlık ve doğrulanmamış iddia yok.' },
+    ],
+    dataTitle: 'Veriyi nasıl ele alıyoruz',
+    dataPoints: [
+      'Yetkili kaynak veritabanıdır; miktarlar tarayıcıda yeniden hesaplanmaz.',
+      'Miktar değiştiren her işlem sunucuda doğrulanır, transaction içinde yürür ve denetim kaydına yazılır.',
+      'Aynı olaya ait vatandaş bildirimleri birleştirilir; “n kişi bildirdi” bir iddia sayacıdır, doğrulama değildir.',
+      'Kurum kayıtları gönderildiği anda listede görünür ve koordinatör doğrulayana kadar “Doğrulanmayı Bekliyor” etiketi taşır.',
+      'Örnek içerik her zaman görünür biçimde demo olarak etiketlenir.',
+    ],
+    notAuthorityTitle: 'AfetHUB resmî bir acil yardım kurumu değildir',
+    notAuthorityBody: 'Hiçbir kamu kurumuyla resmî bağlantı iddia etmiyoruz. Acil ve hayati tehlike durumlarında 112’yi, orman yangını ihbarı için 177’yi arayın.',
+    toDashboard: 'Panele Dön',
+  },
+
   // National dashboard (home page)
   dash: {
     title: 'Türkiye genelinde aktif afetler',
@@ -287,6 +322,9 @@ export const tr = {
     searchPh: 'Kurum adı, il veya hizmet ara…',
     allKinds: 'Tüm türler',
     allProvinces: 'Tüm iller',
+    allDistricts: 'İlçe seçin',
+    pickProvince: 'İl seçin',
+    pickProvinceFirst: 'Önce il seçin',
     onlyVerified: 'Yalnızca doğrulanmış',
     countLabel: (shown: number, total: number) => `${shown} / ${total} kayıt`,
     empty: 'Bu filtreye uyan kurum yok',
@@ -320,6 +358,8 @@ export const tr = {
     stepOf: (n: number, total: number) => `Adım ${n} / ${total}`,
     stepNames: ['Kurum', 'Konum ve hizmetler', 'İletişim'],
     errName: 'Lütfen kurum adını girin.',
+    errDuplicate: (name: string) => `Bu kurum listede zaten var: ${name}. Aynı kaydı ikinci kez ekleyemezsiniz; bilgide eksik varsa koordinatöre bildirin.`,
+    submitterKnown: (who: string) => `${who} olarak gönderiliyor. İletişim bilgileriniz hesabınızdan alınır ve listede yayınlanmaz.`,
     errContact: 'En az bir iletişim yolu girin: web sitesi, e-posta veya telefon.',
     errSubmitter: 'Koordinatörün size ulaşabilmesi için ad ve e-posta gerekli.',
     errOfficialClaim: 'Kamu kurumu ve belediye kayıtları yalnızca koordinatör doğrulamasından sonra resmî olarak işaretlenir.',

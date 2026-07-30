@@ -8,7 +8,7 @@ import { tr } from './i18n/strings';
 import { useAuth } from './auth';
 
 export type Route =
-  | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster'
+  | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about'
   | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog'
   | 'components' | 'system';
 export type Tab = 'overview' | 'needs' | 'locations' | 'announcements' | 'activity';
@@ -32,6 +32,7 @@ function toPath(route: Route, tab: Tab, slug: string): string {
     case 'needReq': return '/talep';
     case 'orgs': return '/kurumlar';
     case 'reportDisaster': return '/afet-bildir';
+    case 'about': return '/hakkimizda';
     case 'coordHome': return '/koordinasyon';
     case 'coordQueue': return '/koordinasyon/kuyruk';
     case 'coordNeeds': return '/koordinasyon/ihtiyaclar';
@@ -55,6 +56,7 @@ function fromPath(pathname: string): ParsedPath {
     case 'talep': return { route: 'needReq' };
     case 'kurumlar': return { route: 'orgs' };
     case 'afet-bildir': return { route: 'reportDisaster' };
+    case 'hakkimizda': return { route: 'about' };
     case 'koordinasyon': {
       const s = parts[1];
       const r: Route = s === 'kuyruk' ? 'coordQueue' : s === 'ihtiyaclar' ? 'coordNeeds' : s === 'kayit' ? 'coordLog' : 'coordHome';

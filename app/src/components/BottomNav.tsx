@@ -23,9 +23,9 @@ export function BottomNav() {
       ]
     : [
         { label: tr.bottomNav.home, route: 'home', icon: 'home' },
-        { label: tr.bottomNav.needs, route: 'disaster', icon: 'need' },
-        { label: tr.bottomNav.track, route: 'track', icon: 'track' },
         { label: tr.nav.orgs, route: 'orgs', icon: 'people' },
+        { label: tr.bottomNav.track, route: 'track', icon: 'track' },
+        { label: tr.footer.about, route: 'about', icon: 'verified' },
       ];
 
   // Left/right halves so the centre FAB has room.

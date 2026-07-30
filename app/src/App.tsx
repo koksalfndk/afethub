@@ -17,6 +17,8 @@ import { Track } from './screens/Track';
 import { NeedRequest } from './screens/NeedRequest';
 import { Organizations } from './screens/Organizations';
 import { ReportDisaster } from './screens/ReportDisaster';
+import { About } from './screens/About';
+import { Footer } from './components/Footer';
 import { CoordHome } from './screens/CoordHome';
 import { CoordQueue } from './screens/CoordQueue';
 import { CoordNeeds } from './screens/CoordNeeds';
@@ -31,7 +33,7 @@ export function App() {
   const frame = a.frame; // 412px phone mock-up wrapper (dev preview only)
 
   const screens: Record<string, () => ReactElement | null> = {
-    home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster,
+    home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About,
     coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog,
     components: Components, system: System,
   };
@@ -62,6 +64,7 @@ export function App() {
               {a.snap ? <Screen /> : <div style={{ padding: 40, color: C.muted }}>Yükleniyor…</div>}
             </main>
           </div>
+          <Footer />
           {mob && <BottomNav />}
           {isReport && <ReportModal />}
           <NeedWizard />
