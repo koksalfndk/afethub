@@ -1,18 +1,15 @@
 import { useState } from 'react';
 import { useApp } from '../store';
 import { tr, disasterTypeLabel } from '../i18n/strings';
+import { categoryIcon } from '../needForm';
 import { C, G, PRI, D, type PriorityKey } from '../theme';
-import { LiveDot, Ico, PriorityBadge, MetricCell, ProgressBar, eyebrow, type IcoName } from '../ui';
+import { LiveDot, Ico, DISASTER_ICON, PriorityBadge, MetricCell, ProgressBar, eyebrow } from '../ui';
 import { agoMinutes, clockLabel, formatDate } from '../util';
 import { HeroBanner } from '../components/HeroBanner';
 import type { DisasterType } from '../types';
 import type { DisasterCard } from '../data/repo';
 
 // Icon per disaster kind — a colour-coded category marker, never decoration.
-const TYPE_ICON: Record<DisasterType, IcoName> = {
-  Wildfire: 'critical', Flood: 'activity', Earthquake: 'critical',
-  Storm: 'activity', Evacuation: 'people', Other: 'need',
-};
 const TYPE_ORDER: DisasterType[] = ['Wildfire', 'Flood', 'Earthquake', 'Storm', 'Evacuation', 'Other'];
 
 // Visually hidden but announced: the action column needs a name for screen readers
@@ -176,7 +173,7 @@ export function Home() {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                       <div style={{ display: 'flex', gap: 8, minWidth: 0 }}>
-                        <span style={{ paddingTop: 2 }}><Ico n={TYPE_ICON[d.type]} size={17} color={active ? C.emergency : C.muted2} /></span>
+                        <span style={{ paddingTop: 2 }}><Ico n={DISASTER_ICON[d.type]} size={17} color={active ? C.emergency : C.muted2} /></span>
                         <div style={{ minWidth: 0 }}>
                           <button onClick={() => a.openDisaster(d.slug, 'needs')} style={{
                             background: 'none', border: 0, padding: 0, textAlign: 'left', cursor: 'pointer',
@@ -229,7 +226,7 @@ export function Home() {
                       <tr key={d.id} style={{ opacity: active ? 1 : .85 }}>
                         <td style={{ ...td, borderBottom: last ? 0 : td.borderBottom }}>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                            <span style={{ paddingTop: 2 }}><Ico n={TYPE_ICON[d.type]} size={16} color={active ? C.emergency : C.muted2} /></span>
+                            <span style={{ paddingTop: 2 }}><Ico n={DISASTER_ICON[d.type]} size={16} color={active ? C.emergency : C.muted2} /></span>
                             <div style={{ minWidth: 0 }}>
                               {/* The name is the primary link to the operation. */}
                               <button onClick={() => a.openDisaster(d.slug, 'needs')} className="hv-navy" style={{
@@ -353,7 +350,9 @@ export function Home() {
                 padding: '10px 12px', cursor: 'pointer', display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center',
               }}>
                 <span style={{ minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: C.navy }}>{n.name}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 14, fontWeight: 600, color: C.navy }}>
+                    <Ico n={categoryIcon(n.cat)} size={14} color={(PRI[n.priority] ?? PRI.Normal).bar} />{n.name}
+                  </span>
                   <span style={{ fontSize: 11.5, color: C.muted2, display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                     <Ico n="pin" size={11} color={C.muted3} />{n.disasterName}
                   </span>

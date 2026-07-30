@@ -2,7 +2,7 @@ import type {
   Disaster, Location, Need, Submission, LogEntry, Announcement,
   VerifyKind, DeliveryInput, PriorityKey, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, BannerSlide, BannerSlideInput, SlideAction,
-  OrgEditRequestInput, OrgEditable,
+  OrgEditRequestInput, OrgEditable, DisasterInput,
 } from '../types';
 import type { NeedPayload } from '../needForm';
 
@@ -27,6 +27,7 @@ export interface Snapshot {
 // ---------------------------------------------------------------------------
 export interface TopNeed {
   id: string; name: string; priority: PriorityKey;
+  cat: string;              // Turkish category label — drives the card icon
   remaining: number; unit: string;
   disasterId: string; disasterName: string; disasterSlug: string;
 }
@@ -84,6 +85,9 @@ export interface Repo {
   confirmDisasterReport(reportId: string): Promise<DisasterReport>;
   createDelivery(input: DeliveryInput): Promise<CreateDeliveryResult>;
   verifySubmission(subId: string, kind: VerifyKind, qty: number, reason: string): Promise<Snapshot>;
+  // Coordinator-managed operations. A new disaster goes live immediately: the person
+  // creating it is the reviewer (rules/03 — authorisation is enforced by RLS, not here).
+  saveDisaster(id: string | null, input: DisasterInput): Promise<Snapshot>;
   publishNeed(p: NeedPayload): Promise<Snapshot>;
   bumpNeed(needId: string): Promise<Snapshot>;
   togglePause(needId: string): Promise<Snapshot>;
@@ -131,6 +135,20 @@ export function changedOrgFields(current: Organization, proposed: OrgEditable): 
     ? v.slice().sort().join('|')
     : String(v ?? '').trim());
   return ORG_EDITABLE_KEYS.filter((k) => norm(current[k]) !== norm(proposed[k]));
+}
+
+// Slug for a new operation: name + the day it was opened, so two fires in the same
+// place in different years never collide. Derived, never typed by hand.
+export function disasterSlug(name: string, openedOn: Date): string {
+  const map: Record<string, string> = { ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u', İ: 'i' };
+  const base = name.toLocaleLowerCase('tr')
+    .replace(/[çğıöşüİ]/g, (c) => map[c] ?? c)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+  const dd = String(openedOn.getDate()).padStart(2, '0');
+  const mm = String(openedOn.getMonth() + 1).padStart(2, '0');
+  return `${base}-${dd}-${mm}-${openedOn.getFullYear()}`;
 }
 
 export const REPORT_DAY_WINDOW = 2;

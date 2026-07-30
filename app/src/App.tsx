@@ -23,6 +23,7 @@ import { About } from './screens/About';
 import { HowItWorks } from './screens/HowItWorks';
 import { Account } from './screens/Account';
 import { CoordSlider } from './screens/CoordSlider';
+import { CoordDisasters } from './screens/CoordDisasters';
 import { LiveTicker } from './components/LiveTicker';
 import { DisasterReportModal } from './components/DisasterReportModal';
 import { Footer } from './components/Footer';
@@ -41,7 +42,7 @@ export function App() {
 
   const screens: Record<string, () => ReactElement | null> = {
     home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About, howItWorks: HowItWorks, account: Account,
-    coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider,
+    coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider, coordDisasters: CoordDisasters,
     components: Components, system: System,
   };
   const isReport = a.route === 'report';

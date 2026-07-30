@@ -1,11 +1,13 @@
 import type { CSSProperties, ReactNode } from 'react';
 import {
-  Activity, BatteryCharging, Bus, Check, ChevronDown, ChevronRight, CircleCheck, Clock, House,
-  LogOut, MapPin, Menu, Package, PackageSearch, PawPrint, Plus, Search, Shirt, Soup, SprayCan,
-  Stethoscope, TriangleAlert, Truck, User, Users, Wrench, X, type LucideIcon,
+  Activity, BatteryCharging, Building2, Bus, Check, ChevronDown, ChevronRight, CircleCheck, Clock,
+  CloudRain, Flame, House, LogOut, MapPin, Menu, Package, PackageSearch, PawPrint, Plus, Search,
+  ShieldCheck, Shirt, Soup, SprayCan, Stethoscope, TriangleAlert, Truck, User, Users, Waves, Wind,
+  Wrench, X, type LucideIcon,
 } from 'lucide-react';
 import { C, G, PRI, STATUS, barFill, ribbon, wash, type PriorityKey, type StatusKey } from './theme';
 import { priorityLabel, statusLabel } from './i18n/strings';
+import type { DisasterType } from './types';
 
 // Reusable style fragments ported from the prototype.
 export const inputStyle: CSSProperties = {
@@ -131,6 +133,10 @@ export function LiveDot({ color = C.emergency, size = 7, still }: { color?: stri
 export type IcoName =
   | 'need' | 'verified' | 'pending' | 'completed' | 'pin' | 'people' | 'critical' | 'activity' | 'search'
   | 'user' | 'menu' | 'close' | 'chev' | 'down' | 'home' | 'track' | 'plus' | 'logout'
+  | 'org' | 'shield'
+  // Disaster kinds. Mapped here so an operation's icon is decided once and every screen
+  // (home cards, coordinator list, detail header) shows the same one.
+  | 'dWildfire' | 'dFlood' | 'dEarthquake' | 'dStorm' | 'dEvacuation' | 'dOther'
   // Need categories (wizard step 2). Kept in the same semantic map so a category's
   // icon is chosen once, here, and never hard-coded at a call site.
   | 'catHealth' | 'catEquipment' | 'catHygiene' | 'catClothing' | 'catEnergy'
@@ -164,6 +170,22 @@ const ICO: Record<IcoName, LucideIcon> = {
   catTransport: Bus,
   catHaulage: Truck,
   catPets: PawPrint,
+  org: Building2,
+  shield: ShieldCheck,
+  dWildfire: Flame,
+  dFlood: Waves,
+  dEarthquake: Activity,
+  dStorm: Wind,
+  dEvacuation: Users,
+  dOther: CloudRain,
+};
+
+// One icon per disaster kind, defined once. This used to be copy-pasted into three
+// screens with generic stand-ins ('critical' for both a wildfire and an earthquake), so
+// the same operation could look like a different kind depending on where you saw it.
+export const DISASTER_ICON: Record<DisasterType, IcoName> = {
+  Wildfire: 'dWildfire', Flood: 'dFlood', Earthquake: 'dEarthquake',
+  Storm: 'dStorm', Evacuation: 'dEvacuation', Other: 'dOther',
 };
 
 export function Ico({ n, size = 17, color }: { n: IcoName; size?: number; color?: string }) {

@@ -1,14 +1,13 @@
 import { useApp } from '../store';
 import { useAuth } from '../auth';
 import { tr, disasterTypeLabel } from '../i18n/strings';
-import { C, G } from '../theme';
+import { C, G, wash } from '../theme';
 import { enrichSorted, cols } from '../select';
-import { PriorityBadge, ProgressBar, Chip, StatCard, LiveDot, Ico, eyebrow, filterSelectStyle, washCard, type IcoName } from '../ui';
-import { detailPairs } from '../needForm';
+import { PriorityBadge, ProgressBar, Chip, StatCard, LiveDot, Ico, DISASTER_ICON, eyebrow, filterSelectStyle, washCard, type IcoName } from '../ui';
+import { detailPairs, categoryIcon } from '../needForm';
 import { LocationMap } from '../components/LocationMap';
 import { isToday, formatDate } from '../util';
 import type { Filter, Tab } from '../store';
-import type { DisasterType } from '../types';
 
 const FILTERS: Filter[] = ['All', 'Critical', 'Urgent', 'Normal', 'Completed'];
 
@@ -17,10 +16,6 @@ const SECTION_GROUPS: [string, Tab[]][] = [
   ['Operasyon', ['overview', 'needs', 'locations']],
   ['Kayıtlar', ['announcements', 'activity']],
 ];
-const TYPE_ICON: Record<DisasterType, IcoName> = {
-  Wildfire: 'critical', Flood: 'activity', Earthquake: 'critical',
-  Storm: 'activity', Evacuation: 'people', Other: 'need',
-};
 const SECTION_ICON: Record<Tab, IcoName> = {
   overview: 'activity', needs: 'need', locations: 'pin', announcements: 'critical', activity: 'activity',
 };
@@ -40,6 +35,10 @@ export function Disaster() {
   if (!a.snap) return null;
   const mob = a.device === 'mobile';
   const L = cols(mob);
+  // The operation's initiator, resolved to a listed organization. Only a VERIFIED record
+  // may be named: an id pointing at a pending (or removed) organization falls back to
+  // AfetHUB's own team rather than publishing an unchecked affiliation.
+  const startedBy = a.orgs.find((o) => o.id === a.snap!.disaster.openedByOrgId && o.status === 'Verified');
   const needs = enrichSorted(a.snap.needs);
   const pendingSubs = a.snap.subs.filter((s) => s.status === 'Pending verification');
   const pendingUnits = pendingSubs.reduce((x, s) => x + s.qty, 0);
@@ -56,7 +55,7 @@ export function Disaster() {
     { label: tr.disaster.summary.activeNeeds, value: activeNeeds, hint: tr.disaster.summary.activeHint, accent: C.navy, icon: 'need' },
     { label: tr.disaster.summary.completedNeeds, value: completedNeeds, hint: tr.disaster.summary.completedHint, accent: C.success, icon: 'completed' },
     { label: tr.disaster.summary.pendingDeliveries, value: pendingSubs.length, hint: tr.disaster.summary.pendingHint(pendingUnits), accent: C.warning, icon: 'pending' },
-    { label: tr.disaster.summary.verifiedDeliveries, value: a.snap.verifiedTotal, hint: tr.disaster.summary.verifiedHint, accent: C.success, icon: 'verified' },
+    { label: tr.disaster.summary.verifiedDeliveries, value: a.snap.verifiedTotal, hint: tr.disaster.summary.verifiedHint(formatDate(a.snap.disaster.openedAt)), accent: C.success, icon: 'verified' },
     { label: tr.disaster.summary.volunteers, value: a.snap.disaster.volunteers, hint: tr.disaster.summary.volunteersHint(a.snap.disaster.onShift), accent: C.teal, icon: 'people' },
     { label: tr.disaster.summary.deliveryPoints, value: a.snap.locations.length, hint: tr.disaster.summary.deliveryPointsHint(openingSoon), accent: C.info, icon: 'pin' },
   ];
@@ -133,7 +132,7 @@ export function Disaster() {
                 width: 30, height: 30, borderRadius: 9, flex: '0 0 30px', display: 'flex',
                 alignItems: 'center', justifyContent: 'center',
                 background: C.errorSurface, border: `1px solid ${C.errorBorder}`,
-              }}><Ico n={TYPE_ICON[a.snap.disaster.type]} size={17} color={C.emergency} /></span>
+              }}><Ico n={DISASTER_ICON[a.snap.disaster.type]} size={17} color={C.emergency} /></span>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>{a.snap.disaster.name}</div>
                 <div style={{ fontSize: 11.5, color: C.muted2 }}>{disasterTypeLabel[a.snap.disaster.type]}</div>
@@ -182,6 +181,16 @@ export function Disaster() {
           <div>
             <h1 style={{ fontSize: L.h2, fontWeight: 700, letterSpacing: '-.02em', margin: 0, color: C.navy }}>{a.snap.disaster.name}</h1>
             <div style={{ fontSize: 13.5, color: C.muted, marginTop: 4 }}>{tr.disaster.openedUpdated(a.snap.disaster.region, formatDate(a.snap.disaster.openedAt), a.snap.disaster.updatedLabel)}</div>
+            {/* Who opened the operation. Falls back to AfetHUB's own team, and an id that no
+                longer resolves to a VERIFIED organization also falls back rather than
+                printing an unchecked affiliation on a public page (rules/03 §Legal and
+                Safety Disclaimer). */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 9, background: G.chip, border: `1px solid ${C.borderFaint}`, borderRadius: 20, padding: '4px 11px 4px 9px' }}>
+              <Ico n={startedBy ? 'org' : 'shield'} size={13} color={C.muted2} />
+              <span style={{ fontSize: 12.5, color: C.muted }}>
+                {tr.disaster.startedBy}: <strong style={{ color: C.navy, fontWeight: 600 }}>{startedBy?.name ?? tr.disaster.startedByAfethub}</strong>
+              </span>
+            </div>
           </div>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#FEF3F2', color: C.emergency, border: '1px solid #F6C9C9', borderRadius: 20, padding: '5px 11px', fontSize: 12.5, fontWeight: 700 }}>
             <LiveDot size={6} />{tr.disaster.active}
@@ -242,7 +251,9 @@ export function Disaster() {
               {criticalNeeds.map((n) => (
                 <div key={n.id} style={{ border: '1px solid #F6C9C9', background: '#FEF7F7', borderRadius: 10, padding: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                    <span style={{ fontSize: 14.5, fontWeight: 700, color: C.navy }}>{n.name}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0, fontSize: 14.5, fontWeight: 700, color: C.navy }}>
+                      <Ico n={categoryIcon(n.cat)} size={15} color={C.emergency} />{n.name}
+                    </span>
                     <span style={{ fontSize: 13, fontWeight: 700, color: C.emergency }}>{tr.disaster.left(n.remaining)}</span>
                   </div>
                   <div style={{ marginTop: 10 }}><ProgressBar pct={n.pctVal} color={C.emergency} height={6} track="#F1D6D6" /></div>
@@ -299,9 +310,18 @@ export function Disaster() {
               {visibleNeeds.map((n) => (
                 // Priority is carried by the top border AND the badge — never colour alone (rule 04).
                 <div key={n.id} style={{ ...washCard(n.barColor), padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 16.5, fontWeight: 700, color: C.navy }}>{n.name}</div>
-                    <div style={{ fontSize: 12.5, color: C.muted2, marginTop: 2 }}>{n.cat} · {tr.common.updated(n.updated)}</div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0 }}>
+                    {/* Category icon left of the title. The tile is a fixed 34px so titles
+                        line up across the grid whatever the icon is. */}
+                    <span style={{
+                      width: 34, height: 34, flex: '0 0 34px', borderRadius: 9, display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      background: wash(n.barColor, 8), border: `1px solid ${C.borderFaint}`,
+                    }}><Ico n={categoryIcon(n.cat)} size={17} color={n.barColor} /></span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 16.5, fontWeight: 700, color: C.navy }}>{n.name}</div>
+                      <div style={{ fontSize: 12.5, color: C.muted2, marginTop: 2 }}>{n.cat} · {tr.common.updated(n.updated)}</div>
+                    </div>
                   </div>
 
                   {/* Remaining is the decision-driving number, so it is the largest

@@ -197,7 +197,7 @@ export function Header() {
             onClick={() => setDrawerOpen((v) => !v)}
           />
           <button onClick={goAnd(() => a.go(coord ? 'coordHome' : 'home'))} style={{ display: 'flex', justifyContent: 'center', background: 'none', border: 0, padding: 0, cursor: 'pointer' }}>
-            <img src="/logo_horizontal.webp" alt={tr.brand} style={{ height: 28, width: 'auto', display: 'block' }} />
+            <img src="/logo_horizontal.webp" alt={tr.brand} style={{ height: 36, width: 'auto', display: 'block' }} />
           </button>
           <button onClick={() => (loggedIn ? setAccountOpen(true) : auth.enabled ? auth.openModal('signIn') : a.go('track'))}
             aria-label={tr.header.profileMenu} className="hv-navy" style={{
@@ -208,7 +208,7 @@ export function Header() {
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 22px', minHeight: 62 }} ref={profRef}>
           <button onClick={() => a.go(coord ? 'coordHome' : 'home')} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 0, padding: 0, cursor: 'pointer', flex: '0 0 auto' }}>
-            <img src="/logo_horizontal.webp" alt={tr.brand} style={{ height: 32, width: 'auto', display: 'block' }} />
+            <img src="/logo_horizontal.webp" alt={tr.brand} style={{ height: 42, width: 'auto', display: 'block' }} />
             <span style={{
               fontSize: 9.5, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: C.muted2,
               background: G.chip, border: `1px solid ${C.borderFaint}`, borderRadius: 4, padding: '3px 6px', whiteSpace: 'nowrap',

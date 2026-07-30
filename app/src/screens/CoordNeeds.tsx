@@ -2,8 +2,8 @@ import { useApp } from '../store';
 import { tr } from '../i18n/strings';
 import { C } from '../theme';
 import { enrichSorted, cols } from '../select';
-import { PriorityBadge, Btn } from '../ui';
-import { detailPairs } from '../needForm';
+import { PriorityBadge, Btn, Ico } from '../ui';
+import { detailPairs, categoryIcon } from '../needForm';
 
 export function CoordNeeds() {
   const a = useApp();
@@ -29,7 +29,9 @@ export function CoordNeeds() {
             return (
               <div key={n.id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 160px', minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>{n.name}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 14, fontWeight: 700, color: C.navy }}>
+                    <Ico n={categoryIcon(n.cat)} size={15} color={C.muted2} />{n.name}
+                  </div>
                   <div style={{ fontSize: 12.5, color: C.muted2 }}>{tr.coord.verifiedRemaining(n.verified, n.required, n.remaining)}</div>
                   {extras.length > 0 && (
                     <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>

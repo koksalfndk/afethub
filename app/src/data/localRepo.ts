@@ -1,9 +1,10 @@
 import type {
   LogEntry, Need, Submission, VerifyKind, DeliveryInput, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, BannerSlide, BannerSlideInput, OrgEditRequestInput,
+  Disaster, DisasterInput,
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
-import { genCode, genNrq, remaining, isSameEvent, isLocalSlideImage } from './repo';
+import { genCode, genNrq, remaining, isSameEvent, isLocalSlideImage, disasterSlug } from './repo';
 import { agoMinutes } from '../util';
 import { PRI } from '../theme';
 import type { NeedPayload } from '../needForm';
@@ -93,7 +94,7 @@ export class LocalRepo implements Repo {
           || remaining(y) - remaining(x))
         .slice(0, limit)
         .map((n) => ({
-          id: n.id, name: n.name, priority: n.priority, remaining: remaining(n), unit: n.unit,
+          id: n.id, name: n.name, priority: n.priority, cat: n.cat, remaining: remaining(n), unit: n.unit,
           disasterId: n.disasterId, disasterName: n.disasterName, disasterSlug: n.disasterSlug,
         }));
 
@@ -351,6 +352,43 @@ export class LocalRepo implements Repo {
       addLog(need.disasterId, { action: 'İhtiyaç tamamlandı', detail: `${need.name} gerekli miktara ulaştı`, oldValue: 'Aktif', newValue: 'Tamamlandı', color: '#159947' });
     }
     return snap();
+  }
+
+  // Seed disasters live in a module-level array; a coordinator edit mutates that copy.
+  // In local mode this resets on reload, which the panel states.
+  async saveDisaster(id: string | null, input: DisasterInput): Promise<Snapshot> {
+    const region = [input.district, input.province].filter(Boolean).join(', ') + ' · Türkiye';
+    if (id) {
+      const before = seed.disasters.find((d) => d.id === id);
+      if (!before) throw new Error(`unknown disaster: ${id}`);
+      const next: Disaster = {
+        ...before, name: input.name.trim(), type: input.type, province: input.province,
+        region, status: input.status, situation: input.situation.trim(),
+        volunteers: input.volunteers, onShift: input.onShift,
+        openedByOrgId: input.openedByOrgId, updatedLabel: NOW,
+      };
+      const i = seed.disasters.findIndex((d) => d.id === id);
+      seed.disasters[i] = next;
+      addLog(id, {
+        action: 'Afet kaydı güncellendi', detail: next.name,
+        oldValue: before.status, newValue: next.status, color: '#102A43',
+      });
+      return snap(next.slug);
+    }
+    const created: Disaster = {
+      id: nextId('d'), slug: disasterSlug(input.name, new Date()), legacySlugs: [],
+      name: input.name.trim(), region, province: input.province, type: input.type,
+      status: input.status, situation: input.situation.trim(),
+      openedAt: new Date().toISOString().slice(0, 10), updatedLabel: NOW,
+      volunteers: input.volunteers, onShift: input.onShift,
+      openedByOrgId: input.openedByOrgId,
+    };
+    seed.disasters.unshift(created);
+    addLog(created.id, {
+      action: 'Afet operasyonu açıldı', detail: created.name,
+      oldValue: '—', newValue: 'Aktif', color: '#D9363E',
+    });
+    return snap(created.slug);
   }
 
   async publishNeed(p: NeedPayload): Promise<Snapshot> {

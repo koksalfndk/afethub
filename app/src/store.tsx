@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { repo, fallbackToLocal, type Snapshot, type Overview } from './data';
 import type {
   Submission, VerifyKind, Organization, OrganizationInput, DisasterReport, DisasterReportInput,
-  BannerSlide, BannerSlideInput, OrgEditRequestInput,
+  BannerSlide, BannerSlideInput, OrgEditRequestInput, DisasterInput,
 } from './types';
 import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
@@ -11,7 +11,7 @@ import { useAuth } from './auth';
 
 export type Route =
   | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
-  | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog' | 'coordSlider'
+  | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog' | 'coordSlider' | 'coordDisasters'
   | 'components' | 'system';
 export type Tab = 'overview' | 'needs' | 'locations' | 'announcements' | 'activity';
 export type Device = 'desktop' | 'mobile';
@@ -42,6 +42,7 @@ function toPath(route: Route, tab: Tab, slug: string): string {
     case 'coordNeeds': return '/koordinasyon/ihtiyaclar';
     case 'coordLog': return '/koordinasyon/kayit';
     case 'coordSlider': return '/koordinasyon/slider';
+    case 'coordDisasters': return '/koordinasyon/afetler';
     case 'system': return '/sistem';
     case 'components': return '/bilesenler';
     default: return '/';
@@ -67,7 +68,8 @@ function fromPath(pathname: string): ParsedPath {
     case 'koordinasyon': {
       const s = parts[1];
       const r: Route = s === 'kuyruk' ? 'coordQueue' : s === 'ihtiyaclar' ? 'coordNeeds'
-        : s === 'kayit' ? 'coordLog' : s === 'slider' ? 'coordSlider' : 'coordHome';
+        : s === 'kayit' ? 'coordLog' : s === 'slider' ? 'coordSlider'
+        : s === 'afetler' ? 'coordDisasters' : 'coordHome';
       return { route: r, role: 'coordinator' };
     }
     case 'sistem': return { route: 'system' };
@@ -132,6 +134,7 @@ export interface AppApi {
   openWizard: (mode: WizardMode) => void; closeWizard: () => void;
   openDisasterForm: () => void; closeDisasterForm: () => void;
   openDelivery: () => void; closeDelivery: () => void;
+  saveDisaster: (id: string | null, input: DisasterInput) => Promise<boolean>;
   publishNeed: (p: NeedPayload) => Promise<boolean>;
   requestNeed: (p: NeedPayload, contact: { name: string; email: string; phone: string; city: string }) => Promise<string | null>;
   bumpNeed: (id: string) => void; togglePause: (id: string) => void;
@@ -380,6 +383,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     closeDelivery: () => setDeliveryOpen(false),
     closeDisasterForm: () => setDisasterFormOpen(false),
     closeWizard: () => setWizardMode(null),
+    saveDisaster: async (id, input) => {
+      if (unverified) { showToast(tr.auth.verifyFirst); return false; }
+      try {
+        setSnap(await withTimeout(repo.saveDisaster(id, input)));
+        // The national dashboard counts operations, so it has to be re-read too.
+        setOverview(await withTimeout(repo.getOverview()));
+        showToast(id ? tr.coordDisasters.savedEdit : tr.coordDisasters.savedNew);
+        return true;
+      } catch { showToast(tr.coordDisasters.saveFailed); return false; }
+    },
     publishNeed: async (p) => {
       if (unverified) { showToast(tr.auth.verifyFirst); return false; }
       const s = await repo.publishNeed(p);

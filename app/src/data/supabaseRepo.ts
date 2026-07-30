@@ -4,11 +4,11 @@ import type {
   VerifyKind, DeliveryInput, PriorityKey, StatusKey, DisasterType,
   Organization, OrganizationInput, OrgStatus, OrgKind, OrgScope,
   DisasterReport, DisasterReportInput, ReportStatus, BannerSlide, BannerSlideInput, SlideAction,
-  OrgEditRequestInput,
+  OrgEditRequestInput, DisasterInput,
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
 import type { NeedPayload } from '../needForm';
-import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW, isLocalSlideImage } from './repo';
+import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW, isLocalSlideImage, disasterSlug } from './repo';
 import { PRI } from '../theme';
 
 // Turkish relative-time formatter for DB timestamps.
@@ -49,6 +49,7 @@ export class SupabaseRepo implements Repo {
       openedAt: String(r.opened_at ?? ''), updatedLabel: r.updated_at ? rel(String(r.updated_at)) : '',
       volunteers: Number(r.volunteers ?? 0), onShift: Number(r.on_shift ?? 0),
       demo: r.is_demo === true,
+      openedByOrgId: r.opened_by_org_id ? String(r.opened_by_org_id) : null,
     });
     const disasters: Disaster[] = (ds.data ?? []).map(mapDisaster);
     const disaster = disasters.find((x) => x.slug === slug)
@@ -57,6 +58,7 @@ export class SupabaseRepo implements Repo {
       ?? {
         id: 'd1', slug: '', name: '', region: '', province: '', type: 'Other' as const,
         status: 'Active' as const, situation: '', openedAt: '', updatedLabel: '', volunteers: 0, onShift: 0,
+        openedByOrgId: null,
       };
     const byId = new Map(disasters.map((x) => [x.id, x] as const));
 
@@ -123,6 +125,7 @@ export class SupabaseRepo implements Repo {
       openedAt: String(r.opened_at ?? ''), updatedLabel: r.updated_at ? rel(String(r.updated_at)) : '',
       volunteers: Number(r.volunteers ?? 0), onShift: Number(r.on_shift ?? 0),
       demo: r.is_demo === true,
+      openedByOrgId: r.opened_by_org_id ? String(r.opened_by_org_id) : null,
     });
 
     const disasters: Disaster[] = (rows ?? ds.data ?? []).map(mapDisaster);
@@ -133,6 +136,7 @@ export class SupabaseRepo implements Repo {
     const topOf = (d: Disaster, limit: number): TopNeed[] => openOf(d.id)
       .map((n) => ({
         id: String(n.id), name: String(n.name), priority: n.priority as PriorityKey,
+        cat: String(n.category ?? ''),
         remaining: Math.max(0, Number(n.required_qty) - Number(n.verified_qty)), unit: String(n.unit),
         disasterId: d.id, disasterName: d.name, disasterSlug: d.slug,
       }))
@@ -359,6 +363,29 @@ export class SupabaseRepo implements Repo {
   async verifySubmission(subId: string, kind: VerifyKind, qty: number, reason: string): Promise<Snapshot> {
     await this.db.rpc('verify_submission', { p_submission: subId, p_kind: kind, p_qty: qty, p_reason: reason || null });
     return this.getSnapshot();
+  }
+
+  // Insert/update goes straight to `disasters`; RLS decides whether the caller may.
+  async saveDisaster(id: string | null, input: DisasterInput): Promise<Snapshot> {
+    const region = [input.district, input.province].filter(Boolean).join(', ') + ' · Türkiye';
+    const row = {
+      name: input.name.trim(), type: input.type, province: input.province, region,
+      status: input.status, situation: input.situation.trim(),
+      volunteers: input.volunteers, on_shift: input.onShift,
+      opened_by_org_id: input.openedByOrgId,
+    };
+    if (id) {
+      const { error } = await this.db.from('disasters').update(row).eq('id', id);
+      if (error) throw error;
+      const { data } = await this.db.from('disasters').select('slug').eq('id', id).maybeSingle();
+      return this.getSnapshot(data?.slug ? String(data.slug) : undefined);
+    }
+    const slug = disasterSlug(input.name, new Date());
+    const { error } = await this.db.from('disasters').insert({
+      ...row, slug, opened_at: new Date().toISOString().slice(0, 10),
+    });
+    if (error) throw error;
+    return this.getSnapshot(slug);
   }
 
   async publishNeed(p: NeedPayload): Promise<Snapshot> {

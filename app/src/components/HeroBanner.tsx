@@ -94,39 +94,60 @@ export function HeroBanner() {
       style={{
         position: 'relative', overflow: 'hidden', borderRadius: 14,
         border: `1px solid ${C.border}`, background: C.surface,
-        minHeight: mob ? 380 : 340, display: 'flex', alignItems: 'center',
+        minHeight: mob ? 470 : 340, display: 'flex',
+        // Mobile stacks copy over image, so the copy is pinned to the top edge: centering
+        // it left a dead white band above the badge and stole that height from the photo.
+        alignItems: mob ? 'flex-start' : 'center',
       }}
     >
       {/* The image is full-bleed and the white panel is painted on top of it with a
           single wide gradient. Splitting the surface into two columns left a visible
           seam where the photo began; one layer over one image has no edge to show. */}
+      {/* Generated artwork: the base layer, always full-bleed, so a slide with no photo
+          (or a file that fails to load) is never a blank frame. */}
       <div style={{
         position: 'absolute', inset: 0,
-        // Photo first, generated artwork behind it: a real file at the slide's path
-        // simply covers the artwork, so dropping images into public/banners/ needs no
-        // code change and a missing file is never a blank frame.
-        backgroundImage: s.image ? `url(${s.image}), ${artLayer(s.tint)}` : artLayer(s.tint),
-        backgroundSize: s.image ? 'cover, cover' : 'cover',
-        backgroundPosition: mob ? 'center top, center' : 'right center, right center',
-        backgroundRepeat: 'no-repeat, no-repeat',
+        backgroundImage: artLayer(s.tint), backgroundSize: 'cover', backgroundPosition: 'center',
         backgroundColor: `color-mix(in srgb, ${s.tint} 9%, #EAF0F5)`,
       }} />
+      {/* The photo sits in its own box rather than filling the section.
+          Desktop: it takes the right 62% instead of the full width, so a 2:1 image loses
+          ~19% to the crop instead of ~45% — the subject stays recognisable. Its left edge
+          is a mask, not a cut: `contain` showed the whole photo but left a hard vertical
+          seam, which is exactly the edge this banner is not allowed to show. */}
+      {s.image && (
+        <div style={{
+          position: 'absolute', top: 0, bottom: 0, right: 0, width: mob ? '100%' : '62%',
+          backgroundImage: `url(${s.image})`, backgroundSize: 'cover',
+          backgroundPosition: mob ? 'center top' : 'center', backgroundRepeat: 'no-repeat',
+          maskImage: mob ? undefined : 'linear-gradient(to right, transparent 0%, #000 24%)',
+          WebkitMaskImage: mob ? undefined : 'linear-gradient(to right, transparent 0%, #000 24%)',
+        }} />
+      )}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
         background: mob
-          // Mobile: the copy block is the full width, so the white plateau has to clear
-          // it vertically — body text over the image failed the outdoor-contrast rule.
-          ? 'linear-gradient(185deg, #FFFFFF 0%, #FFFFFF 46%, rgba(255,255,255,.97) 56%, rgba(255,255,255,.88) 66%, rgba(255,255,255,.66) 76%, rgba(255,255,255,.34) 88%, rgba(255,255,255,0) 100%)'
-          // The white plateau ends where the (now 70% wider) text column ends, so the
-          // copy never sits on the image and the fade still finishes inside the frame.
-          : 'linear-gradient(100deg, #FFFFFF 0%, #FFFFFF 52%, rgba(255,255,255,.985) 60%, rgba(255,255,255,.92) 68%, rgba(255,255,255,.74) 77%, rgba(255,255,255,.46) 86%, rgba(255,255,255,.18) 94%, rgba(255,255,255,0) 100%)',
+          // Mobile: the copy block is the full width, so the white plateau has to clear it
+          // vertically — body text over the image fails the outdoor-contrast rule. The stops
+          // are in px, not %, because what must be covered is the TEXT (a px height), not a
+          // fraction of the box: making the banner taller must hand the extra height to the
+          // photo, not stretch the white. The body is line-clamped below so the text height
+          // stays bounded no matter what a coordinator types into a slide.
+          ? 'linear-gradient(184deg, #FFFFFF 0px, #FFFFFF 244px, rgba(255,255,255,.96) 278px, rgba(255,255,255,.82) 320px, rgba(255,255,255,.5) 372px, rgba(255,255,255,.2) 412px, rgba(255,255,255,0) 448px)'
+          // Desktop: the solid white plateau is cut from 52% to 34% of the width so the photo
+          // is no longer buried under it; the copy column below is narrowed to match, so the
+          // text still lands on ≥.94 white. The tail ends at 76%, leaving the right quarter
+          // of the frame as clean photo.
+          : 'linear-gradient(100deg, #FFFFFF 0%, #FFFFFF 34%, rgba(255,255,255,.98) 40%, rgba(255,255,255,.9) 47%, rgba(255,255,255,.68) 56%, rgba(255,255,255,.34) 66%, rgba(255,255,255,0) 76%)',
       }} />
 
       <div style={{
         position: 'relative', zIndex: 2,
-        padding: mob ? '24px 20px 26px' : '36px 38px',
-        display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 11,
-        maxWidth: mob ? '100%' : 850, width: '100%',
+        // Mobile top padding is minimal: every pixel taken off the top is a pixel of photo.
+        padding: mob ? '14px 20px 18px' : '30px 34px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: mob ? 9 : 10,
+        // The copy column has to end inside the white plateau, which is now 34% wide.
+        maxWidth: mob ? '100%' : 520, width: '100%',
       }}>
         <span style={{
           alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7,
@@ -136,8 +157,13 @@ export function HeroBanner() {
         }}>
           <Ico n="critical" size={12} color={s.tint} />{tr.banner.label}
         </span>
-        <h2 style={{ fontSize: mob ? 24 : 30, fontWeight: 700, letterSpacing: '-.025em', lineHeight: 1.12, margin: 0, color: C.navy }}>{s.title}</h2>
-        <p style={{ fontSize: 14.5, color: C.text, margin: 0, maxWidth: '70ch' }}>{s.body}</p>
+        <h2 style={{ fontSize: mob ? 23 : 26, fontWeight: 700, letterSpacing: '-.025em', lineHeight: 1.12, margin: 0, color: C.navy }}>{s.title}</h2>
+        <p style={{
+          fontSize: 14.5, color: C.text, margin: 0, maxWidth: mob ? '100%' : '44ch',
+          // Bounded to 4 lines on mobile: the white plateau is sized in px to the text, so an
+          // over-long slide body must not be able to push copy out onto the photo.
+          ...(mob ? { display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' } : {}),
+        }}>{s.body}</p>
         <button onClick={s.onClick} className="hv-emergency" style={{
           alignSelf: 'flex-start', marginTop: 4, background: G.emergencyBtn, border: '1px solid #BE2A31',
           color: '#fff', borderRadius: 10, padding: '0 18px', height: 46, fontSize: 14, fontWeight: 600, cursor: 'pointer',

@@ -22,6 +22,11 @@ export interface Disaster {
   updatedLabel: string;  // display string, e.g. "4 dakika önce"
   volunteers: number;    // registered on site
   onShift: number;       // on shift now
+  // Who opened the operation. An organization id when a listed institution started it,
+  // null when AfetHUB's own coordinators did. Never free text: an unverifiable
+  // "started by X" line on a public page would be a claim of affiliation
+  // (rules/03 §Legal and Safety Disclaimer).
+  openedByOrgId: string | null;
   // True while the record is sample content. The UI must label it visibly so it is
   // never mistaken for verified live disaster data (rules/07, rules/08).
   demo?: boolean;
@@ -163,6 +168,16 @@ export interface BannerSlide {
 export interface BannerSlideInput {
   title: string; body: string; ctaLabel: string; action: SlideAction;
   image: string; tint: string; active: boolean; sortOrder: number;
+}
+
+// What a coordinator may set on an operation. Slug is derived, not typed: it carries
+// the date so a place that burns twice never collides, and a hand-typed slug would
+// break existing links.
+export interface DisasterInput {
+  name: string; type: DisasterType; province: string; district: string;
+  status: Disaster['status']; situation: string;
+  volunteers: number; onShift: number;
+  openedByOrgId: string | null;
 }
 
 export interface NeedDraft {

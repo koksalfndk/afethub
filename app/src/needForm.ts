@@ -19,6 +19,15 @@ export const CATEGORIES: Category[] = [
   { key: 'Evcil Hayvanlar', label: 'Evcil Hayvanlar', icon: 'catPets', special: true },
 ];
 
+/**
+ * Icon for a need's category. Needs carry the category as its Turkish display string,
+ * so the lookup is by that string; a category we no longer know (seed or legacy data)
+ * gets the neutral package icon rather than nothing, so card titles stay aligned.
+ */
+export function categoryIcon(cat: string): IcoName {
+  return CATEGORIES.find((c) => c.key === cat)?.icon ?? 'need';
+}
+
 export const PRIORITIES: PriorityKey[] = ['Critical', 'Urgent', 'Normal'];
 export const PASSENGER_VEHICLES = ['Otobüs', 'Minibüs', 'Ambulans', 'Otomobil', 'Diğer'];
 export const CARGO_VEHICLES = ['Kamyon', 'Kamyonet', 'Van', 'Pikap', 'Diğer'];

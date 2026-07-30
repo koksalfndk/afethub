@@ -41,6 +41,7 @@ export const disasters: Disaster[] = [
     updatedLabel: '4 dakika önce',
     volunteers: 168,
     onShift: 24,
+    openedByOrgId: null,
     demo: true,
   },
   {
@@ -58,6 +59,7 @@ export const disasters: Disaster[] = [
     updatedLabel: '11 dakika önce',
     volunteers: 96,
     onShift: 18,
+    openedByOrgId: null,
     demo: true,
   },
   {
@@ -75,6 +77,7 @@ export const disasters: Disaster[] = [
     updatedLabel: '26 dakika önce',
     volunteers: 74,
     onShift: 12,
+    openedByOrgId: null,
     demo: true,
   },
   {
@@ -92,6 +95,7 @@ export const disasters: Disaster[] = [
     updatedLabel: '3 dakika önce',
     volunteers: 52,
     onShift: 16,
+    openedByOrgId: null,
     demo: true,
   },
   {
@@ -109,6 +113,7 @@ export const disasters: Disaster[] = [
     updatedLabel: '48 dakika önce',
     volunteers: 143,
     onShift: 21,
+    openedByOrgId: null,
     demo: true,
   },
   {
@@ -126,6 +131,7 @@ export const disasters: Disaster[] = [
     updatedLabel: '2 gün önce',
     volunteers: 88,
     onShift: 0,
+    openedByOrgId: null,
     demo: true,
   },
 ];
