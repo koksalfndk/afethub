@@ -268,6 +268,20 @@ export const tr = {
     cardPending: 'Bekleyen teslim',
     cardPoints: 'Teslim noktası',
     cardVolunteers: 'Gönüllü',
+    // Komuta şeridi yerleşimi: operasyonlar kart yerine tablo satırı.
+    opsTitle: 'Aktif operasyonlar',
+    thOperation: 'Operasyon',
+    thPriority: 'Öncelik',
+    thRemaining: 'Kalan ihtiyaç',
+    thVerified: 'Doğrulanan',
+    thPending: 'Bekleyen',
+    thAction: '',
+    needsWord: 'ihtiyaç',
+    needsClosed: (done: number, total: number) => `${done} / ${total} ihtiyaç karşılandı`,
+    openShort: 'Aç',
+    feedToggle: (n: number) => `Canlı hareket akışı · son ${n} kayıt`,
+    feedOpen: 'Aç',
+    feedClose: 'Kapat',
   },
 
   // Citizen disaster report (FAB → "Afet Bildir")
@@ -328,6 +342,7 @@ export const tr = {
     confirm: 'Ben de bildiriyorum',
     empty: 'Bekleyen bildirim yok.',
     all: 'Afet Bildir',
+    reportedWord: 'kişi bildirdi',
   },
 
   orgs: {
