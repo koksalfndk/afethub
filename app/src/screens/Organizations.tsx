@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useApp } from '../store';
 import { useAuth } from '../auth';
 import { PROVINCES, districtsOf } from '../data/trLocations';
@@ -6,7 +6,8 @@ import { tr, orgStatusLabel, ORG_KINDS, ORG_SCOPES } from '../i18n/strings';
 import { C, G } from '../theme';
 import { cols } from '../select';
 import { Chip, Field, Ico, filterSelectStyle, inputStyle, labelText, eyebrow, type IcoName } from '../ui';
-import type { OrgKind, OrgScope, Organization } from '../types';
+import type { OrgKind, OrgScope, Organization, OrgEditable } from '../types';
+import { changedOrgFields } from '../data/repo';
 
 const emptyDraft = {
   name: '', kind: 'Dernek' as OrgKind, scope: 'İl' as OrgScope, province: '', district: '',
@@ -25,6 +26,32 @@ const SERVICE_TAGS = [
 ];
 
 const normName = (v: string) => v.trim().toLocaleLowerCase('tr').replace(/\s+/g, ' ');
+
+// Marks a field whose value the contributor has actually altered. Status is carried
+// by the word "değişti" as well as the colour (rules/04 §Accessibility).
+function ChangedTag() {
+  return (
+    <span style={{
+      fontSize: 10.5, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase',
+      color: C.successText, background: '#EAF7EF', border: '1px solid #C9E9D6',
+      borderRadius: 5, padding: '2px 6px', whiteSpace: 'nowrap',
+    }}>{tr.orgs.fixChanged}</span>
+  );
+}
+
+// Field wrapper that shows the "değişti" marker next to its label.
+function FixField({ label, changed, full, children }: {
+  label: string; changed: boolean; full?: boolean; children: ReactNode;
+}) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6, gridColumn: full ? '1 / -1' : undefined }}>
+      <span style={{ ...labelText, display: 'flex', alignItems: 'center', gap: 7 }}>
+        {label}{changed && <ChangedTag />}
+      </span>
+      {children}
+    </label>
+  );
+}
 
 function StatusBadge({ o }: { o: Organization }) {
   const pending = o.status === 'Pending verification';
@@ -80,9 +107,27 @@ export function Organizations() {
   const [service, setService] = useState('');
   const [onlyVerified, setOnlyVerified] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  // Correction request state. `fixDraft` starts as a copy of the published record so
+  // the contributor edits real values instead of describing them in prose.
   const [fixOrg, setFixOrg] = useState<Organization | null>(null);
+  const [fixDraft, setFixDraft] = useState<OrgEditable | null>(null);
   const [fixNote, setFixNote] = useState('');
   const [fixSent, setFixSent] = useState(false);
+  const [fixBusy, setFixBusy] = useState(false);
+
+  const openFix = (o: Organization) => {
+    setFixOrg(o);
+    setFixDraft({
+      name: o.name, kind: o.kind, scope: o.scope, province: o.province, district: o.district,
+      services: [...o.services], description: o.description, website: o.website,
+      email: o.email, phone: o.phone, emergencyPhone: o.emergencyPhone, address: o.address,
+    });
+    setFixNote(''); setFixSent(false); setErr('');
+  };
+  const closeFix = () => { setFixOrg(null); setFixDraft(null); setFixNote(''); setFixSent(false); setErr(''); };
+  const setFix = <K extends keyof OrgEditable>(k: K, v: OrgEditable[K]) =>
+    setFixDraft((d) => (d ? { ...d, [k]: v } : d));
+  const fixChanged = fixOrg && fixDraft ? changedOrgFields(fixOrg, fixDraft) : [];
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState(emptyDraft);
   const [err, setErr] = useState('');
@@ -332,48 +377,205 @@ export function Organizations() {
         </div>
       )}
 
-      {/* Correction request: goes to the coordinator as a note; nobody edits a
-          verified record straight from the public page. */}
-      {fixOrg && (
+      {/* Correction request. The form is pre-filled with the published values and the
+          note explains the change; submitting stores a PROPOSAL. The record itself is
+          untouched until a coordinator applies it — otherwise "Doğrulandı" would mean
+          nothing (rules/02: a request is never automatically a record). */}
+      {fixOrg && fixDraft && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 72, display: 'flex', alignItems: mob ? 'flex-end' : 'center', justifyContent: 'center', padding: mob ? 0 : 20 }}>
-          <div onClick={() => { setFixOrg(null); setFixSent(false); setFixNote(''); }} style={{ position: 'absolute', inset: 0, background: 'rgba(11,30,48,.46)' }} />
+          <div onClick={closeFix} style={{ position: 'absolute', inset: 0, background: 'rgba(11,30,48,.46)' }} />
           <div className="anim-in" role="dialog" aria-modal="true" aria-label={tr.orgs.fixTitle} style={{
-            position: 'relative', width: '100%', maxWidth: 520, background: C.surface,
+            position: 'relative', width: '100%', maxWidth: 640, background: C.surface,
             border: `1px solid ${C.border}`, borderRadius: mob ? '16px 16px 0 0' : 14,
-            boxShadow: '0 26px 60px rgba(16,42,67,.28)', padding: 18,
+            boxShadow: '0 26px 60px rgba(16,42,67,.28)',
+            maxHeight: mob ? '92vh' : '88vh', display: 'flex', flexDirection: 'column',
           }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-              <div>
-                <div style={{ fontSize: 16.5, fontWeight: 700, color: C.navy }}>{tr.orgs.fixTitle}</div>
-                <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>{fixOrg.name}</div>
+            <div style={{ padding: '16px 18px 12px', borderBottom: `1px solid ${C.borderFaint}` }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 16.5, fontWeight: 700, color: C.navy }}>{tr.orgs.fixTitle}</div>
+                  <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>{fixOrg.name}</div>
+                </div>
+                <button onClick={closeFix} aria-label={tr.orgs.cancel} style={{
+                  width: 34, height: 34, borderRadius: 10, border: `1px solid ${C.borderSoft}`, background: C.surface,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: '0 0 34px',
+                }}><Ico n="close" size={16} /></button>
               </div>
-              <button onClick={() => { setFixOrg(null); setFixSent(false); setFixNote(''); }} aria-label={tr.orgs.cancel} style={{
-                width: 34, height: 34, borderRadius: 10, border: `1px solid ${C.borderSoft}`, background: C.surface,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: '0 0 34px',
-              }}><Ico n="close" size={16} /></button>
             </div>
+
             {fixSent ? (
-              <div style={{ marginTop: 14, background: '#EAF7EF', border: '1px solid #C9E9D6', borderRadius: 11, padding: 14 }}>
-                <div style={{ fontSize: 14.5, fontWeight: 700, color: C.successText }}>{tr.orgs.fixDoneTitle}</div>
-                <div style={{ fontSize: 13, color: C.heading2, marginTop: 3 }}>{tr.orgs.fixDoneBody}</div>
+              <div style={{ padding: 18 }}>
+                <div style={{ background: '#EAF7EF', border: '1px solid #C9E9D6', borderRadius: 11, padding: 14 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 700, color: C.successText }}>{tr.orgs.fixDoneTitle}</div>
+                  <div style={{ fontSize: 13, color: C.heading2, marginTop: 3 }}>{tr.orgs.fixDoneBody}</div>
+                </div>
               </div>
             ) : (
               <>
-                <p style={{ fontSize: 13, color: C.muted, margin: '10px 0 12px' }}>{tr.orgs.fixIntro}</p>
-                <Field label={tr.orgs.fixNote} full>
-                  <textarea name="fix-note" autoComplete="off" value={fixNote} onChange={(e) => setFixNote(e.target.value)} rows={4} autoFocus
-                    placeholder={tr.orgs.fixNotePh} style={{ ...inputStyle, minHeight: 100 }} />
-                </Field>
-                {err && <div style={{ marginTop: 10, background: C.errorSurface, border: `1px solid ${C.errorBorder}`, color: C.errorText, borderRadius: 9, padding: '10px 12px', fontSize: 13.5 }}>{err}</div>}
-                <button onClick={() => {
-                  if (fixNote.trim().length < 10) return setErr(tr.orgs.fixErrNote);
-                  setErr('');
-                  a.showToast(tr.orgs.fixSentToast);
-                  setFixSent(true);
-                }} className="hv-emergency" style={{
-                  marginTop: 14, width: '100%', background: G.emergencyBtn, border: '1px solid #BE2A31',
-                  color: '#fff', borderRadius: 10, height: 48, fontSize: 14.5, fontWeight: 600, cursor: 'pointer',
-                }}>{tr.orgs.fixSubmit}</button>
+                <div style={{ padding: 18, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <p style={{ fontSize: 12.5, color: C.muted, margin: 0 }}>{tr.orgs.fixIntro}</p>
+
+                  <section>
+                    <div style={eyebrow}>{tr.orgs.fixSectionOrg}</div>
+                    <div style={{ display: 'grid', gap: 12, gridTemplateColumns: mob ? '1fr' : 'repeat(2, minmax(0,1fr))', marginTop: 9 }}>
+                      <FixField label={tr.orgs.fName} changed={fixChanged.includes('name')} full>
+                        <input name="fix-organization-name" autoComplete="off" value={fixDraft.name}
+                          onChange={(e) => setFix('name', e.target.value)} style={inputStyle} />
+                      </FixField>
+                      <FixField label={tr.orgs.fKind} changed={fixChanged.includes('kind')}>
+                        <select value={fixDraft.kind} onChange={(e) => setFix('kind', e.target.value as OrgKind)} style={inputStyle}>
+                          {ORG_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
+                        </select>
+                      </FixField>
+                      <FixField label={tr.orgs.fScope} changed={fixChanged.includes('scope')}>
+                        <select value={fixDraft.scope} onChange={(e) => setFix('scope', e.target.value as OrgScope)} style={inputStyle}>
+                          {ORG_SCOPES.map((k) => <option key={k} value={k}>{k}</option>)}
+                        </select>
+                      </FixField>
+                    </div>
+                  </section>
+
+                  <section>
+                    <div style={eyebrow}>{tr.orgs.fixSectionPlace}</div>
+                    <div style={{ display: 'grid', gap: 12, gridTemplateColumns: mob ? '1fr' : 'repeat(2, minmax(0,1fr))', marginTop: 9 }}>
+                      <FixField label={tr.orgs.fProvince} changed={fixChanged.includes('province')}>
+                        <select name="fix-organization-province" autoComplete="off" value={fixDraft.province}
+                          onChange={(e) => { setFix('province', e.target.value); setFix('district', ''); }} style={inputStyle}>
+                          <option value="">{tr.orgs.pickProvince}</option>
+                          {PROVINCES.map((pr) => <option key={pr} value={pr}>{pr}</option>)}
+                        </select>
+                      </FixField>
+                      <FixField label={tr.orgs.fDistrict} changed={fixChanged.includes('district')}>
+                        <select name="fix-organization-district" autoComplete="off" value={fixDraft.district}
+                          onChange={(e) => setFix('district', e.target.value)} disabled={!fixDraft.province}
+                          style={{ ...inputStyle, opacity: fixDraft.province ? 1 : .6 }}>
+                          <option value="">{fixDraft.province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}</option>
+                          {districtsOf(fixDraft.province).map((d) => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                      </FixField>
+                    </div>
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ ...labelText, marginBottom: 7, display: 'flex', alignItems: 'center', gap: 7 }}>
+                        {tr.orgs.fServices}
+                        {fixChanged.includes('services') && <ChangedTag />}
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {SERVICE_TAGS.map((t) => {
+                          const on = fixDraft.services.includes(t);
+                          return (
+                            <button key={t} type="button" aria-pressed={on}
+                              onClick={() => setFix('services', on ? fixDraft.services.filter((x) => x !== t) : [...fixDraft.services, t])}
+                              style={{
+                                background: on ? C.navy : C.surface, border: `1px solid ${on ? C.navy : C.borderSoft}`,
+                                color: on ? '#fff' : C.heading2, borderRadius: 20, padding: '7px 12px',
+                                fontSize: 12.5, fontWeight: 600, cursor: 'pointer', minHeight: 36,
+                              }}>{t}</button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 12 }}>
+                      <FixField label={tr.orgs.fDescription} changed={fixChanged.includes('description')} full>
+                        <textarea name="fix-organization-description" autoComplete="off" value={fixDraft.description}
+                          onChange={(e) => setFix('description', e.target.value)} rows={3} style={{ ...inputStyle, minHeight: 84 }} />
+                      </FixField>
+                    </div>
+                  </section>
+
+                  <section>
+                    <div style={eyebrow}>{tr.orgs.fixSectionContact}</div>
+                    <div style={{ display: 'grid', gap: 12, gridTemplateColumns: mob ? '1fr' : 'repeat(2, minmax(0,1fr))', marginTop: 9 }}>
+                      <FixField label={tr.orgs.fWebsite} changed={fixChanged.includes('website')} full>
+                        <input name="fix-organization-website" autoComplete="off" value={fixDraft.website}
+                          onChange={(e) => setFix('website', e.target.value)} placeholder="https://" style={inputStyle} />
+                      </FixField>
+                      <FixField label={tr.orgs.fEmail} changed={fixChanged.includes('email')}>
+                        <input type="email" name="fix-organization-email" autoComplete="off" value={fixDraft.email}
+                          onChange={(e) => setFix('email', e.target.value)} style={inputStyle} />
+                      </FixField>
+                      <FixField label={tr.orgs.fPhone} changed={fixChanged.includes('phone')}>
+                        <input name="fix-organization-phone" autoComplete="off" value={fixDraft.phone}
+                          onChange={(e) => setFix('phone', e.target.value)} style={inputStyle} />
+                      </FixField>
+                      <FixField label={tr.orgs.fEmergency} changed={fixChanged.includes('emergencyPhone')}>
+                        <input name="fix-organization-emergency" autoComplete="off" value={fixDraft.emergencyPhone}
+                          onChange={(e) => setFix('emergencyPhone', e.target.value)} style={inputStyle} />
+                      </FixField>
+                      <FixField label={tr.orgs.fAddress} changed={fixChanged.includes('address')} full>
+                        <input name="fix-organization-address" autoComplete="off" value={fixDraft.address}
+                          onChange={(e) => setFix('address', e.target.value)} style={inputStyle} />
+                      </FixField>
+                    </div>
+                  </section>
+
+                  {/* The note closes the form: what was changed and why. Required, because
+                      a bare diff does not tell a coordinator whether to trust it. */}
+                  <section style={{ borderTop: `1px solid ${C.borderFaint}`, paddingTop: 14 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: fixChanged.length ? C.successText : C.muted, marginBottom: 8 }}>
+                      {fixChanged.length ? tr.orgs.fixChangedCount(fixChanged.length) : tr.orgs.fixChangedNone}
+                    </div>
+                    <Field label={tr.orgs.fixNote} full>
+                      <textarea name="fix-note" autoComplete="off" value={fixNote} onChange={(e) => setFixNote(e.target.value)}
+                        rows={3} placeholder={tr.orgs.fixNotePh} style={{ ...inputStyle, minHeight: 88 }} />
+                    </Field>
+
+                    {!loggedIn && (
+                      <>
+                        <div style={{ ...eyebrow, marginTop: 14 }}>{tr.orgs.submitterSection}</div>
+                        <div style={{ fontSize: 12, color: C.muted2, marginTop: 4 }}>{tr.orgs.submitterHint}</div>
+                        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: mob ? '1fr' : 'repeat(2, minmax(0,1fr))', marginTop: 9 }}>
+                          <Field label={tr.orgs.fYourName} full>
+                            <input name="submitter-name" autoComplete="name" value={draft.yourName}
+                              onChange={(e) => set('yourName', e.target.value)} style={inputStyle} />
+                          </Field>
+                          <Field label={tr.orgs.fYourEmail}>
+                            <input type="email" name="submitter-email" autoComplete="email" value={draft.yourEmail}
+                              onChange={(e) => set('yourEmail', e.target.value)} style={inputStyle} />
+                          </Field>
+                          <Field label={tr.orgs.fYourPhone}>
+                            <input name="submitter-phone" autoComplete="tel" value={draft.yourPhone}
+                              onChange={(e) => set('yourPhone', e.target.value)} style={inputStyle} />
+                          </Field>
+                        </div>
+                      </>
+                    )}
+                  </section>
+
+                  {err && (
+                    <div role="alert" style={{ background: C.errorSurface, border: `1px solid ${C.errorBorder}`, color: C.errorText, borderRadius: 9, padding: '10px 12px', fontSize: 13.5 }}>{err}</div>
+                  )}
+                </div>
+
+                <div style={{ padding: '0 18px 18px', display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+                  <button disabled={fixBusy} onClick={() => {
+                    if (!fixDraft.name.trim()) return setErr(tr.orgs.fixErrName);
+                    if (fixChanged.length === 0) return setErr(tr.orgs.fixErrNoChange);
+                    if (fixNote.trim().length < 10) return setErr(tr.orgs.fixErrNote);
+                    setErr(''); setFixBusy(true);
+                    void a.submitOrgEditRequest({
+                      orgId: fixOrg.id,
+                      proposed: fixDraft,
+                      changedFields: fixChanged,
+                      note: fixNote,
+                      submittedByName: loggedIn ? (auth.profile?.fullName ?? '') : draft.yourName,
+                      submittedByEmail: loggedIn ? (auth.user?.email ?? '') : draft.yourEmail,
+                      submittedByPhone: loggedIn ? '' : draft.yourPhone,
+                    }).then((ok) => {
+                      setFixBusy(false);
+                      if (!ok) { setErr(tr.orgs.fixFailed); return; }
+                      a.showToast(tr.orgs.fixSentToast);
+                      setFixSent(true);
+                    });
+                  }} className="hv-emergency" style={{
+                    flex: 1, minWidth: 170, background: G.emergencyBtn, border: '1px solid #BE2A31',
+                    color: '#fff', borderRadius: 10, height: 48, fontSize: 14.5, fontWeight: 600,
+                    cursor: fixBusy ? 'default' : 'pointer', opacity: fixBusy ? .7 : 1,
+                  }}>{fixBusy ? tr.auth.working : tr.orgs.fixSubmit}</button>
+                  <button onClick={closeFix} className="hv-navy" style={{
+                    background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 10,
+                    padding: '0 18px', height: 48, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  }}>{tr.orgs.cancel}</button>
+                </div>
               </>
             )}
           </div>
@@ -471,7 +673,7 @@ export function Organizations() {
                   {/* A verified record is the one people rely on, so it needs a route for
                       "this is wrong" that does not let anyone edit it in place. */}
                   {!pending && (
-                    <button onClick={() => setFixOrg(o)} className="hv-navy" style={{
+                    <button onClick={() => openFix(o)} className="hv-navy" style={{
                       background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.heading2,
                       borderRadius: 8, padding: '7px 11px', fontSize: 12, fontWeight: 600,
                       cursor: 'pointer', minHeight: 38, whiteSpace: 'nowrap',

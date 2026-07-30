@@ -1,6 +1,6 @@
 import type {
   LogEntry, Need, Submission, VerifyKind, DeliveryInput, Organization, OrganizationInput,
-  DisasterReport, DisasterReportInput, BannerSlide, BannerSlideInput,
+  DisasterReport, DisasterReportInput, BannerSlide, BannerSlideInput, OrgEditRequestInput,
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
 import { genCode, genNrq, remaining, isSameEvent, isLocalSlideImage } from './repo';
@@ -156,6 +156,21 @@ export class LocalRepo implements Repo {
   async deleteSlide(id: string): Promise<BannerSlide[]> {
     slides = slides.filter((sl) => sl.id !== id);
     return this.listSlides();
+  }
+
+  // A correction request never mutates the record it targets — that is the whole
+  // point of a verified badge. Here it only lands in the audit trail; the Supabase
+  // implementation stores the proposal for the coordinator queue.
+  async submitOrgEditRequest(input: OrgEditRequestInput): Promise<void> {
+    const target = orgs.find((o) => o.id === input.orgId);
+    addLog(activeDisasterId(), {
+      user: input.submittedByName || 'Misafir',
+      action: 'Kurum düzeltme talebi',
+      detail: `${target?.name ?? input.orgId} · ${input.changedFields.length} alan`,
+      oldValue: 'Yayındaki kayıt',
+      newValue: 'Koordinatör incelemesi bekliyor',
+      color: '#E6A700',
+    });
   }
 
   // Directory entries are public as soon as they are submitted; the pending ones

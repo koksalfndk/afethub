@@ -210,6 +210,27 @@ export interface OrganizationInput {
   submittedByName: string; submittedByEmail: string; submittedByPhone: string;
 }
 
+// The editable shape of an organization record. Status, isOfficial, logo and
+// verification are absent on purpose: those are coordinator decisions, never part of
+// what a visitor may propose.
+export interface OrgEditable {
+  name: string; kind: OrgKind; scope: OrgScope; province: string; district: string;
+  services: string[]; description: string; website: string; email: string;
+  phone: string; emergencyPhone: string; address: string;
+}
+
+// A correction request against an already-published record. It is a PROPOSAL: the
+// record it targets is not touched until a coordinator applies it. Keeping the
+// proposal separate is what makes "doğrulanmış" mean anything (rules/02 §Need
+// Requests applies the same shape — a request is never automatically a record).
+export interface OrgEditRequestInput {
+  orgId: string;
+  proposed: OrgEditable;
+  changedFields: string[];   // which keys differ from the current record
+  note: string;              // why — required
+  submittedByName: string; submittedByEmail: string; submittedByPhone: string;
+}
+
 // ---------------------------------------------------------------------------
 // Citizen disaster reports
 //

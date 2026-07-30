@@ -4,6 +4,7 @@ import type {
   VerifyKind, DeliveryInput, PriorityKey, StatusKey, DisasterType,
   Organization, OrganizationInput, OrgStatus, OrgKind, OrgScope,
   DisasterReport, DisasterReportInput, ReportStatus, BannerSlide, BannerSlideInput, SlideAction,
+  OrgEditRequestInput,
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
 import type { NeedPayload } from '../needForm';
@@ -263,6 +264,22 @@ export class SupabaseRepo implements Repo {
       emergencyPhone: input.emergencyPhone.trim(), address: input.address.trim(),
       status: 'Pending verification', isOfficial: false, logo: '', verifiedAt: null, createdLabel: 'az önce',
     };
+  }
+
+  // Insert-only for the public: RLS lets anyone file a correction request (no account
+  // required, CLAUDE.md §Primary Product Rule) but only a coordinator can read them —
+  // the row carries the requester's contact details.
+  async submitOrgEditRequest(input: OrgEditRequestInput): Promise<void> {
+    const { error } = await this.db.from('organization_edit_requests').insert({
+      organization_id: input.orgId,
+      proposed: input.proposed,
+      changed_fields: input.changedFields,
+      note: input.note.trim(),
+      submitted_by_name: input.submittedByName.trim(),
+      submitted_by_email: input.submittedByEmail.trim(),
+      submitted_by_phone: input.submittedByPhone.trim(),
+    });
+    if (error) throw error;
   }
 
   private mapReport = (r: Record<string, unknown>): DisasterReport => ({

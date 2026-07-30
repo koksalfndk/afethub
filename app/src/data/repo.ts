@@ -2,6 +2,7 @@ import type {
   Disaster, Location, Need, Submission, LogEntry, Announcement,
   VerifyKind, DeliveryInput, PriorityKey, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, BannerSlide, BannerSlideInput, SlideAction,
+  OrgEditRequestInput, OrgEditable,
 } from '../types';
 import type { NeedPayload } from '../needForm';
 
@@ -70,6 +71,7 @@ export interface Repo {
   deleteSlide(id: string): Promise<BannerSlide[]>;
   listOrganizations(): Promise<Organization[]>;
   submitOrganization(input: OrganizationInput): Promise<Organization>;
+  submitOrgEditRequest(input: OrgEditRequestInput): Promise<void>;
   // Citizen disaster reports. `findSimilarReports` is a *suggestion* pass so the
   // reporter can confirm an existing report instead of creating a duplicate; the
   // merge rule itself is enforced when the report is written.
@@ -101,6 +103,21 @@ export const genNrq = (r: number): string => 'NRQ-' + (120 + Math.floor(r * 80))
 export const SLIDE_ACTIONS: SlideAction[] = ['reportDisaster', 'howItWorks', 'orgs', 'home', 'track'];
 // A slide image must be a file we ship. Mirrored by a check constraint in SQL.
 export const isLocalSlideImage = (v: string): boolean => v === '' || /^\/banners\/[A-Za-z0-9._-]+\.(webp|png|svg|jpg)$/.test(v);
+
+// Which editable fields differ between the published record and the proposal.
+// Shared so the UI badge, the validation and the stored `changed_fields` can never
+// disagree about what "changed" means.
+export const ORG_EDITABLE_KEYS = [
+  'name', 'kind', 'scope', 'province', 'district', 'services',
+  'description', 'website', 'email', 'phone', 'emergencyPhone', 'address',
+] as const;
+
+export function changedOrgFields(current: Organization, proposed: OrgEditable): string[] {
+  const norm = (v: unknown): string => (Array.isArray(v)
+    ? v.slice().sort().join('|')
+    : String(v ?? '').trim());
+  return ORG_EDITABLE_KEYS.filter((k) => norm(current[k]) !== norm(proposed[k]));
+}
 
 export const REPORT_DAY_WINDOW = 2;
 

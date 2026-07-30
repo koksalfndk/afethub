@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { repo, fallbackToLocal, type Snapshot, type Overview } from './data';
 import type {
   Submission, VerifyKind, Organization, OrganizationInput, DisasterReport, DisasterReportInput,
-  BannerSlide, BannerSlideInput,
+  BannerSlide, BannerSlideInput, OrgEditRequestInput,
 } from './types';
 import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
@@ -134,6 +134,7 @@ export interface AppApi {
   saveSlide: (id: string | null, input: BannerSlideInput) => Promise<boolean>;
   deleteSlide: (id: string) => Promise<boolean>;
   submitOrganization: (input: OrganizationInput) => Promise<boolean>;
+  submitOrgEditRequest: (input: OrgEditRequestInput) => Promise<boolean>;
   findSimilarReports: (input: DisasterReportInput) => Promise<DisasterReport[]>;
   submitDisasterReport: (input: DisasterReportInput) => Promise<{ report: DisasterReport; merged: boolean } | null>;
   confirmDisasterReport: (reportId: string) => Promise<boolean>;
@@ -429,6 +430,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         showToast(tr.slider.deleted);
         return true;
       } catch { showToast(tr.slider.saveFailed); return false; }
+    },
+
+    submitOrgEditRequest: async (input) => {
+      try { await withTimeout(repo.submitOrgEditRequest(input)); return true; }
+      catch { return false; }
     },
 
     submitOrganization: async (input) => {
