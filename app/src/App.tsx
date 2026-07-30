@@ -60,12 +60,19 @@ export function App() {
           // that is what broke the bottom nav and the disaster rail.
           overflow: frame ? 'hidden' : 'visible',
           boxShadow: frame ? '0 18px 44px rgba(16,42,67,.14)' : 'none',
-          minHeight: 720, position: 'relative',
+          // Column flex + full viewport height so the footer sits on the bottom edge on a
+          // short page (tracking, account) instead of floating mid-screen with blank
+          // canvas under it. The content row below takes the slack.
+          display: 'flex', flexDirection: 'column',
+          minHeight: frame ? 720 : '100vh', position: 'relative',
         }}>
           <Header />
           <LiveTicker />
           <AccountBanner />
-          <div style={{ display: 'flex', alignItems: 'stretch' }}>
+          {/* flex: 1 — this row absorbs the leftover height, which is what pushes the
+              footer down. alignItems: stretch keeps the coordinator sidebar and the
+              disaster rail running the full height of the row. */}
+          <div style={{ display: 'flex', alignItems: 'stretch', flex: 1, minHeight: 0 }}>
             {coord && !mob && <Sidebar />}
             {/* The mobile bottom bar is fixed, so reserve its height here. */}
             <main style={{
