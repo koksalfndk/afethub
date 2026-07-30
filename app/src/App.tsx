@@ -24,6 +24,7 @@ import { HowItWorks } from './screens/HowItWorks';
 import { Account } from './screens/Account';
 import { CoordSlider } from './screens/CoordSlider';
 import { CoordDisasters } from './screens/CoordDisasters';
+import { CoordOrgEdits } from './screens/CoordOrgEdits';
 import { LiveTicker } from './components/LiveTicker';
 import { DisasterReportModal } from './components/DisasterReportModal';
 import { Footer } from './components/Footer';
@@ -42,7 +43,7 @@ export function App() {
 
   const screens: Record<string, () => ReactElement | null> = {
     home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About, howItWorks: HowItWorks, account: Account,
-    coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider, coordDisasters: CoordDisasters,
+    coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider, coordDisasters: CoordDisasters, coordOrgEdits: CoordOrgEdits,
     components: Components, system: System,
   };
   const isReport = a.route === 'report';
@@ -56,10 +57,12 @@ export function App() {
         <div style={{
           width: '100%', maxWidth: frame ? 412 : 'none', background: C.canvas,
           border: frame ? `1px solid ${C.borderSoft}` : '0', borderRadius: frame ? 20 : 0,
-          // Clipping is only needed to round off the phone mock-up. Keeping it on the
-          // real shell silently disabled `position: sticky` for every descendant —
-          // that is what broke the bottom nav and the disaster rail.
-          overflow: frame ? 'hidden' : 'visible',
+          // Clipping is only needed to round off the phone mock-up. `hidden` there made
+          // the wrapper a scroll container, which silently disabled `position: sticky`
+          // for every descendant — that is what broke the bottom nav and the disaster
+          // rail, and it would break the sticky mobile header inside the preview frame.
+          // `clip` rounds the corners without creating a scroll container.
+          overflow: frame ? 'clip' : 'visible',
           boxShadow: frame ? '0 18px 44px rgba(16,42,67,.14)' : 'none',
           // Column flex + full viewport height so the footer sits on the bottom edge on a
           // short page (tracking, account) instead of floating mid-screen with blank

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useApp } from '../store';
 import { useAuth } from '../auth';
 import { tr, disasterTypeLabel } from '../i18n/strings';
@@ -6,6 +7,7 @@ import { enrichSorted, cols } from '../select';
 import { PriorityBadge, ProgressBar, Chip, StatCard, LiveDot, Ico, DISASTER_ICON, eyebrow, filterSelectStyle, washCard, type IcoName } from '../ui';
 import { detailPairs, categoryIcon } from '../needForm';
 import { LocationMap } from '../components/LocationMap';
+import { NeedFilterSheet, activeFilterCount } from '../components/NeedFilterSheet';
 import { isToday, formatDate } from '../util';
 import type { Filter, Tab } from '../store';
 
@@ -32,6 +34,9 @@ const opBtn = (primary: boolean) => (primary
 export function Disaster() {
   const a = useApp();
   const auth = useAuth();
+  // Declared before the snapshot guard: a hook after an early return would change hook
+  // order between the loading and loaded renders.
+  const [filtersOpen, setFiltersOpen] = useState(false);
   if (!a.snap) return null;
   const mob = a.device === 'mobile';
   const L = cols(mob);
@@ -77,6 +82,8 @@ export function Disaster() {
   });
   const categories = Array.from(new Set(needs.map((n) => n.cat))).sort((x, y) => x.localeCompare(y, 'tr'));
   const dropOffs = Array.from(new Set(needs.map((n) => n.loc))).sort((x, y) => x.localeCompare(y, 'tr'));
+  // Count only the controls that live in the sheet, so the badge matches what is inside.
+  const sheetCount = activeFilterCount(a);
   const anyFilter = a.filter !== 'All' || !!q || !!a.catFilter || !!a.locFilter || a.onlyCritical || a.updatedToday;
   const criticalNeeds = needs.filter((n) => n.priority === 'Critical').slice(0, 3);
 
@@ -284,7 +291,11 @@ export function Disaster() {
               </div>
             </div>
 
-            {/* Secondary filters — narrow the list without adding a second toolbar. */}
+            {/* Secondary filters — narrow the list without adding a second toolbar. On a
+                phone they move into a bottom sheet: two wrapping rows of chips and selects
+                pushed the first need card off the screen and said nothing about what any
+                of them was for. */}
+            {!mob && (
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
               <select value={a.catFilter} onChange={(e) => a.setCatFilter(e.target.value)} aria-label={tr.disaster.filtersMore.allCategories} style={filterSelectStyle}>
                 <option value="">{tr.disaster.filtersMore.allCategories}</option>
@@ -303,6 +314,25 @@ export function Disaster() {
                 <button onClick={a.clearFilters} style={{ background: 'none', border: 0, padding: '6px 2px', fontSize: 12.5, fontWeight: 600, color: C.navy, cursor: 'pointer', textDecoration: 'underline' }}>{tr.disaster.filtersMore.clear}</button>
               )}
             </div>
+            )}
+
+            {mob && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button onClick={() => setFiltersOpen(true)} style={{
+                  display: 'flex', alignItems: 'center', gap: 7, flex: '0 0 auto',
+                  background: sheetCount > 0 ? C.navy : C.surface,
+                  border: `1px solid ${sheetCount > 0 ? C.navy : C.borderSoft}`,
+                  color: sheetCount > 0 ? '#fff' : C.navy,
+                  borderRadius: 10, minHeight: 44, padding: '0 14px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+                }}>
+                  <Ico n="filter" size={15} />
+                  {sheetCount > 0 ? tr.disaster.filtersMore.openWith(sheetCount) : tr.disaster.filtersMore.open}
+                </button>
+                <span className="tnum" style={{ fontSize: 12.5, color: C.muted2, fontWeight: 500, marginLeft: 'auto' }}>
+                  {tr.disaster.filtersMore.count(visibleNeeds.length, needs.length)}
+                </span>
+              </div>
+            )}
           </div>
 
           {visibleNeeds.length > 0 ? (
@@ -461,6 +491,13 @@ export function Disaster() {
         </div>
       )}
       </div>
+    {mob && (
+        <NeedFilterSheet
+          open={filtersOpen} onClose={() => setFiltersOpen(false)}
+          categories={categories} dropOffs={dropOffs}
+          shown={visibleNeeds.length} total={needs.length}
+        />
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import {
   Activity, BatteryCharging, Building2, Bus, Check, ChevronDown, ChevronRight, CircleCheck, Clock,
   CloudRain, Flame, House, LogOut, MapPin, Menu, Package, PackageSearch, PawPrint, Plus, Search,
   ShieldCheck, Shirt, Soup, SprayCan, Stethoscope, TriangleAlert, Truck, User, Users, Waves, Wind,
-  Wrench, X, type LucideIcon,
+  SlidersHorizontal, Wrench, X, type LucideIcon,
 } from 'lucide-react';
 import { C, G, PRI, STATUS, barFill, ribbon, wash, type PriorityKey, type StatusKey } from './theme';
 import { priorityLabel, statusLabel } from './i18n/strings';
@@ -18,6 +18,12 @@ export const cardStyle: CSSProperties = {
   background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18,
 };
 export const labelText: CSSProperties = { fontSize: 13, fontWeight: 600, color: C.heading2 };
+// Visually hidden but announced. Used for column names that must stay blank on screen
+// and for status text that colour alone would otherwise carry (rules/04 §Accessibility).
+export const srOnly: CSSProperties = {
+  position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
+  overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
+};
 export const eyebrow: CSSProperties = {
   fontSize: 12, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: C.muted2,
 };
@@ -133,7 +139,7 @@ export function LiveDot({ color = C.emergency, size = 7, still }: { color?: stri
 export type IcoName =
   | 'need' | 'verified' | 'pending' | 'completed' | 'pin' | 'people' | 'critical' | 'activity' | 'search'
   | 'user' | 'menu' | 'close' | 'chev' | 'down' | 'home' | 'track' | 'plus' | 'logout'
-  | 'org' | 'shield'
+  | 'org' | 'shield' | 'filter'
   // Disaster kinds. Mapped here so an operation's icon is decided once and every screen
   // (home cards, coordinator list, detail header) shows the same one.
   | 'dWildfire' | 'dFlood' | 'dEarthquake' | 'dStorm' | 'dEvacuation' | 'dOther'
@@ -172,6 +178,7 @@ const ICO: Record<IcoName, LucideIcon> = {
   catPets: PawPrint,
   org: Building2,
   shield: ShieldCheck,
+  filter: SlidersHorizontal,
   dWildfire: Flame,
   dFlood: Waves,
   dEarthquake: Activity,

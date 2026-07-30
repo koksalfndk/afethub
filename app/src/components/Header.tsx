@@ -4,7 +4,6 @@ import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Ico, IconBtn, LiveDot, type IcoName } from '../ui';
-import { AccountModal } from './AccountModal';
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -23,7 +22,6 @@ export function Header() {
   const loggedIn = auth.enabled && !!auth.user;
   const name = auth.profile?.fullName || '';
 
-  const [accountOpen, setAccountOpen] = useState(false);
   const [profOpen, setProfOpen] = useState(false);   // desktop profile dropdown
   const [drawerOpen, setDrawerOpen] = useState(false); // mobile hamburger drawer
   const profRef = useRef<HTMLDivElement | null>(null);
@@ -148,6 +146,35 @@ export function Header() {
     </div>
   );
 
+  // Mobile version of the same menu, anchored under the avatar. It carries the ACCOUNT
+  // actions only: "Takip" and "Afet Bildir" are already in the hamburger drawer, and
+  // repeating them here would give a phone user two lists that overlap by half.
+  const mobileProfileMenu = (
+    <div style={{
+      position: 'absolute', right: 12, top: 'calc(100% - 4px)', width: 232, background: C.surface,
+      border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: '0 18px 44px rgba(16,42,67,.18)',
+      padding: 7, zIndex: 40, textAlign: 'left',
+    }}>
+      <div style={{ padding: '9px 10px 11px', borderBottom: `1px solid ${C.borderFaint}`, marginBottom: 6 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700 }}>{loggedIn ? name || tr.header.account : tr.header.profileMenu}</div>
+        <div style={{ fontSize: 12, color: C.muted, wordBreak: 'break-all' }}>
+          {loggedIn ? (auth.user?.email ?? '') : tr.header.guest}
+        </div>
+      </div>
+      {loggedIn
+        ? [
+            menuRow('user', tr.header.account, () => a.go('account')),
+            menuRow('logout', tr.header.signOut, () => { void auth.signOut(); }),
+          ]
+        : auth.enabled
+          ? [
+              menuRow('user', tr.header.login, () => auth.openModal('signIn')),
+              menuRow('plus', tr.header.register, () => auth.openModal('signUp')),
+            ]
+          : menuRow('track', tr.header.track, () => a.go('track'))}
+    </div>
+  );
+
   // Opens over the page (fixed + backdrop) so the layout never shifts down.
   const drawer = (
     <>
@@ -188,9 +215,17 @@ export function Header() {
   );
 
   return (
-    <header style={{ background: G.headerBar, borderBottom: `1px solid ${C.border}`, position: 'relative', zIndex: 30 }}>
+    // Sticky on mobile: a phone user scrolling a long needs list should not have to
+    // scroll back up to reach search, the menu or their account. Desktop keeps the
+    // header in flow — there the sidebar is the persistent frame.
+    // NOTE: this only works because the shell no longer sets `overflow: hidden`
+    // (see App.tsx) — an overflow ancestor silently disables sticky.
+    <header style={{
+      background: G.headerBar, borderBottom: `1px solid ${C.border}`,
+      position: mob ? 'sticky' : 'relative', top: mob ? 0 : undefined, zIndex: 30,
+    }}>
       {mob ? (
-        <div style={{ display: 'grid', gridTemplateColumns: '42px 1fr 42px', alignItems: 'center', gap: 8, padding: '9px 12px' }}>
+        <div ref={profRef} style={{ display: 'grid', gridTemplateColumns: '42px 1fr 42px', alignItems: 'center', gap: 8, padding: '9px 12px' }}>
           <IconBtn
             icon={drawerOpen ? 'close' : 'menu'}
             label={drawerOpen ? tr.header.closeMenu : tr.header.openMenu}
@@ -199,11 +234,16 @@ export function Header() {
           <button onClick={goAnd(() => a.go(coord ? 'coordHome' : 'home'))} style={{ display: 'flex', justifyContent: 'center', background: 'none', border: 0, padding: 0, cursor: 'pointer' }}>
             <img src="/logo_horizontal.webp" alt={tr.brand} style={{ height: 36, width: 'auto', display: 'block' }} />
           </button>
-          <button onClick={() => (loggedIn ? setAccountOpen(true) : auth.enabled ? auth.openModal('signIn') : a.go('track'))}
-            aria-label={tr.header.profileMenu} className="hv-navy" style={{
+          {/* The profile button opens a menu, not the account modal directly: "Hesabım"
+              and "Çıkış Yap" are two different intentions and the modal only served one
+              of them, leaving sign-out reachable on desktop only. */}
+          <button onClick={() => setProfOpen((v) => !v)}
+            aria-label={tr.header.profileMenu} aria-expanded={profOpen} className="hv-navy" style={{
               width: 42, height: 42, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, cursor: 'pointer',
+              background: profOpen ? C.chipNavyBg : C.surface, border: `1px solid ${C.borderSoft}`,
+              color: C.navy, cursor: 'pointer',
             }}>{avatarInner}</button>
+          {profOpen && mobileProfileMenu}
         </div>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 22px', minHeight: 62 }} ref={profRef}>
@@ -242,7 +282,6 @@ export function Header() {
       )}
 
       {mob && drawerOpen && drawer}
-      <AccountModal open={accountOpen} onClose={() => setAccountOpen(false)} />
     </header>
   );
 }

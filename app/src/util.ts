@@ -120,3 +120,26 @@ export function splitPhone(value: string): { dial: string; rest: string } {
 
 export const joinPhone = (dial: string, rest: string): string =>
   (rest.trim() ? `${dial} ${rest.trim()}` : '');
+
+// ---------------------------------------------------------------------------
+// Contact masking
+// ---------------------------------------------------------------------------
+// Coordinator list views show a contact only well enough to recognise a repeat
+// requester, never in full. Full details are revealed on a per-record basis by
+// someone with an operational need (rules/03 §Contact Information).
+export function maskEmail(email: string): string {
+  const v = email.trim();
+  const at = v.indexOf('@');
+  if (at < 1) return v ? '***' : '';
+  const head = v.slice(0, at);
+  const keep = head.slice(0, 1);
+  return `${keep}${'*'.repeat(Math.max(2, head.length - 1))}${v.slice(at)}`;
+}
+
+export function maskPhone(phone: string): string {
+  const digits = phone.replace(/[^\d+]/g, '');
+  if (digits.length < 4) return digits ? '***' : '';
+  // Last four digits only: enough to match against a record already in hand, not
+  // enough to dial from a list.
+  return `${digits.slice(0, Math.min(4, digits.length - 4)).replace(/\d/g, '*')}*** ${digits.slice(-4)}`;
+}

@@ -1,10 +1,10 @@
 import type {
   LogEntry, Need, Submission, VerifyKind, DeliveryInput, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, BannerSlide, BannerSlideInput, OrgEditRequestInput,
-  Disaster, DisasterInput,
+  OrgEditRequest, Disaster, DisasterInput,
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
-import { genCode, genNrq, remaining, isSameEvent, isLocalSlideImage, disasterSlug } from './repo';
+import { genCode, genNrq, remaining, isSameEvent, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS } from './repo';
 import { agoMinutes } from '../util';
 import { PRI } from '../theme';
 import type { NeedPayload } from '../needForm';
@@ -22,6 +22,10 @@ const verifiedTotals: Record<string, number> = { ...seed.verifiedTotals };
 let orgs: Organization[] = seed.organizations.map((o) => ({ ...o }));
 let reports: DisasterReport[] = seed.reports.map((r) => ({ ...r }));
 let slides: BannerSlide[] = seed.bannerSlides.map((sl) => ({ ...sl }));
+// Correction requests filed in this session. Seeded empty on purpose: an invented
+// "pending correction" against a real institution is exactly the kind of sample data
+// that must not look verified (rules/07 §Seed Content).
+let orgEdits: OrgEditRequest[] = [];
 
 let uid = 0;
 const nextId = (p: string) => `${p}_${Date.now()}_${uid++}`;
@@ -177,6 +181,19 @@ export class LocalRepo implements Repo {
   // implementation stores the proposal for the coordinator queue.
   async submitOrgEditRequest(input: OrgEditRequestInput): Promise<void> {
     const target = orgs.find((o) => o.id === input.orgId);
+    if (target) {
+      orgEdits.unshift({
+        id: `oer-${orgEdits.length + 1}-${target.id}`,
+        orgId: target.id, orgName: target.name, orgStatus: target.status,
+        proposed: input.proposed, current: orgEditableFrom(target),
+        changedFields: input.changedFields.slice(), note: input.note.trim(),
+        status: 'Pending review', reviewNote: '',
+        submittedByName: input.submittedByName.trim(),
+        submittedByEmail: input.submittedByEmail.trim(),
+        submittedByPhone: input.submittedByPhone.trim(),
+        createdLabel: NOW, reviewedLabel: '',
+      });
+    }
     addLog(activeDisasterId(), {
       user: input.submittedByName || 'Misafir',
       action: 'Kurum düzeltme talebi',
@@ -184,6 +201,68 @@ export class LocalRepo implements Repo {
       oldValue: 'Yayındaki kayıt',
       newValue: 'Koordinatör incelemesi bekliyor',
       color: '#E6A700',
+    });
+  }
+
+  // Requests are re-projected against the CURRENT record on every read, so a diff is
+  // never shown against a stale "current" value.
+  async countOpenOrgEditRequests(): Promise<number> {
+    return orgEdits.filter((r) => r.status === 'Pending review').length;
+  }
+
+  async listOrgEditRequests(): Promise<OrgEditRequest[]> {
+    return orgEdits.map((r) => {
+      const live = orgs.find((o) => o.id === r.orgId);
+      return live ? { ...r, orgName: live.name, orgStatus: live.status, current: orgEditableFrom(live) } : { ...r };
+    });
+  }
+
+  async applyOrgEditRequest(id: string, fields: string[], note: string): Promise<Organization[]> {
+    const req = orgEdits.find((r) => r.id === id);
+    if (!req) throw new Error('edit request not found');
+    if (req.status !== 'Pending review') throw new Error('edit request already reviewed');
+    const target = orgs.find((o) => o.id === req.orgId);
+    if (!target) throw new Error('organization not found');
+    // Only fields the requester actually changed, and only from the allow-list. The
+    // authoritative version of this rule is review_org_edit_request_apply() in
+    // migration 0012; this mirrors it so local mode cannot behave more permissively.
+    const keys = fields.filter((k) => req.changedFields.includes(k)
+      && (ORG_EDITABLE_KEYS as readonly string[]).includes(k));
+    if (keys.length === 0) throw new Error('no applicable fields selected');
+    const before = orgEditableFrom(target);
+    for (const k of keys) {
+      const v = (req.proposed as unknown as Record<string, unknown>)[k];
+      (target as unknown as Record<string, unknown>)[k] = Array.isArray(v) ? v.slice() : v;
+    }
+    req.status = 'Applied';
+    req.reviewNote = note.trim();
+    req.reviewedLabel = NOW;
+    addLog(activeDisasterId(), {
+      user: 'Koordinatör',
+      action: 'Kurum düzeltmesi uygulandı',
+      detail: `${target.name} · ${keys.length} alan`,
+      oldValue: keys.map((k) => orgFieldText(before, k)).join(' | ') || '—',
+      newValue: keys.map((k) => orgFieldText(orgEditableFrom(target), k)).join(' | '),
+      color: '#159947',
+    });
+    return this.listOrganizations();
+  }
+
+  async rejectOrgEditRequest(id: string, note: string): Promise<void> {
+    const req = orgEdits.find((r) => r.id === id);
+    if (!req) throw new Error('edit request not found');
+    if (req.status !== 'Pending review') throw new Error('edit request already reviewed');
+    if (note.trim().length < 5) throw new Error('reject reason required');
+    req.status = 'Rejected';
+    req.reviewNote = note.trim();
+    req.reviewedLabel = NOW;
+    addLog(activeDisasterId(), {
+      user: 'Koordinatör',
+      action: 'Kurum düzeltmesi reddedildi',
+      detail: req.orgName,
+      oldValue: `Talep edilen: ${req.changedFields.length} alan`,
+      newValue: note.trim(),
+      color: '#D9363E',
     });
   }
 

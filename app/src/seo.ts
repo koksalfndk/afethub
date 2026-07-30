@@ -60,6 +60,7 @@ const ROUTE_META: Record<Route, RouteMeta> = {
   account: { title: 'Hesabım', index: false },
   coordSlider: { title: 'Slider yönetimi', index: false },
   coordDisasters: { title: 'Afet yönetimi', index: false },
+  coordOrgEdits: { title: 'Kurum düzeltme talepleri', index: false },
   reportDisaster: {
     title: 'Afet bildir',
     description: 'Yangın, deprem, sel veya şiddetli hava olayını bildirin. Aynı olaya ait bildirimler birleştirilir.',

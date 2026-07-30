@@ -248,6 +248,31 @@ export interface OrgEditRequestInput {
   submittedByName: string; submittedByEmail: string; submittedByPhone: string;
 }
 
+export type EditRequestStatus = 'Pending review' | 'Applied' | 'Rejected';
+
+// A correction request as the coordinator reviews it. `current` is the record as it is
+// RIGHT NOW, not as it was when the request was filed — a diff against a stale
+// snapshot would ask the coordinator to approve a change that no longer applies.
+// Requester contact travels here because this shape is coordinator-only (the review
+// view is behind is_coordinator()); it must never reach a public screen.
+export interface OrgEditRequest {
+  id: string;
+  orgId: string;
+  orgName: string;
+  orgStatus: OrgStatus;
+  proposed: OrgEditable;
+  current: OrgEditable;
+  changedFields: string[];
+  note: string;
+  status: EditRequestStatus;
+  reviewNote: string;
+  submittedByName: string;
+  submittedByEmail: string;
+  submittedByPhone: string;
+  createdLabel: string;
+  reviewedLabel: string;
+}
+
 // ---------------------------------------------------------------------------
 // Citizen disaster reports
 //

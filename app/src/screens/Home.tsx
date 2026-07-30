@@ -3,7 +3,7 @@ import { useApp } from '../store';
 import { tr, disasterTypeLabel } from '../i18n/strings';
 import { categoryIcon } from '../needForm';
 import { C, G, PRI, D, type PriorityKey } from '../theme';
-import { LiveDot, Ico, DISASTER_ICON, PriorityBadge, MetricCell, ProgressBar, eyebrow } from '../ui';
+import { LiveDot, Ico, DISASTER_ICON, PriorityBadge, MetricCell, ProgressBar, eyebrow, srOnly } from '../ui';
 import { agoMinutes, clockLabel, formatDate } from '../util';
 import { HeroBanner } from '../components/HeroBanner';
 import type { DisasterType } from '../types';
@@ -11,13 +11,6 @@ import type { DisasterCard } from '../data/repo';
 
 // Icon per disaster kind — a colour-coded category marker, never decoration.
 const TYPE_ORDER: DisasterType[] = ['Wildfire', 'Flood', 'Earthquake', 'Storm', 'Evacuation', 'Other'];
-
-// Visually hidden but announced: the action column needs a name for screen readers
-// while staying blank on screen (rules/04 §Accessibility).
-const srOnly = {
-  position: 'absolute' as const, width: 1, height: 1, padding: 0, margin: -1,
-  overflow: 'hidden' as const, clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' as const, border: 0,
-};
 
 function chipStyle(active: boolean) {
   return {

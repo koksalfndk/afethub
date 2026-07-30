@@ -2,7 +2,7 @@ import type {
   Disaster, Location, Need, Submission, LogEntry, Announcement,
   VerifyKind, DeliveryInput, PriorityKey, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, BannerSlide, BannerSlideInput, SlideAction,
-  OrgEditRequestInput, OrgEditable, DisasterInput,
+  OrgEditRequestInput, OrgEditable, OrgEditRequest, DisasterInput,
 } from '../types';
 import type { NeedPayload } from '../needForm';
 
@@ -77,6 +77,18 @@ export interface Repo {
   listOrganizations(): Promise<Organization[]>;
   submitOrganization(input: OrganizationInput): Promise<Organization>;
   submitOrgEditRequest(input: OrgEditRequestInput): Promise<void>;
+  // Coordinator review of correction requests. `apply` takes the field keys the
+  // coordinator accepted, not a whole record: a request may be right about the phone
+  // number and wrong about the address, and forcing all-or-nothing would push
+  // coordinators into rejecting useful corrections.
+  // Just the number waiting, for the sidebar badge. Separate from listOrgEditRequests
+  // on purpose: the list rows carry the requester's name, e-mail and phone, and a badge
+  // must not be a reason to pull PII into the browser on every coordinator page
+  // (rules/05 §Public and Private Views).
+  countOpenOrgEditRequests(): Promise<number>;
+  listOrgEditRequests(): Promise<OrgEditRequest[]>;
+  applyOrgEditRequest(id: string, fields: string[], note: string): Promise<Organization[]>;
+  rejectOrgEditRequest(id: string, note: string): Promise<void>;
   // Citizen disaster reports. `findSimilarReports` is a *suggestion* pass so the
   // reporter can confirm an existing report instead of creating a duplicate; the
   // merge rule itself is enforced when the report is written.
@@ -129,6 +141,24 @@ export const ORG_EDITABLE_KEYS = [
   'name', 'kind', 'scope', 'province', 'district', 'services',
   'description', 'website', 'email', 'phone', 'emergencyPhone', 'address',
 ] as const;
+
+// The editable projection of a published record. Used both to pre-fill the public
+// correction form and to render the "current value" side of the coordinator's diff, so
+// the two can never disagree about what a field currently holds.
+export function orgEditableFrom(o: Organization): OrgEditable {
+  return {
+    name: o.name, kind: o.kind, scope: o.scope, province: o.province, district: o.district,
+    services: o.services.slice(), description: o.description, website: o.website,
+    email: o.email, phone: o.phone, emergencyPhone: o.emergencyPhone, address: o.address,
+  };
+}
+
+// A field's value as one comparable string. Both sides of the diff go through this, so
+// a services list reordered but otherwise identical is not reported as a change.
+export function orgFieldText(v: OrgEditable, k: string): string {
+  const raw = (v as unknown as Record<string, unknown>)[k];
+  return Array.isArray(raw) ? raw.join(', ') : String(raw ?? '');
+}
 
 export function changedOrgFields(current: Organization, proposed: OrgEditable): string[] {
   const norm = (v: unknown): string => (Array.isArray(v)

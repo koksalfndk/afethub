@@ -4,7 +4,7 @@ import type {
   VerifyKind, DeliveryInput, PriorityKey, StatusKey, DisasterType,
   Organization, OrganizationInput, OrgStatus, OrgKind, OrgScope,
   DisasterReport, DisasterReportInput, ReportStatus, BannerSlide, BannerSlideInput, SlideAction,
-  OrgEditRequestInput, DisasterInput,
+  OrgEditRequestInput, OrgEditRequest, OrgEditable, EditRequestStatus, DisasterInput,
 } from '../types';
 import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
 import type { NeedPayload } from '../needForm';
@@ -293,6 +293,63 @@ export class SupabaseRepo implements Repo {
       submitted_by_name: input.submittedByName.trim(),
       submitted_by_email: input.submittedByEmail.trim(),
       submitted_by_phone: input.submittedByPhone.trim(),
+    });
+    if (error) throw error;
+  }
+
+  // ---- Coordinator review of correction requests ---------------------------
+  // Reads go through the `organization_edit_requests_review` view: it carries the
+  // record's CURRENT values alongside the proposal, with the same camelCase keys, so
+  // the diff is computed against live data rather than a snapshot taken at submission
+  // time. The view is coordinator-only (RLS on both underlying tables).
+  // head:true — the server sends the count and no rows at all.
+  async countOpenOrgEditRequests(): Promise<number> {
+    const { count, error } = await this.db
+      .from('organization_edit_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'Pending review');
+    if (error) throw error;
+    return count ?? 0;
+  }
+
+  async listOrgEditRequests(): Promise<OrgEditRequest[]> {
+    const { data, error } = await this.db
+      .from('organization_edit_requests_review')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((r: Record<string, unknown>) => ({
+      id: String(r.id),
+      orgId: String(r.organization_id),
+      orgName: String(r.organization_name ?? ''),
+      orgStatus: (r.organization_status as OrgStatus) ?? 'Pending verification',
+      proposed: r.proposed as OrgEditable,
+      current: r.current_record as OrgEditable,
+      changedFields: Array.isArray(r.changed_fields) ? (r.changed_fields as string[]) : [],
+      note: String(r.note ?? ''),
+      status: (r.status as EditRequestStatus) ?? 'Pending review',
+      reviewNote: String(r.review_note ?? ''),
+      submittedByName: String(r.submitted_by_name ?? ''),
+      submittedByEmail: String(r.submitted_by_email ?? ''),
+      submittedByPhone: String(r.submitted_by_phone ?? ''),
+      createdLabel: r.created_at ? rel(String(r.created_at)) : '',
+      reviewedLabel: r.reviewed_at ? rel(String(r.reviewed_at)) : '',
+    }));
+  }
+
+  // One transaction inside the RPC: fields copied, request closed, audit entry
+  // written. Doing it as three client calls would allow a half-applied correction.
+  async applyOrgEditRequest(id: string, fields: string[], note: string): Promise<Organization[]> {
+    const { error } = await this.db.rpc('review_org_edit_request_apply', {
+      p_request: id, p_fields: fields, p_note: note,
+    });
+    if (error) throw error;
+    return this.listOrganizations();
+  }
+
+  async rejectOrgEditRequest(id: string, note: string): Promise<void> {
+    const { error } = await this.db.rpc('review_org_edit_request_reject', {
+      p_request: id, p_note: note,
     });
     if (error) throw error;
   }

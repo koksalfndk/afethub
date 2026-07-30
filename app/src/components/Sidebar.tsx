@@ -7,6 +7,9 @@ export function Sidebar() {
   const a = useApp();
   const snap = a.snap;
   const pending = snap ? snap.subs.filter((s) => s.status === 'Pending verification').length : 0;
+  // Correction requests waiting. Comes from a count query, not from the loaded list —
+  // the badge must be right before the screen has ever been opened.
+  const openOrgEdits = a.orgEditsPending;
 
   const item = (label: string, route: Route, badge: number | null, tone: 'red' | 'grey', onClick: () => void) => {
     const active = a.route === route;
@@ -48,6 +51,7 @@ export function Sidebar() {
           {item(tr.nav.dashboard, 'coordHome', null, 'grey', () => a.go('coordHome'))}
           {item(tr.nav.disasterAdmin, 'coordDisasters', snap?.disasters.length ?? 0, 'grey', () => a.go('coordDisasters'))}
           {item(tr.nav.reviewQueue, 'coordQueue', pending, 'red', () => a.go('coordQueue'))}
+          {item(tr.nav.orgEdits, 'coordOrgEdits', openOrgEdits, openOrgEdits > 0 ? 'red' : 'grey', () => a.go('coordOrgEdits'))}
           {item(tr.nav.needs, 'coordNeeds', snap?.needs.length ?? 0, 'grey', () => a.go('coordNeeds'))}
           {item(tr.nav.auditLog, 'coordLog', snap?.log.length ?? 0, 'grey', () => a.go('coordLog'))}
         </div>

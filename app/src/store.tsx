@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { repo, fallbackToLocal, type Snapshot, type Overview } from './data';
 import type {
   Submission, VerifyKind, Organization, OrganizationInput, DisasterReport, DisasterReportInput,
-  BannerSlide, BannerSlideInput, OrgEditRequestInput, DisasterInput,
+  BannerSlide, BannerSlideInput, OrgEditRequestInput, OrgEditRequest, DisasterInput,
 } from './types';
 import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
@@ -12,6 +12,7 @@ import { useAuth } from './auth';
 export type Route =
   | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
   | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog' | 'coordSlider' | 'coordDisasters'
+  | 'coordOrgEdits'
   | 'components' | 'system';
 export type Tab = 'overview' | 'needs' | 'locations' | 'announcements' | 'activity';
 export type Device = 'desktop' | 'mobile';
@@ -43,6 +44,7 @@ function toPath(route: Route, tab: Tab, slug: string): string {
     case 'coordLog': return '/koordinasyon/kayit';
     case 'coordSlider': return '/koordinasyon/slider';
     case 'coordDisasters': return '/koordinasyon/afetler';
+    case 'coordOrgEdits': return '/koordinasyon/kurum-duzeltmeleri';
     case 'system': return '/sistem';
     case 'components': return '/bilesenler';
     default: return '/';
@@ -69,7 +71,8 @@ function fromPath(pathname: string): ParsedPath {
       const s = parts[1];
       const r: Route = s === 'kuyruk' ? 'coordQueue' : s === 'ihtiyaclar' ? 'coordNeeds'
         : s === 'kayit' ? 'coordLog' : s === 'slider' ? 'coordSlider'
-        : s === 'afetler' ? 'coordDisasters' : 'coordHome';
+        : s === 'afetler' ? 'coordDisasters'
+        : s === 'kurum-duzeltmeleri' ? 'coordOrgEdits' : 'coordHome';
       return { route: r, role: 'coordinator' };
     }
     case 'sistem': return { route: 'system' };
@@ -112,6 +115,12 @@ export interface AppApi {
   // "Gönderilerim" on /takip: the signed-in account's own submissions.
   mySubs: Submission[]; mySubsLoading: boolean; mySubsError: string;
   reloadMySubs: () => void;
+  // Coordinator queue of correction requests against published organization records.
+  orgEdits: OrgEditRequest[]; orgEditsLoading: boolean; orgEditsError: string;
+  orgEditsPending: number;
+  reloadOrgEdits: () => void;
+  applyOrgEdit: (id: string, fields: string[], note: string) => Promise<boolean>;
+  rejectOrgEdit: (id: string, note: string) => Promise<boolean>;
   openTrackedSub: (s: Submission) => void;
   wizardMode: WizardMode | null;
   disasterFormOpen: boolean;
@@ -201,6 +210,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [mySubs, setMySubs] = useState<Submission[]>([]);
   const [mySubsLoading, setMySubsLoading] = useState(false);
   const [mySubsError, setMySubsError] = useState('');
+  const [orgEdits, setOrgEdits] = useState<OrgEditRequest[]>([]);
+  const [orgEditsLoading, setOrgEditsLoading] = useState(false);
+  const [orgEditsError, setOrgEditsError] = useState('');
+  const [orgEditsPending, setOrgEditsPending] = useState(0);
   const [trackError, setTrackError] = useState('');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -251,10 +264,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     withTimeout(repo.listSlides())
       .then(setSlides)
       .catch(() => fallbackToLocal().listSlides().then(setSlides).catch(() => undefined));
+    // Count only — the sidebar badge needs a number, not the rows. A visitor's call is
+    // refused by RLS and simply leaves the badge at 0.
+    withTimeout(repo.countOpenOrgEditRequests())
+      .then(setOrgEditsPending)
+      .catch(() => undefined);
   }, []);
 
   // Own submissions are loaded when a session exists and cleared when it goes away, so
   // one account's list can never be left on screen for the next.
+  // The queue is coordinator-only data (contact details of the requester travel with
+  // each row), so it is never loaded speculatively — only when the screen asks.
+  const loadOrgEdits = async () => {
+    setOrgEditsLoading(true); setOrgEditsError('');
+    try {
+      const rows = await withTimeout(repo.listOrgEditRequests());
+      setOrgEdits(rows);
+      setOrgEditsPending(rows.filter((r) => r.status === 'Pending review').length);
+    } catch {
+      setOrgEditsError(tr.coordOrgEdits.loadFailed);
+    } finally {
+      setOrgEditsLoading(false);
+    }
+  };
+
   const loadMySubs = async () => {
     if (!auth.user) { setMySubs([]); setMySubsError(''); return; }
     setMySubsLoading(true); setMySubsError('');
@@ -323,6 +356,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     form, track, reportStage, lastCode, formError, copied,
     modal, toast, trackedSub, trackError, wizardMode, disasterFormOpen, deliveryOpen,
     mySubs, mySubsLoading, mySubsError,
+    orgEdits, orgEditsLoading, orgEditsError, orgEditsPending,
 
     go: (r, extra) => { setRoute(r); if (extra?.tab) setTab(extra.tab); },
     openDisaster: (slug, t) => { setCurrentSlug(slug); setRoute('disaster'); setTab(t ?? 'needs'); if (slug !== currentSlug) loadSnapshot(slug); },
@@ -432,6 +466,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
 
     reloadMySubs: () => { void loadMySubs(); },
+    reloadOrgEdits: () => { void loadOrgEdits(); },
+    // Applying a correction rewrites a published record, so the directory is re-read
+    // and the queue refreshed from the source rather than patched in place.
+    applyOrgEdit: async (id, fields, note) => {
+      if (unverified) { showToast(tr.auth.verifyFirst); return false; }
+      try {
+        setOrgs(await withTimeout(repo.applyOrgEditRequest(id, fields, note)));
+        await loadOrgEdits();
+        showToast(tr.coordOrgEdits.appliedToast);
+        return true;
+      } catch { showToast(tr.coordOrgEdits.actionFailed); return false; }
+    },
+    rejectOrgEdit: async (id, note) => {
+      if (unverified) { showToast(tr.auth.verifyFirst); return false; }
+      try {
+        await withTimeout(repo.rejectOrgEditRequest(id, note));
+        await loadOrgEdits();
+        showToast(tr.coordOrgEdits.rejectedToast);
+        return true;
+      } catch { showToast(tr.coordOrgEdits.actionFailed); return false; }
+    },
     // Selecting a row shows it in the same detail panel the code lookup fills, so there
     // is one place where a submission is rendered.
     openTrackedSub: (sub) => { setTrackedSub(sub); setTrackError(''); },
@@ -516,7 +571,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Every piece of state exposed on `api` must be listed here, or consumers keep the
   // previous value: `deliveryOpen` and `slides` were missing, so the delivery overlay
   // never appeared and the slide list could go stale after a save.
-  }), [snap, loadError, overview, orgs, slides, mySubs, mySubsLoading, mySubsError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
+  }), [snap, loadError, overview, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
