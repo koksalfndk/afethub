@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useApp } from '../store';
 import { useAuth } from '../auth';
 import { tr, disasterTypeLabel } from '../i18n/strings';
-import { C, G, wash } from '../theme';
+import { C, G, wash, MOBILE_HEADER_H } from '../theme';
 import { enrichSorted, cols } from '../select';
 import { PriorityBadge, ProgressBar, Chip, StatCard, LiveDot, Ico, DISASTER_ICON, eyebrow, filterSelectStyle, washCard, type IcoName } from '../ui';
 import { detailPairs, categoryIcon } from '../needForm';
@@ -37,6 +37,20 @@ export function Disaster() {
   // Declared before the snapshot guard: a hook after an early return would change hook
   // order between the loading and loaded renders.
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // A zero-height marker, NOT the bar itself: the bar is sticky, so once it is stuck its
+  // bounding rect reports the pinned position (top = header height) and the computed
+  // scroll target collapses to "where we already are".
+  const listAnchorRef = useRef<HTMLDivElement | null>(null);
+  // Closing the sheet brings the list back under the filter bar. Without this the visitor
+  // filtered nine needs down to two and was left looking at whatever was at their old
+  // scroll offset — usually blank space below a much shorter list.
+  const closeFilters = () => {
+    setFiltersOpen(false);
+    const el = listAnchorRef.current;
+    if (!el) return;
+    const y = window.scrollY + el.getBoundingClientRect().top - MOBILE_HEADER_H - 8;
+    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+  };
   if (!a.snap) return null;
   const mob = a.device === 'mobile';
   const L = cols(mob);
@@ -273,23 +287,67 @@ export function Disaster() {
 
       {a.tab === 'needs' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 240px', minWidth: 180, background: C.surface, border: `1px solid ${C.borderSoft}`, borderRadius: 9, padding: '0 12px', minHeight: 44 }}>
+          {mob && <div ref={listAnchorRef} aria-hidden style={{ height: 0 }} />}
+          <div style={{
+            display: 'flex', flexDirection: 'column', gap: 10,
+            // Mobile: the search + filter row stays under the header while the list
+            // scrolls, so narrowing a long list never means scrolling back to the top.
+            // `top` is the mobile header's height (9px padding + 42px controls + 1px
+            // border) — keep the two in step if that bar's padding changes.
+            ...(mob ? {
+              position: 'sticky' as const, top: MOBILE_HEADER_H, zIndex: 20,
+              // Negative margins let the bar's background span the full width of the
+              // screen; main's mobile padding is 14px.
+              margin: '-16px -14px 0', padding: '10px 14px',
+              background: C.canvas, borderBottom: `1px solid ${C.borderFaint}`,
+            } : {}),
+          }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: mob ? 'nowrap' : 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 240px', minWidth: 0, background: C.surface, border: `1px solid ${C.borderSoft}`, borderRadius: 9, padding: '0 12px', minHeight: 44 }}>
                 <Ico n="search" size={15} color={C.muted2} />
                 <input
                   type="search" name="need-search" autoComplete="off"
                   value={a.query}
                   onChange={(e) => a.setQuery(e.target.value)}
-                  placeholder={tr.disaster.searchNeeds}
+                  placeholder={mob ? tr.disaster.searchNeedsShort : tr.disaster.searchNeeds}
                   aria-label={tr.disaster.searchNeeds}
                   style={{ border: 0, background: 'none', outline: 'none', fontSize: 14, color: C.navy, padding: '11px 0', width: '100%', minWidth: 0 }}
                 />
               </label>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {FILTERS.map((f) => <Chip key={f} label={tr.disaster.filters[f]} active={a.filter === f} onClick={() => a.setFilter(f)} />)}
-              </div>
+              {/* Priority is no longer a visible chip row on mobile: it is one of the
+                  three groups inside the sheet, and duplicating it here cost two lines
+                  above the first need card. */}
+              {mob ? (
+                <button onClick={() => setFiltersOpen(true)} aria-expanded={filtersOpen} style={{
+                  display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto',
+                  background: sheetCount > 0 ? C.navy : C.surface,
+                  border: `1px solid ${sheetCount > 0 ? C.navy : C.borderSoft}`,
+                  color: sheetCount > 0 ? '#fff' : C.navy,
+                  borderRadius: 9, minHeight: 44, padding: '0 13px', fontSize: 13.5, fontWeight: 600,
+                  cursor: 'pointer', whiteSpace: 'nowrap',
+                }}>
+                  <Ico n="filter" size={15} />
+                  {sheetCount > 0 ? tr.disaster.filtersMore.openWith(sheetCount) : tr.disaster.filtersMore.open}
+                </button>
+              ) : (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {FILTERS.map((f) => <Chip key={f} label={tr.disaster.filters[f]} active={a.filter === f} onClick={() => a.setFilter(f)} />)}
+                </div>
+              )}
             </div>
+            {/* The count only appears once something is narrowing the list — otherwise it
+                would spend a line saying "9 / 9". */}
+            {mob && (anyFilter || !!q) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span className="tnum" style={{ fontSize: 12.5, color: C.muted2, fontWeight: 500 }}>
+                  {tr.disaster.filtersMore.count(visibleNeeds.length, needs.length)}
+                </span>
+                <button onClick={a.clearFilters} style={{
+                  marginLeft: 'auto', background: 'none', border: 0, padding: '2px 0',
+                  fontSize: 12.5, fontWeight: 600, color: C.navy, cursor: 'pointer', textDecoration: 'underline',
+                }}>{tr.disaster.filtersMore.clear}</button>
+              </div>
+            )}
 
             {/* Secondary filters — narrow the list without adding a second toolbar. On a
                 phone they move into a bottom sheet: two wrapping rows of chips and selects
@@ -316,23 +374,6 @@ export function Disaster() {
             </div>
             )}
 
-            {mob && (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button onClick={() => setFiltersOpen(true)} style={{
-                  display: 'flex', alignItems: 'center', gap: 7, flex: '0 0 auto',
-                  background: sheetCount > 0 ? C.navy : C.surface,
-                  border: `1px solid ${sheetCount > 0 ? C.navy : C.borderSoft}`,
-                  color: sheetCount > 0 ? '#fff' : C.navy,
-                  borderRadius: 10, minHeight: 44, padding: '0 14px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
-                }}>
-                  <Ico n="filter" size={15} />
-                  {sheetCount > 0 ? tr.disaster.filtersMore.openWith(sheetCount) : tr.disaster.filtersMore.open}
-                </button>
-                <span className="tnum" style={{ fontSize: 12.5, color: C.muted2, fontWeight: 500, marginLeft: 'auto' }}>
-                  {tr.disaster.filtersMore.count(visibleNeeds.length, needs.length)}
-                </span>
-              </div>
-            )}
           </div>
 
           {visibleNeeds.length > 0 ? (
@@ -493,7 +534,7 @@ export function Disaster() {
       </div>
     {mob && (
         <NeedFilterSheet
-          open={filtersOpen} onClose={() => setFiltersOpen(false)}
+          open={filtersOpen} onClose={closeFilters}
           categories={categories} dropOffs={dropOffs}
           shown={visibleNeeds.length} total={needs.length}
         />

@@ -451,6 +451,7 @@ export const tr = {
     criticalNeeds: 'Kritik ihtiyaçlar',
     left: (n: number) => `${n} kaldı`,
     searchNeeds: 'İhtiyaç, kategori veya teslim noktası ara…',
+    searchNeedsShort: 'İhtiyaç ara…',
     filters: { All: 'Tümü', Critical: 'Kritik', Urgent: 'Acil', Normal: 'Normal', Completed: 'Tamamlanan' },
     filtersMore: {
       allCategories: 'Tüm kategoriler',

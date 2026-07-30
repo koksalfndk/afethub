@@ -96,3 +96,10 @@ export const STATUS: Record<StatusKey, StatusToken> = {
   'Rejected':              { fg: '#A32027', bg: '#FEF3F2', border: '#F6C9C9' },
   'Information requested': { fg: '#334E68', bg: '#F0F4F8', border: '#D9E2EC' },
 };
+
+// Header heights, shared so anything that has to sit directly under the bar (the
+// coordinator rail, the mobile sticky filter row) cannot drift from it. Both are
+// deterministic from the header's own padding and control heights — see Header.tsx.
+// Mobile: 9px padding + 42px controls + 9px padding + 1px border.
+export const MOBILE_HEADER_H = 61;
+export const DESKTOP_HEADER_H = 63;
