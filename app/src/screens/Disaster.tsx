@@ -5,7 +5,7 @@ import { enrichSorted, cols } from '../select';
 import { PriorityBadge, ProgressBar, Chip, StatCard, LiveDot, Ico, eyebrow, filterSelectStyle, washCard, type IcoName } from '../ui';
 import { detailPairs } from '../needForm';
 import { LocationMap } from '../components/LocationMap';
-import { isToday } from '../util';
+import { isToday, formatDate } from '../util';
 import type { Filter, Tab } from '../store';
 
 const FILTERS: Filter[] = ['All', 'Critical', 'Urgent', 'Normal', 'Completed'];
@@ -95,7 +95,7 @@ export function Disaster() {
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginTop: 8 }}>
           <div>
             <h1 style={{ fontSize: L.h2, fontWeight: 700, letterSpacing: '-.02em', margin: 0, color: C.navy }}>{a.snap.disaster.name}</h1>
-            <div style={{ fontSize: 13.5, color: C.muted, marginTop: 4 }}>{tr.disaster.openedUpdated(a.snap.disaster.region, a.snap.disaster.openedAt, a.snap.disaster.updatedLabel)}</div>
+            <div style={{ fontSize: 13.5, color: C.muted, marginTop: 4 }}>{tr.disaster.openedUpdated(a.snap.disaster.region, formatDate(a.snap.disaster.openedAt), a.snap.disaster.updatedLabel)}</div>
           </div>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#FEF3F2', color: C.emergency, border: '1px solid #F6C9C9', borderRadius: 20, padding: '5px 11px', fontSize: 12.5, fontWeight: 700 }}>
             <LiveDot size={6} />{tr.disaster.active}

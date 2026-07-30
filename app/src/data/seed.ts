@@ -27,8 +27,8 @@ const COLOR = {
 export const disasters: Disaster[] = [
   {
     id: 'd1',
-    slug: 'seydikemer-orman-yangini-2026-07-21',
-    legacySlugs: ['seydikemer-orman-yangini'],
+    slug: 'seydikemer-orman-yangini-21-07-2026',
+    legacySlugs: ['seydikemer-orman-yangini', 'seydikemer-orman-yangini-2026-07-21'],
     name: 'Seydikemer Orman Yangını',
     region: 'Seydikemer, Muğla · Türkiye',
     province: 'Muğla',
@@ -44,7 +44,8 @@ export const disasters: Disaster[] = [
   },
   {
     id: 'd2',
-    slug: 'kas-orman-yangini-2026-07-27',
+    slug: 'kas-orman-yangini-27-07-2026',
+    legacySlugs: ['kas-orman-yangini-2026-07-27'],
     name: 'Kaş Orman Yangını',
     region: 'Kaş, Antalya · Türkiye',
     province: 'Antalya',
@@ -60,7 +61,8 @@ export const disasters: Disaster[] = [
   },
   {
     id: 'd3',
-    slug: 'ayvacik-orman-yangini-2026-07-28',
+    slug: 'ayvacik-orman-yangini-28-07-2026',
+    legacySlugs: ['ayvacik-orman-yangini-2026-07-28'],
     name: 'Ayvacık Orman Yangını',
     region: 'Ayvacık, Çanakkale · Türkiye',
     province: 'Çanakkale',
@@ -76,7 +78,8 @@ export const disasters: Disaster[] = [
   },
   {
     id: 'd4',
-    slug: 'tavsanli-orman-yangini-2026-07-29',
+    slug: 'tavsanli-orman-yangini-29-07-2026',
+    legacySlugs: ['tavsanli-orman-yangini-2026-07-29'],
     name: 'Tavşanlı Orman Yangını',
     region: 'Tavşanlı, Kütahya · Türkiye',
     province: 'Kütahya',
@@ -92,7 +95,8 @@ export const disasters: Disaster[] = [
   },
   {
     id: 'd5',
-    slug: 'kastamonu-sel-taskini-2026-07-25',
+    slug: 'kastamonu-sel-taskini-25-07-2026',
+    legacySlugs: ['kastamonu-sel-taskini-2026-07-25'],
     name: 'Kastamonu Sel ve Taşkını',
     region: 'Bozkurt ve İnebolu, Kastamonu · Türkiye',
     province: 'Kastamonu',
@@ -108,7 +112,8 @@ export const disasters: Disaster[] = [
   },
   {
     id: 'd6',
-    slug: 'balikesir-orman-yangini-2026-07-05',
+    slug: 'balikesir-orman-yangini-05-07-2026',
+    legacySlugs: ['balikesir-orman-yangini-2026-07-05'],
     name: 'Balıkesir Orman Yangını',
     region: 'Kepsut, Balıkesir · Türkiye',
     province: 'Balıkesir',

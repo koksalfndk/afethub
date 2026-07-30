@@ -4,7 +4,8 @@ import { tr, disasterTypeLabel } from '../i18n/strings';
 import { C, G, PRI, ribbon } from '../theme';
 import { cols } from '../select';
 import { LiveDot, Ico, StatCard, PriorityBadge, MetricCell, eyebrow, type IcoName } from '../ui';
-import { agoMinutes, clockLabel } from '../util';
+import { agoMinutes, clockLabel, formatDate } from '../util';
+import { HeroBanner } from '../components/HeroBanner';
 import type { DisasterType } from '../types';
 
 // Icon per disaster kind — a colour-coded category marker, never decoration.
@@ -68,15 +69,9 @@ export function Home() {
           <h1 style={{ fontSize: L.h2, fontWeight: 700, letterSpacing: '-.02em', margin: '7px 0 0', color: C.navy }}>{tr.dash.title}</h1>
           <p style={{ fontSize: 14, color: C.muted, margin: '5px 0 0', maxWidth: '68ch' }}>{tr.dash.subtitle}</p>
         </div>
-        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-          {/* Delivery and need reporting need an operation, so they live on the
-              disaster page; the dashboard offers the one action that does not. */}
-          <button onClick={() => a.go('reportDisaster')} className="hv-emergency" style={{
-            background: G.emergencyBtn, border: '1px solid #BE2A31', color: '#fff', borderRadius: 10,
-            padding: '0 18px', height: 48, fontSize: 14.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
-          }}>{tr.reportDisaster.title}</button>
-        </div>
       </div>
+
+      <HeroBanner />
 
       {/* Sample content must be labelled so it can never pass as verified live data. */}
       {ov.demo && (
@@ -132,7 +127,11 @@ export function Home() {
                       <div style={{ display: 'flex', gap: 9, minWidth: 0 }}>
                         <span style={{ paddingTop: 2 }}><Ico n={TYPE_ICON[d.type]} size={18} color={active ? C.emergency : C.muted2} /></span>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 16, fontWeight: 700, color: C.navy }}>{d.name}</div>
+                          {/* The card title is the primary link to the operation. */}
+                          <button onClick={() => a.openDisaster(d.slug, 'needs')} style={{
+                            background: 'none', border: 0, padding: 0, textAlign: 'left', cursor: 'pointer',
+                            fontSize: 16, fontWeight: 700, color: C.navy,
+                          }}>{d.name}</button>
                           <div style={{ fontSize: 12.5, color: C.muted2, marginTop: 2 }}>{disasterTypeLabel[d.type]} · {d.region}</div>
                         </div>
                       </div>
@@ -146,10 +145,11 @@ export function Home() {
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 8 }}>
-                      <MetricCell accent={C.navy} value={c.activeNeeds} label={tr.dash.cardNeeds} />
-                      <MetricCell accent={C.warning} value={c.pendingSubs} label={tr.dash.cardPending} />
-                      <MetricCell accent={C.info} value={c.deliveryPoints} label={tr.dash.cardPoints} />
-                      <MetricCell accent={C.teal} value={d.volunteers} label={tr.dash.cardVolunteers} />
+                      {/* Each counter opens the section it counts. */}
+                      <MetricCell accent={C.navy} value={c.activeNeeds} label={tr.dash.cardNeeds} onClick={() => a.openDisaster(d.slug, 'needs')} />
+                      <MetricCell accent={C.warning} value={c.pendingSubs} label={tr.dash.cardPending} onClick={() => a.openDisaster(d.slug, 'activity')} />
+                      <MetricCell accent={C.info} value={c.deliveryPoints} label={tr.dash.cardPoints} onClick={() => a.openDisaster(d.slug, 'locations')} />
+                      <MetricCell accent={C.teal} value={d.volunteers} label={tr.dash.cardVolunteers} onClick={() => a.openDisaster(d.slug, 'overview')} />
                     </div>
 
                     {c.topNeeds.length > 0 && (
@@ -174,7 +174,7 @@ export function Home() {
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 'auto', flexWrap: 'wrap' }}>
                       <span className="tnum" style={{ fontSize: 12, color: C.muted2 }}>
-                        {tr.dash.openedAt(d.openedAt)} · {tr.common.updated(d.updatedLabel)}
+                        {tr.dash.openedAt(formatDate(d.openedAt))} · {tr.common.updated(d.updatedLabel)}
                       </span>
                       <button onClick={() => a.openDisaster(d.slug, 'needs')} style={{
                         background: active ? G.navyBtn : C.surface, border: `1px solid ${active ? C.navy : C.borderSoft}`,
@@ -246,7 +246,7 @@ export function Home() {
                   </span>
                 </div>
                 <span className="tnum" style={{ fontSize: 11.5, color: C.muted2 }}>
-                  {tr.reportDisaster.observedOn(r.occurredOn)} · {tr.reportDisaster.lastReport(r.lastReportLabel)}
+                  {tr.reportDisaster.observedOn(formatDate(r.occurredOn))} · {tr.reportDisaster.lastReport(r.lastReportLabel)}
                 </span>
                 <button onClick={() => void a.confirmDisasterReport(r.id)} className="hv-navy" style={{
                   alignSelf: 'flex-start', background: C.surface, border: `1px solid ${C.borderSoft}`,

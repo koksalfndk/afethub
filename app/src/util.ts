@@ -82,3 +82,17 @@ export function withTimeout<T>(p: Promise<T>, ms: number = LOAD_TIMEOUT_MS): Pro
     );
   });
 }
+
+// ---- Dates -------------------------------------------------------------------
+// Product-wide display format is GG-AA-YYYY (rules/04 §Dates and Numbers: Turkish
+// locale). Storage stays ISO; only presentation is reordered. Non-date input is
+// returned untouched so a label that is already human ("21 Temmuz") survives.
+export function formatDate(value: string): string {
+  const v = (value ?? '').trim();
+  const iso = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[3]}-${iso[2]}-${iso[1]}`;
+  return v;
+}
+
+// Date part of a disaster slug: "…-21-07-2026".
+export const slugDate = (iso: string): string => formatDate(iso);

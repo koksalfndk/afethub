@@ -212,14 +212,21 @@ export function IconBtn({ icon, label, onClick, size = 20 }: { icon: IcoName; la
 
 // Compact metric inside a card (disaster summary). Colour lives on the left edge
 // and the number only.
-export function MetricCell({ accent, value, label }: { accent: string; value: string | number; label: string }) {
-  return (
-    <div style={{
-      background: C.canvas, border: `1px solid ${C.border}`, borderLeft: `3px solid ${accent}`,
-      borderRadius: 9, padding: '9px 11px',
-    }}>
-      <div style={{ fontSize: 21, fontWeight: 700, color: accent, letterSpacing: '-.02em', lineHeight: 1.15 }}>{value}</div>
+export function MetricCell({ accent, value, label, onClick, title }: {
+  accent: string; value: string | number; label: string; onClick?: () => void; title?: string;
+}) {
+  const inner = (
+    <>
+      <div className="tnum" style={{ fontSize: 21, fontWeight: 700, color: accent, letterSpacing: '-.02em', lineHeight: 1.15 }}>{value}</div>
       <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 500, marginTop: 1 }}>{label}</div>
-    </div>
+    </>
   );
+  const style: CSSProperties = {
+    background: C.canvas, border: `1px solid ${C.border}`, borderLeft: `3px solid ${accent}`,
+    borderRadius: 9, padding: '9px 11px', textAlign: 'left',
+  };
+  // A counter that names a section is a link to that section, not decoration.
+  return onClick
+    ? <button onClick={onClick} title={title ?? label} className="hv-navy" style={{ ...style, cursor: 'pointer', width: '100%' }}>{inner}</button>
+    : <div style={style}>{inner}</div>;
 }
