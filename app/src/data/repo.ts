@@ -101,8 +101,14 @@ export const genNrq = (r: number): string => 'NRQ-' + (120 + Math.floor(r * 80))
 // Banner slides. Reads are public (the slider is public content); writes are
 // coordinator-only and enforced by RLS, not by hiding the screen (rules/03).
 export const SLIDE_ACTIONS: SlideAction[] = ['reportDisaster', 'howItWorks', 'orgs', 'home', 'track'];
-// A slide image must be a file we ship. Mirrored by a check constraint in SQL.
-export const isLocalSlideImage = (v: string): boolean => v === '' || /^\/banners\/[A-Za-z0-9._-]+\.(webp|png|svg|jpg)$/.test(v);
+// A slide image is either a file we ship or an object in our own Storage bucket
+// ('upload:<name>.webp'). An arbitrary https URL is still refused: the value must never
+// name a third-party host (rules/03 §File Uploads). Mirrored by the check constraint in
+// migration 0008 — change both together.
+export const isLocalSlideImage = (v: string): boolean =>
+  v === ''
+  || /^\/banners\/[A-Za-z0-9._-]+\.(webp|png|svg|jpg)$/.test(v)
+  || /^upload:[A-Za-z0-9._/-]+\.webp$/.test(v);
 
 // Which editable fields differ between the published record and the proposal.
 // Shared so the UI badge, the validation and the stored `changed_fields` can never

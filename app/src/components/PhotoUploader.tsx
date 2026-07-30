@@ -2,9 +2,11 @@ import { useRef, useState } from 'react';
 import { supabase, hasSupabaseEnv } from '../data/supabaseClient';
 import { tr } from '../i18n/strings';
 import { C } from '../theme';
+import { toWebp } from '../imageUpload';
 
-const MAX = 8 * 1024 * 1024;
-const OK = ['image/jpeg', 'image/png', 'image/webp'];
+// Delivery evidence: 1600 px is plenty for a coordinator to read a label or a pallet
+// count, and it keeps the upload small on a weak network at a delivery point.
+const EVIDENCE_MAX_EDGE = 1600;
 
 // Uploads a delivery photo to Supabase Storage (public bucket) and returns its
 // public URL. In local mode it just shows a client-side preview.
@@ -19,12 +21,19 @@ export function PhotoUploader({ value, onChange }: { value: string; onChange: (u
   const onFile = async (file: File | undefined) => {
     if (!file) return;
     setErr('');
-    if (!OK.includes(file.type) || file.size > MAX) { setErr(tr.report.photoError); return; }
-    if (local || !supabase) { onChange(URL.createObjectURL(file)); return; }
     setBusy(true);
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const { error } = await supabase.storage.from('delivery-photos').upload(path, file, { contentType: file.type, upsert: false });
+    // Re-encode before anything leaves the device: WebP instead of a multi-megabyte
+    // phone JPEG, and drawing through a canvas drops the camera's EXIF/GPS tags
+    // (src/imageUpload.ts).
+    let webp: Blob;
+    try {
+      webp = (await toWebp(file, EVIDENCE_MAX_EDGE)).blob;
+    } catch {
+      setBusy(false); setErr(tr.report.photoError); return;
+    }
+    if (local || !supabase) { setBusy(false); onChange(URL.createObjectURL(webp)); return; }
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.webp`;
+    const { error } = await supabase.storage.from('delivery-photos').upload(path, webp, { contentType: 'image/webp', upsert: false });
     if (error) { setBusy(false); setErr(tr.report.photoError); return; }
     const { data } = supabase.storage.from('delivery-photos').getPublicUrl(path);
     setBusy(false);
@@ -33,7 +42,7 @@ export function PhotoUploader({ value, onChange }: { value: string; onChange: (u
 
   return (
     <div style={{ gridColumn: '1 / -1' }}>
-      <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }}
+      <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp,image/avif" style={{ display: 'none' }}
         onChange={(e) => void onFile(e.target.files?.[0])} />
       {value ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, background: C.canvas }}>

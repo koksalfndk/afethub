@@ -1,25 +1,31 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useApp } from '../store';
 import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Ico, inputStyle, labelText, eyebrow, Field } from '../ui';
 import { SLIDE_ACTIONS, isLocalSlideImage } from '../data/repo';
+import { supabase } from '../data/supabaseClient';
+import {
+  toWebp, slideImageSrc, isUploadRef, BANNER_BUCKET, BANNER_MAX_EDGE, UPLOAD_PREFIX, ImageError,
+} from '../imageUpload';
 import type { BannerSlide, BannerSlideInput, SlideAction } from '../types';
 
 // Coordinator screen: manage the home banner slides.
 //
-// Two deliberate restrictions:
-//  1. `image` is a select over files that ship with the app, not a free URL field.
-//     An admin-supplied remote URL would be fetched by every visitor's browser —
-//     it can spoof an institution's imagery and it leaks visitor IPs to a third
-//     party (rules/03 §File Uploads). Same rule as organization logos.
-//  2. Nothing here is authorisation. The screen is reachable only in coordinator
-//     mode, but the write itself is authorised by RLS on `banner_slides`; hiding a
-//     button is not a permission check (rules/03 §Server-Side Authorization).
+// Images: pick one of the files that ship with the app, or upload one. What is never
+// accepted is a free-text URL — an admin-supplied remote address would be fetched by
+// every visitor's browser, which lets it impersonate an institution's imagery and leaks
+// visitor IPs to a third party (rules/03 §File Uploads). An upload is stored in our own
+// bucket and recorded as 'upload:<object>', so the database holds no host at all.
 //
-// Uploading new images from the browser needs a storage bucket and is NOT
-// implemented — drop files into app/public/banners/ and they appear in this list.
+// Uploads are re-encoded to WebP at 1600 px in the browser before they leave the device
+// (src/imageUpload.ts); that also strips the camera's EXIF/GPS tags. The bucket only
+// accepts image/webp, so a client that skips the conversion still cannot store a JPEG.
+//
+// Nothing on this screen is authorisation. It is reachable only in coordinator mode, but
+// the write itself is authorised by RLS on `banner_slides` and on storage.objects;
+// hiding a button is not a permission check (rules/03 §Server-Side Authorization).
 const IMAGE_CHOICES = [
   { value: '', label: tr.slider.fImageNone },
   { value: '/banners/wildfire.webp', label: 'wildfire.webp' },
@@ -49,6 +55,36 @@ export function CoordSlider() {
   const [draft, setDraft] = useState<BannerSlideInput>(blank(1));
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  // Upload path: decode → cap at 1600 px → re-encode WebP → put in the bucket, and
+  // store only 'upload:<object>'. The database never learns a host, so the banner can
+  // never be pointed at a third-party server (see src/imageUpload.ts).
+  const onPickFile = async (file: File | undefined) => {
+    if (!file) return;
+    if (!supabase) { setErr(tr.slider.uploadNeedsAuth); return; }
+    setErr(''); setUploading(true);
+    try {
+      const { blob } = await toWebp(file, BANNER_MAX_EDGE);
+      const object = `${Date.now()}-${Math.random().toString(36).slice(2)}.webp`;
+      const { error: upErr } = await supabase.storage
+        .from(BANNER_BUCKET)
+        .upload(object, blob, { contentType: 'image/webp', upsert: false });
+      if (upErr) throw upErr;
+      set('image', `${UPLOAD_PREFIX}${object}`);
+    } catch (e) {
+      if (e instanceof ImageError) {
+        setErr(e.message === 'no-webp-encoder' ? tr.slider.uploadFailedEncode : tr.slider.uploadFailedType);
+      } else {
+        setErr(tr.slider.uploadFailedStore);
+      }
+    } finally {
+      setUploading(false);
+      // Let the same file be re-picked after a failure.
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
 
   const openNew = () => {
     const next = a.slides.reduce((m, s) => Math.max(m, s.sortOrder), 0) + 1;
@@ -125,10 +161,36 @@ export function CoordSlider() {
                 ))}
               </select>
             </Field>
-            <Field label={tr.slider.fImage} hint={`· ${tr.slider.fImageHint}`}>
-              <select value={draft.image} onChange={(e) => set('image', e.target.value)} style={inputStyle}>
-                {IMAGE_CHOICES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-              </select>
+            <Field label={tr.slider.fImage} hint={`· ${tr.slider.fImageHint}`} full>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <span style={{
+                  width: 92, height: 56, flex: '0 0 92px', borderRadius: 9, overflow: 'hidden',
+                  border: `1px solid ${C.borderFaint}`, display: 'block',
+                  background: draft.image
+                    ? `center/cover no-repeat url(${slideImageSrc(draft.image, supabase)})`
+                    : `color-mix(in srgb, ${draft.tint} 12%, #EAF0F5)`,
+                }} />
+                <div style={{ flex: '1 1 220px', minWidth: 200, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <select value={isUploadRef(draft.image) ? draft.image : draft.image}
+                    onChange={(e) => set('image', e.target.value)} style={inputStyle}>
+                    {isUploadRef(draft.image) && (
+                      <option value={draft.image}>{tr.slider.fImageUploaded}</option>
+                    )}
+                    {IMAGE_CHOICES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                  <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/avif"
+                    style={{ display: 'none' }} onChange={(e) => void onPickFile(e.target.files?.[0])} />
+                  <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="hv-navy" style={{
+                    alignSelf: 'flex-start', background: C.surface, border: `1px solid ${C.borderSoft}`,
+                    color: C.navy, borderRadius: 9, height: 42, padding: '0 14px', fontSize: 13.5, fontWeight: 600,
+                    cursor: uploading ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7,
+                  }}>
+                    <Ico n="plus" size={15} color={C.muted} />
+                    {uploading ? tr.slider.uploading : tr.slider.upload}
+                  </button>
+                  <span style={{ fontSize: 11.5, color: C.muted2, lineHeight: 1.45 }}>{tr.slider.uploadHint}</span>
+                </div>
+              </div>
             </Field>
             <Field label={tr.slider.fTint}>
               <select value={draft.tint} onChange={(e) => set('tint', e.target.value)} style={inputStyle}>
@@ -184,7 +246,7 @@ export function CoordSlider() {
               <span style={{
                 width: mob ? '100%' : 92, height: 56, borderRadius: 9, overflow: 'hidden',
                 border: `1px solid ${C.borderFaint}`, display: 'block',
-                background: s.image ? `center/cover no-repeat url(${s.image})` : `color-mix(in srgb, ${s.tint} 12%, #EAF0F5)`,
+                background: s.image ? `center/cover no-repeat url(${slideImageSrc(s.image, supabase)})` : `color-mix(in srgb, ${s.tint} 12%, #EAF0F5)`,
               }} />
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>

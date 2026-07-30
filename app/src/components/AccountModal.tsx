@@ -4,9 +4,9 @@ import { supabase } from '../data/supabaseClient';
 import { tr } from '../i18n/strings';
 import { C } from '../theme';
 import type { UserRole } from '../types';
+import { toWebp, AVATAR_MAX_EDGE } from '../imageUpload';
 
-const MAX = 2 * 1024 * 1024;
-const OK = ['image/jpeg', 'image/png', 'image/webp'];
+
 const roleLabel: Record<UserRole, string> = {
   volunteer: tr.auth.roleVolunteerLabel, coordinator: tr.auth.roleCoordinatorLabel, admin: tr.auth.roleAdminLabel,
 };
@@ -29,12 +29,17 @@ export function AccountModal({ open, onClose }: { open: boolean; onClose: () => 
 
   const onFile = async (file: File | undefined) => {
     if (!file || !supabase || !auth.user) return;
-    setErr('');
-    if (!OK.includes(file.type) || file.size > MAX) { setErr(tr.auth.photoError); return; }
-    setBusy(true);
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-    const path = `${auth.user.id}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true });
+    setErr(''); setBusy(true);
+    // Avatars were being stored exactly as the camera produced them — an unoptimised
+    // JPEG with EXIF, rendered into a 28 px circle. Re-encode to WebP at 512 px first.
+    let webp: Blob;
+    try {
+      webp = (await toWebp(file, AVATAR_MAX_EDGE, 0.85)).blob;
+    } catch {
+      setBusy(false); setErr(tr.auth.photoError); return;
+    }
+    const path = `${auth.user.id}/${Date.now()}.webp`;
+    const { error } = await supabase.storage.from('avatars').upload(path, webp, { contentType: 'image/webp', upsert: true });
     if (error) { setBusy(false); setErr(tr.auth.photoError); return; }
     const { data } = supabase.storage.from('avatars').getPublicUrl(path);
     await auth.setAvatar(data.publicUrl);
@@ -49,7 +54,7 @@ export function AccountModal({ open, onClose }: { open: boolean; onClose: () => 
           <button onClick={onClose} aria-label="Kapat" style={{ background: C.canvas, border: `1px solid ${C.border}`, borderRadius: 8, width: 32, height: 32, fontSize: 14, color: C.muted, cursor: 'pointer' }}>✕</button>
         </div>
         <div style={{ padding: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={(e) => void onFile(e.target.files?.[0])} />
+          <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp,image/avif" style={{ display: 'none' }} onChange={(e) => void onFile(e.target.files?.[0])} />
           <button onClick={() => ref.current?.click()} title={tr.auth.changePhoto} style={{ border: 0, background: 'none', padding: 0, cursor: 'pointer', position: 'relative' }}>
             {avatar
               ? <img src={avatar} alt="" style={{ width: 84, height: 84, borderRadius: '50%', objectFit: 'cover', border: `1px solid ${C.borderSoft}` }} />

@@ -1,11 +1,38 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../store';
 import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Ico, inputStyle, eyebrow, Field } from '../ui';
 import { PROVINCES } from '../data/trLocations';
+import { supabase } from '../data/supabaseClient';
+import { toWebp, AVATAR_MAX_EDGE, ImageError } from '../imageUpload';
 import type { ProfileInput } from '../types';
+
+// Dial codes offered as a prefix. Kept short on purpose: this is a Turkish civil
+// platform, and the list covers Türkiye plus the countries volunteers most often call
+// from. The stored value is always the full "+<code> <number>" string, so nothing about
+// the split leaks into the database.
+const DIAL_CODES = ['+90', '+1', '+30', '+31', '+32', '+33', '+39', '+41', '+43', '+44', '+45', '+46', '+49', '+7', '+971', '+972', '+994'];
+const DEFAULT_DIAL = '+90';
+
+// Split a stored phone into (dial code, national part). An unrecognised or missing
+// prefix falls back to +90 with the digits left untouched — never silently rewritten.
+function splitPhone(value: string): { dial: string; rest: string } {
+  const v = (value ?? '').trim();
+  const match = DIAL_CODES
+    .slice()
+    .sort((a, b) => b.length - a.length)   // longest prefix first: +994 before +9
+    .find((c) => v.startsWith(c));
+  if (!match) return { dial: DEFAULT_DIAL, rest: v };
+  return { dial: match, rest: v.slice(match.length).trim() };
+}
+const joinPhone = (dial: string, rest: string): string => (rest.trim() ? `${dial} ${rest.trim()}` : '');
+
+function initials(name: string): string {
+  const p = name.trim().split(/\s+/).filter(Boolean);
+  return ((p[0]?.[0] ?? '') + (p.length > 1 ? p[p.length - 1][0] : '')).toLocaleUpperCase('tr') || '?';
+}
 
 // "Hesabım" — the account page.
 //
@@ -26,18 +53,48 @@ export function Account() {
   const [form, setForm] = useState<ProfileInput>({
     fullName: '', phone: '', city: '', orgId: null, orgTitle: '',
   });
+  const [dial, setDial] = useState(DEFAULT_DIAL);
   const [err, setErr] = useState('');
   const [saved, setSaved] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoErr, setPhotoErr] = useState('');
+  const photoRef = useRef<HTMLInputElement | null>(null);
 
   // Fill from the loaded profile once it arrives. Never overwrite what the user is
   // currently typing: only sync when the identity changes.
   useEffect(() => {
     if (!p) return;
+    const split = splitPhone(p.phone);
+    setDial(split.dial);
     setForm({
-      fullName: p.fullName, phone: p.phone, city: p.city,
+      fullName: p.fullName, phone: split.rest, city: p.city,
       orgId: p.orgId, orgTitle: p.orgTitle,
     });
   }, [p?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Same pipeline as every other image in the product: decode, cap the long edge,
+  // re-encode WebP (which also drops EXIF/GPS), then upload. Profile photos used to be
+  // stored exactly as the phone produced them.
+  const onPickPhoto = async (file: File | undefined) => {
+    if (!file) return;
+    if (!supabase || !auth.user) { setPhotoErr(tr.account.photoNeedsBackend); return; }
+    setPhotoErr(''); setPhotoBusy(true);
+    try {
+      const { blob } = await toWebp(file, AVATAR_MAX_EDGE, 0.85);
+      const path = `${auth.user.id}/${Date.now()}.webp`;
+      const { error: upErr } = await supabase.storage
+        .from('avatars')
+        .upload(path, blob, { contentType: 'image/webp', upsert: true });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+      await auth.setAvatar(data.publicUrl);
+    } catch (e) {
+      setPhotoErr(e instanceof ImageError ? tr.account.photoFailed : tr.account.photoFailed);
+    } finally {
+      setPhotoBusy(false);
+      if (photoRef.current) photoRef.current.value = '';
+    }
+  };
 
   const card = {
     background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: mob ? 15 : 18,
@@ -81,7 +138,7 @@ export function Account() {
   const submit = async () => {
     if (!form.fullName.trim()) { setErr(tr.account.errName); setSaved(false); return; }
     setErr('');
-    const ok = await auth.updateProfile(form);
+    const ok = await auth.updateProfile({ ...form, phone: joinPhone(dial, form.phone) });
     setSaved(ok);
     if (!ok) setErr(tr.account.saveFailed);
     else a.showToast(tr.account.saved);
@@ -95,21 +152,80 @@ export function Account() {
         <p style={{ fontSize: 13.5, color: C.muted, margin: '6px 0 0', maxWidth: '78ch' }}>{tr.account.subtitle}</p>
       </div>
 
+      {/* Profile photo. Same conversion pipeline as every other image in the product. */}
+      <section style={card}>
+        <h2 style={h2}>{tr.account.sectionPhoto}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 12, flexWrap: 'wrap' }}>
+          <span style={{
+            width: 72, height: 72, flex: '0 0 72px', borderRadius: '50%', overflow: 'hidden',
+            border: `1px solid ${C.borderSoft}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: p?.avatarUrl ? C.surface : G.chip, color: C.text, fontSize: 24, fontWeight: 700,
+          }}>
+            {p?.avatarUrl
+              ? <img src={p.avatarUrl} alt="" width={72} height={72}
+                  style={{ width: 72, height: 72, objectFit: 'cover', display: 'block' }} />
+              : initials(form.fullName || auth.user.email || '')}
+          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 200, flex: '1 1 240px' }}>
+            <input ref={photoRef} type="file" accept="image/jpeg,image/png,image/webp,image/avif"
+              style={{ display: 'none' }} onChange={(e) => void onPickPhoto(e.target.files?.[0])} />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" onClick={() => photoRef.current?.click()} disabled={photoBusy} className="hv-navy" style={{
+                background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 9,
+                height: 42, padding: '0 14px', fontSize: 13.5, fontWeight: 600,
+                cursor: photoBusy ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7,
+              }}>
+                <Ico n="plus" size={15} color={C.muted} />
+                {photoBusy ? tr.account.photoUploading : p?.avatarUrl ? tr.account.photoChange : tr.account.photoAdd}
+              </button>
+              {p?.avatarUrl && !photoBusy && (
+                <button type="button" onClick={() => void auth.setAvatar('')} style={{
+                  background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.muted, borderRadius: 9,
+                  height: 42, padding: '0 13px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+                }}>{tr.account.photoRemove}</button>
+              )}
+            </div>
+            <span style={{ fontSize: 11.5, color: C.muted2, lineHeight: 1.45 }}>{tr.account.photoHint}</span>
+            {photoErr && (
+              <span role="alert" style={{ fontSize: 12.5, fontWeight: 600, color: C.errorText }}>{photoErr}</span>
+            )}
+          </div>
+        </div>
+      </section>
+
       <section style={card}>
         <h2 style={h2}>{tr.account.sectionPerson}</h2>
-        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: mob ? '1fr' : 'repeat(2, minmax(0,1fr))', marginTop: 12 }}>
+        {/* Every label is one line and every hint sits BELOW its input, so with
+            alignItems:'start' the inputs land on the same line. The e-mail hint used to
+            live inside the label, wrapping it to two lines and pushing that field down. */}
+        <div style={{
+          display: 'grid', gap: 12, marginTop: 12, alignItems: 'start',
+          gridTemplateColumns: mob ? '1fr' : 'repeat(2, minmax(0,1fr))',
+        }}>
           <Field label={tr.account.fName}>
             <input value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
               name="profile-name" autoComplete="name" style={inputStyle} />
           </Field>
-          <Field label={tr.account.fEmail} hint={`· ${tr.account.fEmailNote}`}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.heading2 }}>{tr.account.fEmail}</span>
             <input value={auth.user.email ?? ''} readOnly disabled
               style={{ ...inputStyle, background: C.canvas, color: C.muted }} />
-          </Field>
-          <Field label={tr.account.fPhone}>
-            <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-              name="profile-phone" autoComplete="tel" inputMode="tel" style={inputStyle} />
-          </Field>
+            <span style={{ fontSize: 11.5, color: C.muted2 }}>{tr.account.fEmailNote}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.heading2 }}>{tr.account.fPhone}</span>
+            {/* Dial code is a separate control so the number field holds only digits.
+                Stored value stays one string: "+90 5xx …". */}
+            <div style={{ display: 'grid', gridTemplateColumns: '104px minmax(0,1fr)', gap: 8 }}>
+              <select value={dial} onChange={(e) => setDial(e.target.value)} aria-label={tr.account.fPhoneCode}
+                className="tnum" style={{ ...inputStyle, padding: '11px 8px' }}>
+                {DIAL_CODES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                name="profile-phone" autoComplete="tel-national" inputMode="tel"
+                placeholder="5xx xxx xx xx" style={inputStyle} />
+            </div>
+          </div>
           <Field label={tr.account.fCity}>
             <select value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
               name="profile-city" style={inputStyle}>
