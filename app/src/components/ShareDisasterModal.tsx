@@ -58,6 +58,31 @@ export function ShareDisasterModal({ disaster, onClose }: { disaster: Disaster; 
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // WhatsApp'a giden yol, mümkün olan en kısa olandan başlar:
+  //
+  // 1. `navigator.share` — cihazın kendi paylaşım tepsisi. Metin uygulamaya ARAYÜZ
+  //    üzerinden geçer, hiçbir ara sayfaya uğramaz. Emoji sorunu buradan çıkmıştı:
+  //    wa.me'nin ara sayfası 4 baytlık karakterleri (yani bütün resimli emojileri)
+  //    "?" olarak çiziyor — aynı metindeki 3 baytlık "—" düzgün göründüğü için
+  //    sorunun kodlamamızda değil o sayfanın çözücüsünde olduğu belli.
+  // 2. `api.whatsapp.com/send` — wa.me'nin kendisi yerine resmî yönlendirme adresi.
+  //
+  // İkisi de UTF-8 yüzde kodlaması kullanır; mesajın kendisi her iki yolda da aynı.
+  const shareToWhatsApp = async () => {
+    const wa = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ text: message });
+        return;
+      } catch {
+        // Kullanıcı tepsiyi kapattıysa da buraya düşülür; sessizce bağlantıya
+        // geçmek yeni bir sekme açar ve istenmeyen bir davranış olur.
+        return;
+      }
+    }
+    window.open(wa, '_blank', 'noopener,noreferrer');
+  };
+
   const copy = async () => {
     setCopyFailed(false);
     try {
@@ -157,19 +182,18 @@ export function ShareDisasterModal({ disaster, onClose }: { disaster: Disaster; 
           </div>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <a
-              href={`https://wa.me/?text=${encodeURIComponent(message)}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => void shareToWhatsApp()}
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none',
+                display: 'inline-flex', alignItems: 'center', gap: 8,
                 background: '#1E8E3E', border: '1px solid #17752F', color: '#fff', borderRadius: 9,
-                height: 46, padding: '0 16px', fontSize: 14, fontWeight: 600,
+                height: 46, padding: '0 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer',
               }}
             >
               <Ico n="chat" size={17} color="#fff" />
               {tr.shareDisaster.whatsapp}
-            </a>
+            </button>
             <a
               href={url}
               target="_blank"

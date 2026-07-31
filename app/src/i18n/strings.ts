@@ -1022,6 +1022,12 @@ export const tr = {
     settlementCount: (picked: number, total: number) => `${picked} / ${total} seçili`,
     settlementClear: 'Seçimi temizle',
     settlementNoMatch: 'Aramaya uyan yerleşim yok.',
+    // Kapalı düğmenin yazısı. Seçenek sayısı kapalıyken de görünür: listeyi açmadan
+    // "burada ne kadar var" sorusunun cevabı bilinmeli.
+    settlementEmptyTrigger: (total: number) => `Yerleşim seç · ${total} seçenek`,
+    settlementToggleAria: 'Etkilenen mahalle ve köyleri seç',
+    settlementRemove: (name: string) => `${name} seçimini kaldır`,
+    settlementDone: 'Tamam',
     settlementNeighbourhood: 'mah.',
     settlementVillage: 'köy',
     fSituation: 'Durum özeti',

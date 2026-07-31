@@ -131,9 +131,10 @@ export function CoordDisaster() {
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
               {/* Yeni ihtiyaç artık sayfayı terk etmiyor: sihirbaz bu operasyonun
-                  yüklü snapshot'ı üzerinde modal olarak açılıyor. Eskiden koordinatör
-                  ihtiyaç ekranına gidip afeti yeniden seçmek zorundaydı. */}
-              <button onClick={() => a.openWizard('coord')} style={darkBtn(true)}>
+                  yüklü snapshot'ı üzerinde modal olarak açılıyor. 'coordScoped' afet
+                  adımını atlar — hangi operasyon olduğu zaten belli, sormak koordinatöre
+                  bildiği bir şeyi tekrar cevaplatmak olurdu. */}
+              <button onClick={() => a.openWizard('coordScoped')} style={darkBtn(true)}>
                 <Ico n="plus" size={15} color="#fff" />{tr.coord.newNeed}
               </button>
               {/* Düzenle: kayıt alanları (ilçe, yerleşim, durum özeti) buradan da

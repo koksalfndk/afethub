@@ -169,7 +169,7 @@ export function CoordOps() {
       <section style={{ ...card, padding: mob ? 14 : 16, display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 320px', minWidth: 0 }}>
           <Field label={tr.coordOps.fOperation} full>
-            <Picker value={current.slug} onChange={(x) => a.openDisaster(x, 'overview')}
+            <Picker value={current.slug} onChange={(x) => a.selectOperation(x)}
               ariaLabel={tr.coordOps.fOperation}
               options={disasters.map((d) => ({
                 value: d.slug,

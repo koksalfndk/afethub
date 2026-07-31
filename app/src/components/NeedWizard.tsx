@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp, type WizardMode } from '../store';
 import { useAuth } from '../auth';
 import { tr, priorityLabel } from '../i18n/strings';
@@ -26,9 +26,11 @@ function WizardInner({ mode }: { mode: WizardMode }) {
   const auth = useAuth();
   const loggedIn = auth.enabled && !!auth.user;
   const isPublic = mode === 'public';
+  // Koordinatörün iki kipi de yayınlar; tek fark afet adımının sorulup sorulmadığı.
+  const isCoord = mode === 'coord' || mode === 'coordScoped';
   const needContact = isPublic && !loggedIn;
 
-  const defaultLoc = mode === 'coord'
+  const defaultLoc = isCoord
     ? (a.snap?.locations[0]?.name ?? '')
     : '';
   // Prefill with the operation that is currently open — that is almost always the one
@@ -40,9 +42,10 @@ function WizardInner({ mode }: { mode: WizardMode }) {
   const [doneCode, setDoneCode] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // A coordinator may be managing several operations at once, so which one the need
-  // belongs to is asked first and explicitly. The public flow is already scoped: the
-  // visitor opened the wizard from one disaster's page, so that step is skipped.
+  // Koordinatör birden çok operasyon yürütüyor olabilir, bu yüzden ihtiyacın hangisine
+  // ait olduğu açıkça sorulur — AMA yalnızca soru gerçekten açıksa. Sihirbaz bir
+  // operasyonun kendi sayfasından açıldıysa ('coordScoped') cevap zaten belli ve o adım
+  // sorulmaz; ziyaretçi akışı da aynı sebeple kapsamlıdır.
   const steps = useMemo(() => {
     const s: Array<'disaster' | 'category' | 'details' | 'location' | 'contact' | 'review'> = [];
     if (mode === 'coord') s.push('disaster');
@@ -59,6 +62,14 @@ function WizardInner({ mode }: { mode: WizardMode }) {
     setV((p) => ({ ...p, petNeeds: p.petNeeds.includes(n) ? p.petNeeds.filter((x) => x !== n) : [...p.petNeeds, n] }));
 
   const close = () => a.closeWizard();
+
+  // Escape kapatır. Zemine tıklamak zaten kapatıyordu; klavyeyle aynı şeyi yapmanın
+  // yolu yoktu (rules/04 §Accessibility).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   const validate = (which: string): string => {
     if (which === 'disaster' && !v.disasterSlug) return tr.wizard.errDisaster;
@@ -86,7 +97,7 @@ function WizardInner({ mode }: { mode: WizardMode }) {
     const payload = buildPayload(v);
     setBusy(true);
     try {
-      if (mode === 'coord') {
+      if (isCoord) {
         const ok = await a.publishNeed(payload);
         if (ok) close(); else setErr(tr.auth.verifyFirst);
       } else {
@@ -98,8 +109,8 @@ function WizardInner({ mode }: { mode: WizardMode }) {
     }
   };
 
-  const title = mode === 'coord' ? tr.wizard.coordTitle : tr.wizard.publicTitle;
-  const intro = mode === 'coord' ? tr.wizard.coordIntro : tr.wizard.publicIntro;
+  const title = isCoord ? tr.wizard.coordTitle : tr.wizard.publicTitle;
+  const intro = isCoord ? tr.wizard.coordIntro : tr.wizard.publicIntro;
   const current = steps[step];
 
   return (
@@ -115,7 +126,7 @@ function WizardInner({ mode }: { mode: WizardMode }) {
             <p style={{ margin: '4px 0 0', fontSize: 13.5, color: C.muted }}>{intro}</p>
             {/* A coordinator/admin is the reviewer, so their own need is published
                 straight away rather than queued. Say so, don't let it be a surprise. */}
-            {mode === 'coord' && (
+            {isCoord && (
               <p style={{
                 margin: '9px 0 0', fontSize: 12.5, fontWeight: 600, color: C.successText,
                 background: '#EAF7EF', border: '1px solid #C9E9D6', borderRadius: 9, padding: '8px 11px',
@@ -160,7 +171,7 @@ function WizardInner({ mode }: { mode: WizardMode }) {
               // Delivery points belong to an operation. Only offer the open snapshot's
               // list when the coordinator is publishing into that same operation —
               // otherwise a free-text value is safer than a list from the wrong disaster.
-              mode === 'coord' && v.disasterSlug === a.snap?.disaster.slug
+              isCoord && v.disasterSlug === a.snap?.disaster.slug
                 ? (a.snap?.locations.map((l) => l.name) ?? [])
                 : []
             } />
@@ -181,7 +192,7 @@ function WizardInner({ mode }: { mode: WizardMode }) {
             </Btn>
             {current === 'review' ? (
               <Btn variant="primary" onClick={submit} disabled={busy}>
-                {busy ? tr.auth.working : (mode === 'coord' ? tr.wizard.publish : tr.wizard.submit)}
+                {busy ? tr.auth.working : (isCoord ? tr.wizard.publish : tr.wizard.submit)}
               </Btn>
             ) : (
               <Btn variant="primary" onClick={next}>{tr.wizard.next}</Btn>

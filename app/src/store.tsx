@@ -116,7 +116,10 @@ const IS_DEV = Boolean(import.meta.env.DEV);
 // The step-by-step need wizard is opened in one of two modes:
 //   'coord'  → coordinator publishes a need directly (İhtiyaç oluştur)
 //   'public' → a visitor submits a need request for review (İhtiyaç talebi)
-export type WizardMode = 'coord' | 'public';
+// 'coordScoped': sihirbaz zaten bir operasyonun sayfasından açıldı, afet seçimi
+// sorulmaz. Ayrı bir değer olmasının sebebi NeedWizard'ın `key={wizardMode}` ile
+// yeniden kurulması — kapsam değişince form da sıfırdan kurulmalı.
+export type WizardMode = 'coord' | 'coordScoped' | 'public';
 
 export interface AppApi {
   snap: Snapshot | null;
@@ -202,6 +205,9 @@ export interface AppApi {
   // Koordinatörün operasyon sayfası. Ziyaretçi görünümünden ayrı bir rota, çünkü
   // aynı slug iki farklı ekranı besliyor.
   openCoordDisaster: (slug: string) => void;
+  // Rotayı DEĞİŞTİRMEDEN geçerli operasyonu değiştirir. Koordinatör ekranlarındaki
+  // operasyon seçicisi bunu kullanır: seçim yapmak sayfadan çıkmak değildir.
+  selectOperation: (slug: string) => void;
   setDevice: (d: Device) => void; setRole: (r: Role) => void; setTab: (t: Tab) => void;
   setQuery: (q: string) => void; setFilter: (f: Filter) => void; setSubFilter: (f: SubFilter) => void;
   setCatFilter: (c: string) => void; setLocFilter: (l: string) => void;
@@ -617,6 +623,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     go: (r, extra) => { setRoute(r); if (extra?.tab) setTab(extra.tab); },
     openDisaster: (slug, t) => { setCurrentSlug(slug); setRoute('disaster'); setTab(t ?? 'needs'); if (slug !== currentSlug) loadSnapshot(slug); },
     openCoordDisaster: (slug) => { setCurrentSlug(slug); setRoute('coordDisaster'); if (slug !== currentSlug) loadSnapshot(slug); },
+    selectOperation: (slug) => { setCurrentSlug(slug); if (slug !== currentSlug) loadSnapshot(slug); },
     reloadCoordDashboard: () => loadCoordDashboard(),
     setLocationCapacity: async (locationId, pct, note) => {
       if (unverified) { showToast(tr.auth.verifyFirst); return false; }
