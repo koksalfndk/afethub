@@ -43,6 +43,24 @@ export function Account() {
   const [photoErr, setPhotoErr] = useState('');
   const photoRef = useRef<HTMLInputElement | null>(null);
 
+  // Password change is a self-contained action (its own inputs, its own button),
+  // independent of the profile-save form below.
+  const [pwCur, setPwCur] = useState('');
+  const [pwNew, setPwNew] = useState('');
+  const [pwNew2, setPwNew2] = useState('');
+  const [pwErr, setPwErr] = useState('');
+  const [pwOk, setPwOk] = useState(false);
+
+  const changePassword = async () => {
+    setPwErr(''); setPwOk(false);
+    if (pwNew.length < 6) { setPwErr(tr.account.pwErrShort); return; }
+    if (pwNew !== pwNew2) { setPwErr(tr.account.pwErrMismatch); return; }
+    const r = await auth.changePassword(pwCur, pwNew);
+    if (r === 'bad-current') { setPwErr(tr.account.pwErrCurrent); return; }
+    if (r === 'error') { setPwErr(tr.account.pwErrGeneric); return; }
+    setPwOk(true); setPwCur(''); setPwNew(''); setPwNew2('');
+  };
+
   // Fill from the loaded profile once it arrives. Never overwrite what the user is
   // currently typing: only sync when the identity changes.
   useEffect(() => {
@@ -281,6 +299,44 @@ export function Account() {
             borderRadius: 20, padding: '5px 12px',
           }}><Ico n="user" size={14} color={C.muted} />{roleLabel}</span>
           <span style={{ fontSize: 12.5, color: C.muted }}>{tr.account.roleNote}</span>
+        </div>
+      </section>
+
+      {/* Password change. Independent of the profile save; re-verifies the current
+          password server-side before applying (rules/03). */}
+      <section style={card}>
+        <h2 style={h2}>{tr.account.sectionPassword}</h2>
+        <p style={{ fontSize: 13, color: C.muted, margin: '6px 0 0' }}>{tr.account.pwNote}</p>
+        <div style={{
+          display: 'grid', gap: 12, marginTop: 12, alignItems: 'start',
+          gridTemplateColumns: mob ? '1fr' : 'repeat(2, minmax(0,1fr))',
+        }}>
+          <Field label={tr.account.pwCurrent} full>
+            <input value={pwCur} onChange={(e) => setPwCur(e.target.value)} type="password"
+              autoComplete="current-password" placeholder="••••••••" style={inputStyle} />
+          </Field>
+          <Field label={tr.account.pwNew}>
+            <input value={pwNew} onChange={(e) => setPwNew(e.target.value)} type="password"
+              autoComplete="new-password" placeholder="••••••••" style={inputStyle} />
+          </Field>
+          <Field label={tr.account.pwConfirm}>
+            <input value={pwNew2} onChange={(e) => setPwNew2(e.target.value)} type="password"
+              autoComplete="new-password" placeholder="••••••••" style={inputStyle}
+              onKeyDown={(e) => { if (e.key === 'Enter') void changePassword(); }} />
+          </Field>
+        </div>
+        {pwOk && (
+          <div style={{ marginTop: 12, background: '#EAF7EF', border: '1px solid #C9E9D6', borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: C.successText, fontWeight: 600 }}>{tr.account.pwChanged}</div>
+        )}
+        {pwErr && (
+          <div role="alert" style={{ marginTop: 12, background: C.errorSurface, border: `1px solid ${C.errorBorder}`, borderRadius: 10, padding: '10px 13px', fontSize: 13.5, color: C.errorText, fontWeight: 600 }}>{pwErr}</div>
+        )}
+        <div style={{ marginTop: 12 }}>
+          <button onClick={() => void changePassword()} disabled={auth.working} style={{
+            background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 10,
+            height: 44, padding: '0 16px', fontSize: 14, fontWeight: 600,
+            cursor: auth.working ? 'default' : 'pointer', opacity: auth.working ? .7 : 1,
+          }}>{auth.working ? tr.auth.working : tr.account.pwChange}</button>
         </div>
       </section>
 

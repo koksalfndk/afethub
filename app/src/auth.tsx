@@ -15,6 +15,9 @@ export interface AuthApi {
   error: string;
   modalOpen: boolean;
   modalMode: 'signIn' | 'signUp';   // which tab the modal opens on
+  // True while the user is in a password-recovery session (arrived from a reset link).
+  // The modal takes over with a "set a new password" view until it is cleared.
+  recovery: boolean;
   // Address to pre-fill on the sign-up tab, set when someone arrives from an invite link.
   // It is a convenience only: the role is claimed by verifying the address, not by having
   // the link (see migration 0015).
@@ -25,6 +28,13 @@ export interface AuthApi {
   signUp: (email: string, password: string, fullName: string) => Promise<'ok' | 'confirm' | 'error'>;
   signOut: () => Promise<void>;
   resendVerification: () => Promise<boolean>;
+  // Password reset. requestPasswordReset sends the email; updatePassword sets the new
+  // one while in a recovery session; changePassword is the signed-in self-service flow
+  // (re-verifies the current password first so an unattended session can't be hijacked).
+  requestPasswordReset: (email: string) => Promise<boolean>;
+  updatePassword: (newPassword: string) => Promise<boolean>;
+  changePassword: (current: string, next: string) => Promise<'ok' | 'bad-current' | 'error'>;
+  clearRecovery: () => void;
   setAvatar: (url: string) => Promise<void>;
   // Profile self-service. Role and membership verification are NOT writable here —
   // RLS rejects them too, so a crafted request cannot self-promote (rules/03).
@@ -67,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'signIn' | 'signUp'>('signIn');
   const [prefillEmail, setPrefillEmail] = useState('');
+  const [recovery, setRecovery] = useState(false);
 
   useEffect(() => {
     if (!supabase) return;
@@ -79,7 +90,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setReady(true);
     };
     supabase.auth.getSession().then(({ data }) => apply(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => { void apply(session); });
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      // Default recovery links arrive as a URL hash and surface as this event: take
+      // over the modal so the user can set a new password.
+      if (event === 'PASSWORD_RECOVERY') { setRecovery(true); setError(''); setModalMode('signIn'); setModalOpen(true); }
+      void apply(session);
+    });
     return () => { active = false; sub.subscription.unsubscribe(); };
   }, []);
 
@@ -105,6 +121,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setModalMode('signIn');
           setModalOpen(true);
           setError(e.message);
+        } else if (type === 'recovery') {
+          // A valid reset link (own-domain template): the session is now a recovery
+          // session — open the modal so the user picks a new password.
+          setRecovery(true);
+          setModalMode('signIn');
+          setModalOpen(true);
         }
         // Remove token_hash/type/etc. from the address bar either way.
         window.history.replaceState({}, '', window.location.pathname);
@@ -116,14 +138,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isCoordinator: profile?.role === 'coordinator' || profile?.role === 'admin',
     emailVerified: !!user?.email_confirmed_at,
     working, error,
-    modalOpen, modalMode,
+    modalOpen, modalMode, recovery,
     prefillEmail,
     openModal: (mode, prefill) => {
       setError(''); setModalMode(mode ?? 'signIn');
       setPrefillEmail(prefill ?? ''); setModalOpen(true);
     },
-    closeModal: () => setModalOpen(false),
+    closeModal: () => { setModalOpen(false); setRecovery(false); },
     clearError: () => setError(''),
+    clearRecovery: () => setRecovery(false),
     signIn: async (email, password) => {
       if (!supabase) return false;
       setWorking(true); setError('');
@@ -153,6 +176,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error: e } = await supabase.auth.resend({ type: 'signup', email: user.email, options: { emailRedirectTo: redirectTo } });
       return !e;
     },
+    requestPasswordReset: async (email) => {
+      if (!supabase) return false;
+      setWorking(true); setError('');
+      const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+      const { error: e } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+      setWorking(false);
+      // Don't reveal whether an address is registered (anti-enumeration, rules/03):
+      // only a real server fault is surfaced; the UI otherwise shows a neutral notice.
+      if (e && typeof e.status === 'number' && e.status >= 500) { setError(e.message); return false; }
+      return true;
+    },
+    updatePassword: async (newPassword) => {
+      if (!supabase) return false;
+      setWorking(true); setError('');
+      const { error: e } = await supabase.auth.updateUser({ password: newPassword });
+      setWorking(false);
+      if (e) { setError(e.message); return false; }
+      setRecovery(false);
+      return true;
+    },
+    changePassword: async (current, next) => {
+      if (!supabase || !user?.email) return 'error';
+      setWorking(true); setError('');
+      // Re-verify the current password before changing it, so an unlocked, unattended
+      // session cannot have its password silently reset (rules/03).
+      const { error: e1 } = await supabase.auth.signInWithPassword({ email: user.email, password: current });
+      if (e1) { setWorking(false); return 'bad-current'; }
+      const { error: e2 } = await supabase.auth.updateUser({ password: next });
+      setWorking(false);
+      if (e2) { setError(e2.message); return 'error'; }
+      return 'ok';
+    },
     setAvatar: async (url) => {
       if (!supabase || !user) return;
       await supabase.from('profiles').update({ avatar_url: url }).eq('id', user.id);
@@ -180,7 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } : p));
       return true;
     },
-  }), [enabled, ready, user, profile, working, error, modalOpen, modalMode]);
+  }), [enabled, ready, user, profile, working, error, modalOpen, modalMode, recovery]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
