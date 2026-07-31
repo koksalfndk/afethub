@@ -176,9 +176,10 @@ export function Home() {
       <div style={{
         position: 'relative', zIndex: 3,
         marginTop: mob ? 0 : -(HERO_STRIP_H / 2 + HOME_GAP), marginBottom: mob ? 0 : 4,
-        // Slider'dan %25 dar ve ortalanmış: şerit kahramanın altını tam kaplayınca
-        // ikinci bir kahraman gibi okunuyordu, oysa bir özet.
-        width: mob ? '100%' : '75%', marginLeft: 'auto', marginRight: 'auto',
+        // Slider'dan %10 dar ve ortalanmış: şerit kahramanın altını tam kaplayınca
+        // ikinci bir kahraman gibi okunuyordu, oysa bir özet. Kenarlardaki ince pay
+        // ikisinin ayrı öğeler olduğunu söylemeye yetiyor.
+        width: mob ? '100%' : '90%', marginLeft: 'auto', marginRight: 'auto',
       }}>
         <div style={{
           background: '#0F2C46', border: `1px solid ${D.rowBd}`, borderRadius: 14,
