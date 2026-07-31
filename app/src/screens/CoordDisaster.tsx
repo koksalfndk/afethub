@@ -67,55 +67,58 @@ export function CoordDisaster() {
       <section style={{
         background: G.opsBar, color: D.fg, borderRadius: 14, padding: mob ? '14px 14px 16px' : '16px 18px 18px',
       }}>
-        <nav aria-label={tr.coordOperation.breadcrumb} style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', fontSize: 12.5 }}>
-          <button onClick={() => a.go('coordHome')} style={crumbBtn}>{tr.coord.dashTitle}</button>
-          <span style={{ color: D.muted }}>/</span>
-          <button onClick={() => a.go('coordDisasters')} style={crumbBtn}>{tr.nav.disasterAdmin}</button>
-          <span style={{ color: D.muted }}>/</span>
-          <span style={{ color: '#fff', fontWeight: 600 }}>{d.name}</span>
+        {/* Kırıntı yolu artık sol sütunun İÇİNDE: kart şeridin en üstünden başlasın
+            diye. Kırıntı ayrı bir satır olduğunda kart bir satır aşağıdan başlıyor,
+            üstünde şeridin boş bir bandı kalıyordu. */}
+        <div style={{ display: 'flex', alignItems: mob ? 'flex-start' : 'stretch', gap: 18, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+            <nav aria-label={tr.coordOperation.breadcrumb} style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', fontSize: 12.5 }}>
+              <button onClick={() => a.go('coordHome')} style={crumbBtn}>{tr.coord.dashTitle}</button>
+              <span style={{ color: D.muted }}>/</span>
+              <button onClick={() => a.go('coordDisasters')} style={crumbBtn}>{tr.nav.disasterAdmin}</button>
+              <span style={{ color: D.muted }}>/</span>
+              <span style={{ color: '#fff', fontWeight: 600 }}>{d.name}</span>
 
-          {others.length > 0 && (
-            <span style={{ position: 'relative', marginLeft: 4 }}>
-              <button
-                onClick={() => setSwitcherOpen((v) => !v)}
-                aria-expanded={switcherOpen}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6, background: D.btnBg,
-                  border: `1px solid ${D.btnBd}`, color: '#fff', borderRadius: 9,
-                  padding: '6px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', minHeight: 36,
-                }}
-              >{tr.coordOperation.switch}<Ico n="down" size={13} color="#fff" /></button>
-              {switcherOpen && (
-                <span style={{
-                  position: 'absolute', left: 0, top: 'calc(100% + 6px)', zIndex: 30, minWidth: 290,
-                  background: C.surface, border: `1px solid ${C.border}`, borderRadius: 11, padding: 6,
-                  boxShadow: '0 12px 32px rgba(16,42,67,.22)', display: 'block',
-                }}>
-                  {others.map((o) => (
-                    <button
-                      key={o.id}
-                      onClick={() => { setSwitcherOpen(false); a.openCoordDisaster(o.slug); }}
-                      className="hv-navy"
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left',
-                        background: 'none', border: 0, cursor: 'pointer', borderRadius: 8,
-                        padding: '9px 9px', fontSize: 13, color: C.navy, minHeight: 40,
-                      }}
-                    >
-                      <Ico n={DISASTER_ICON[o.type as keyof typeof DISASTER_ICON] ?? 'dOther'} size={15} color={C.muted} />
-                      <span style={{ minWidth: 0, flex: 1 }}>{o.name}</span>
-                      <span className="tnum" style={{ fontSize: 11.5, color: C.muted2 }}>{o.urgency}</span>
-                    </button>
-                  ))}
+              {others.length > 0 && (
+                <span style={{ position: 'relative', marginLeft: 4 }}>
+                  <button
+                    onClick={() => setSwitcherOpen((v) => !v)}
+                    aria-expanded={switcherOpen}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6, background: D.btnBg,
+                      border: `1px solid ${D.btnBd}`, color: '#fff', borderRadius: 9,
+                      padding: '6px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', minHeight: 36,
+                    }}
+                  >{tr.coordOperation.switch}<Ico n="down" size={13} color="#fff" /></button>
+                  {switcherOpen && (
+                    <span style={{
+                      position: 'absolute', left: 0, top: 'calc(100% + 6px)', zIndex: 30, minWidth: 290,
+                      background: C.surface, border: `1px solid ${C.border}`, borderRadius: 11, padding: 6,
+                      boxShadow: '0 12px 32px rgba(16,42,67,.22)', display: 'block',
+                    }}>
+                      {others.map((o) => (
+                        <button
+                          key={o.id}
+                          onClick={() => { setSwitcherOpen(false); a.openCoordDisaster(o.slug); }}
+                          className="hv-navy"
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left',
+                            background: 'none', border: 0, cursor: 'pointer', borderRadius: 8,
+                            padding: '9px 9px', fontSize: 13, color: C.navy, minHeight: 40,
+                          }}
+                        >
+                          <Ico n={DISASTER_ICON[o.type as keyof typeof DISASTER_ICON] ?? 'dOther'} size={15} color={C.muted} />
+                          <span style={{ minWidth: 0, flex: 1 }}>{o.name}</span>
+                          <span className="tnum" style={{ fontSize: 11.5, color: C.muted2 }}>{o.urgency}</span>
+                        </button>
+                      ))}
+                    </span>
+                  )}
                 </span>
               )}
-            </span>
-          )}
-        </nav>
+            </nav>
 
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap', marginTop: 12 }}>
-          <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.1em', color: '#F9A26C', display: 'flex', alignItems: 'center', gap: 7 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.1em', color: '#F9A26C', display: 'flex', alignItems: 'center', gap: 7, marginTop: 12 }}>
               <i style={{ width: 7, height: 7, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
               {tr.coordOperation.eyebrow(d.status === 'Active', row?.urgency ?? null)}
             </div>
@@ -142,7 +145,7 @@ export function CoordDisaster() {
           <div style={{
             flex: mob ? '1 1 100%' : '0 0 468px', width: mob ? '100%' : 468, minWidth: 0,
             background: '#F7F9FB', border: '1px solid #DCE4EC', borderRadius: 12,
-            padding: '11px 12px 12px',
+            padding: '11px 12px 12px', display: 'flex', flexDirection: 'column',
           }}>
             {/* Kartın tek başlığı ve en üstte: "ETKİLENEN İLÇELER" kaldırıldı, çünkü
                 operasyon zaten ilçe bazında açılıyor — ilçe adı başlıkta, kırıntı
@@ -182,11 +185,13 @@ export function CoordDisaster() {
             ) : plate == null ? (
               <div style={cardNote}>{tr.coordOperation.districtUnknownShort}</div>
             ) : (
-              // Solda harita, sağda liste. Harita sütunu 168 → 196 px genişledi ve
-              // haritanın kendisi sütunun tepesine yaslandı: kart listeyle birlikte
-              // uzarken harita ortada yüzen küçük bir şekil olarak kalıyordu.
+              // Solda harita, sağda liste; ikisi de kartın dikey ortasında. Kart artık
+              // şeridin tepesinden dibine kadar uzuyor (alignSelf: stretch) ve yüksekliği
+              // soldaki başlık bloğu belirliyor — içerik yukarı yaslanınca altta değişken
+              // boyutta bir boşluk kalıyordu. `flex: 1` + `alignItems: center` ile harita
+              // ve liste her iki durumda da ortada duruyor.
               <div style={{
-                display: 'grid', gap: 13, alignItems: 'start',
+                flex: 1, minHeight: 0, display: 'grid', gap: 13, alignItems: 'center', alignContent: 'center',
                 gridTemplateColumns: mob ? '1fr' : 'minmax(0,196px) minmax(0,1fr)',
               }}>
                 <DistrictMap plate={plate} affected={d.districts} accent={accent} />
@@ -221,14 +226,11 @@ export function CoordDisaster() {
 
         {/* Sayaçlar. row null ise (pano henüz yüklenmediyse) hiçbir sayı uydurulmaz:
             şerit gizlenir ve sayfanın kalanı normal çalışır. */}
-        {/* Sütunlar satırın tamamına yayılmıyor: `1fr` ile her sayaç 180 px'e
-            geriliyor, sayı solda tek başına kalıyor ve altındaki hint metni okunmadan
-            geçiliyordu. `max-content` ile şerit içeriği kadar yer kaplar. */}
         {row && (
           <div style={{
-            display: mob ? 'grid' : 'inline-grid', gap: 1, background: D.rowBd, border: `1px solid ${D.rowBd}`,
-            borderRadius: 11, overflow: 'hidden', marginTop: 14, maxWidth: '100%',
-            gridTemplateColumns: mob ? 'repeat(2, minmax(0,1fr))' : 'repeat(6, minmax(0,max-content))',
+            display: 'grid', gap: 1, background: D.rowBd, border: `1px solid ${D.rowBd}`,
+            borderRadius: 11, overflow: 'hidden', marginTop: 14,
+            gridTemplateColumns: mob ? 'repeat(2, minmax(0,1fr))' : 'repeat(6, minmax(0,1fr))',
           }}>
             <Kpi color="#FF6B72" label={tr.coordDash.cardCritical} value={row.criticalNeeds} hint={tr.coordOperation.kpiCriticalHint} />
             <Kpi color="#FFC94A" label={tr.coordDash.cardPending} value={row.pendingSubs}
@@ -473,15 +475,13 @@ export function CoordDisaster() {
 // ---------------------------------------------------------------------------
 function Kpi({ color, label, value, hint }: { color: string; label: string; value: string | number; hint: string }) {
   return (
-    // `nowrap`: sütun artık içeriğine göre daraldığı için etiket kendi başına
-    // sarmalanırsa şerit satırları farklı yükseklikte kalır.
-    <div style={{ background: '#0F2C46', padding: '11px 15px', minWidth: 0 }}>
-      <div style={{ fontSize: 11.5, color: D.fg2, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-        <i style={{ width: 6, height: 6, borderRadius: '50%', background: color, display: 'inline-block', flex: '0 0 auto' }} />
+    <div style={{ background: '#0F2C46', padding: '12px 13px' }}>
+      <div style={{ fontSize: 11.5, color: D.fg2, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <i style={{ width: 6, height: 6, borderRadius: '50%', background: color, display: 'inline-block' }} />
         {label}
       </div>
-      <div className="tnum" style={{ fontSize: 22, fontWeight: 700, color: '#fff', letterSpacing: '-.02em', lineHeight: 1.15, marginTop: 3 }}>{value}</div>
-      <div style={{ fontSize: 11, color: D.muted, marginTop: 2, whiteSpace: 'nowrap' }}>{hint}</div>
+      <div className="tnum" style={{ fontSize: 23, fontWeight: 700, color: '#fff', letterSpacing: '-.02em', lineHeight: 1.15, marginTop: 4 }}>{value}</div>
+      <div style={{ fontSize: 11, color: D.muted, marginTop: 2 }}>{hint}</div>
     </div>
   );
 }
@@ -498,9 +498,12 @@ function Head({ title, hint, badge }: { title: string; hint?: string; badge?: nu
   );
 }
 
+// Bekleme kutuları da kartın dikey ortasında durur: kart soldaki başlık bloğu kadar
+// uzadığı için kısa bir not yukarı yaslanınca altta büyük bir boşluk kalıyordu.
 const cardNote = {
   fontSize: 12, color: C.muted, background: C.surface,
   border: `1px solid ${C.border}`, borderRadius: 9, padding: '10px 11px',
+  alignSelf: 'center', width: '100%',
 } as const;
 
 const panel = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' } as const;
