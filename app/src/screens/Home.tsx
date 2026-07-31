@@ -45,7 +45,7 @@ function worstPriority(c: DisasterCard): PriorityKey {
 // is unusable.
 // Sayaç şeridinin yüksekliği. Negatif üst boşluk bunun yarısı: şerit kahramanın
 // alt kenarını tam ortasından kesiyor.
-const HERO_STRIP_H = 112;
+const HERO_STRIP_H = 92;
 // Dış kapsayıcının satırlar arası boşluğu. Negatif üst boşluk bunu da geri almalı;
 // yoksa şerit kahramanın kenarının bu kadar altında kalır.
 const HOME_GAP = 14;
@@ -169,8 +169,17 @@ export function Home() {
           Sayaç şeridi kahramanın ALT KENARINI dikey ortasından kesiyor. Kahramanın
           içine konup taşırılamıyor: orada `overflow: hidden` var ve taşan yarısı
           kırpılırdı. Bu yüzden dışarıda duruyor ve negatif üst boşlukla çekiliyor. */}
-      <HeroBanner />
-      <div style={{ position: 'relative', zIndex: 3, marginTop: -(HERO_STRIP_H / 2 + HOME_GAP), marginBottom: 4 }}>
+      <HeroBanner bottomInset={mob ? 0 : HERO_STRIP_H / 2 + 10} />
+      {/* Mobilde şerit slider'ın ALTINDA, normal akışta. 390 px'te kenarını kesmek
+          hem sayıları hem fotoğrafı okunmaz yapıyordu; orada kesişme bir tasarım
+          değil, sıkışma olurdu. */}
+      <div style={{
+        position: 'relative', zIndex: 3,
+        marginTop: mob ? 0 : -(HERO_STRIP_H / 2 + HOME_GAP), marginBottom: mob ? 0 : 4,
+        // Slider'dan %25 dar ve ortalanmış: şerit kahramanın altını tam kaplayınca
+        // ikinci bir kahraman gibi okunuyordu, oysa bir özet.
+        width: mob ? '100%' : '75%', marginLeft: 'auto', marginRight: 'auto',
+      }}>
         <div style={{
           background: '#0F2C46', border: `1px solid ${D.rowBd}`, borderRadius: 14,
           boxShadow: '0 18px 44px rgba(11,30,48,.28)', overflow: 'hidden',
@@ -178,21 +187,21 @@ export function Home() {
         }}>
           {cells.map((c, i) => (
             <div key={c.label} style={{
-              display: 'flex', alignItems: 'center', gap: 12, padding: mob ? '13px 14px' : '0 20px',
+              display: 'flex', alignItems: 'center', gap: 10, padding: mob ? '12px 13px' : '0 16px',
               minHeight: mob ? 0 : HERO_STRIP_H,
               borderRight: !mob && i < cells.length - 1 ? `1px solid ${D.rowBd}` : 0,
               borderTop: mob && i > 1 ? `1px solid ${D.rowBd}` : 0,
               borderLeft: mob && i % 2 === 1 ? `1px solid ${D.rowBd}` : 0,
             }}>
               <span style={{
-                width: 38, height: 38, borderRadius: 11, flex: '0 0 38px',
+                width: 34, height: 34, borderRadius: 10, flex: '0 0 34px',
                 background: D.rowBg, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}><Ico n={c.icon} size={18} color={c.tone} /></span>
+              }}><Ico n={c.icon} size={17} color={c.tone} /></span>
               <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 12.5, color: D.fg2 }}>{c.label}</span>
-                <span className="tnum" style={{ display: 'block', fontSize: 22, fontWeight: 700, letterSpacing: '-.02em', color: '#fff' }}>
+                <span style={{ display: 'block', fontSize: 12, color: D.fg2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.label}</span>
+                <span className="tnum" style={{ display: 'block', fontSize: 20, fontWeight: 700, letterSpacing: '-.02em', color: '#fff' }}>
                   {c.value}
-                  <small style={{ fontSize: 12, fontWeight: 500, color: D.fg2, marginLeft: 5 }}>{c.unit}</small>
+                  <small style={{ fontSize: 11.5, fontWeight: 500, color: D.fg2, marginLeft: 4 }}>{c.unit}</small>
                 </span>
               </span>
             </div>
@@ -338,20 +347,28 @@ export function Home() {
         }}>
           <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700, letterSpacing: '-.02em', color: C.navy }}>{tr.home.togetherTitle}</h2>
           <p style={{ margin: '6px 0 0', fontSize: 13.5, color: C.text, maxWidth: '38ch' }}>{tr.home.togetherBody}</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 12, margin: '18px 0 0' }}>
+          {/* Üç sayı kendi kutularında. Serbest metin gibi dizildiklerinde altlarında
+              kartın yarısı kadar boşluk kalıyordu; kutular hem o boşluğu yapıya
+              çeviriyor hem de üç ayrı ölçü olduklarını söylüyor. */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 10, margin: '16px 0 0',
+          }}>
             {[
               [a.orgs.filter((o) => o.status === 'Verified').length, tr.home.togetherOrgs],
               [ov.totals.volunteers, tr.home.togetherVolunteers],
               [ov.totals.deliveryPoints, tr.home.togetherPoints],
             ].map(([v, l]) => (
-              <span key={String(l)}>
-                <span className="tnum" style={{ display: 'block', fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: C.navy }}>{v}</span>
-                <span style={{ display: 'block', fontSize: 12, color: C.muted2 }}>{l}</span>
+              <span key={String(l)} style={{
+                background: C.surface, border: `1px solid ${C.border}`, borderRadius: 11,
+                padding: '11px 12px', minWidth: 0,
+              }}>
+                <span className="tnum" style={{ display: 'block', fontSize: 23, fontWeight: 700, letterSpacing: '-.02em', color: C.navy }}>{v}</span>
+                <span style={{ display: 'block', fontSize: 11.5, color: C.muted2, marginTop: 1 }}>{l}</span>
               </span>
             ))}
           </div>
           <button onClick={() => a.go('orgs')} style={{
-            marginTop: 'auto', background: G.navyBtn, border: `1px solid ${C.navy}`, color: '#fff',
+            marginTop: 14, background: G.navyBtn, border: `1px solid ${C.navy}`, color: '#fff',
             borderRadius: 10, height: 44, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', width: '100%',
           }}>{tr.home.togetherCta}</button>
         </section>
@@ -709,7 +726,9 @@ export function Home() {
         ) : (
           <div style={{
             display: 'grid', gap: 11,
-            gridTemplateColumns: mob ? '1fr' : 'repeat(4, minmax(0,1fr))',
+            // Sütun sayısı bildirim sayısı kadar, en fazla dört: iki bildirim varken
+            // dört sütunluk bir ızgara, ikisi de yarım kalmış gibi görünüyordu.
+            gridTemplateColumns: mob ? '1fr' : `repeat(${Math.min(ov.reports.length, 4)}, minmax(0,1fr))`,
           }}>
             {ov.reports.slice(0, 4).map((r) => {
               const left = Math.max(0, COMMUNITY_THRESHOLD - r.reportCount);

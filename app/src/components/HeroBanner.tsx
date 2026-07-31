@@ -53,7 +53,12 @@ function artLayer(tint: string): string {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
-export function HeroBanner() {
+export function HeroBanner({ bottomInset = 0 }: {
+  /** Altına binen bir öğe varsa (ana sayfadaki sayaç şeridi) göstergeler o kadar
+   *  yukarı çıkar. Bileşen şeridi tanımıyor; yalnızca "altımdan şu kadarı kapalı"
+   *  bilgisini alıyor. */
+  bottomInset?: number;
+} = {}) {
   const a = useApp();
   const mob = a.device === 'mobile';
 
@@ -322,17 +327,6 @@ export function HeroBanner() {
           color: '#fff', borderRadius: 10, padding: '0 18px', height: 46, fontSize: 14, fontWeight: 600, cursor: 'pointer',
         }}>{sl.cta}</button>
 
-        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-          {slides.map((d, idx) => (
-            <button key={d.key} tabIndex={cur ? undefined : -1}
-              onClick={() => go(idx, idx > i ? 1 : -1)}
-              aria-label={d.title} aria-current={idx === i ? 'true' : undefined}
-              style={{
-                width: idx === i ? 26 : 9, height: 9, borderRadius: 20, border: 0, padding: 0, cursor: 'pointer',
-                background: idx === i ? C.navy : C.borderSoft, transition: 'width .18s ease-out',
-              }} />
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -347,7 +341,9 @@ export function HeroBanner() {
       style={{
         position: 'relative', overflow: 'hidden', borderRadius: 14,
         border: `1px solid ${C.border}`, background: C.surface,
-        minHeight: mob ? 470 : 340, display: 'flex',
+        // Sayaç şeridi alt kenarı kestiği için kahraman biraz daha uzun: şeridin
+        // üst yarısı fotoğrafın üstüne biniyor ve metnin nefes alacağı yer kalmalı.
+        minHeight: mob ? 470 : 386, display: 'flex',
         // Mobile puts the photo first and the copy after it, so the copy starts at the top
         // of its own band (it is offset down by the photo height below, not centred).
         alignItems: mob ? 'flex-start' : 'center',
@@ -358,6 +354,36 @@ export function HeroBanner() {
       }}
     >
       {frame(slides[i], true)}
+
+      {/* Göstergeler KARENİN İÇİNDE değil, bölümün üstünde sabit bir katmanda.
+          İçerideyken slaytla birlikte kayıyorlardı: kullanıcı hangi slaytta olduğunu
+          gösteren şeyin kendisi ekrandan çıkıp yenisi giriyordu. Artık slaytlar
+          altlarından geçiyor, göstergeler yerinde duruyor ve ortada.
+
+          `slides` uzunluğu 1 ise hiç çizilmiyor: tek bir noktanın seçilecek başka bir
+          şey yokken durması, olmayan bir seçim vaat eder. */}
+      {many && (
+        <div style={{
+          position: 'absolute', left: 0, right: 0, bottom: 14 + bottomInset, zIndex: 4,
+          display: 'flex', justifyContent: 'center', gap: 7, pointerEvents: 'none',
+        }}>
+          {slides.map((d, idx) => (
+            <button
+              key={d.key}
+              onClick={() => go(idx, idx > i ? 1 : -1)}
+              aria-label={d.title}
+              aria-current={idx === i ? 'true' : undefined}
+              style={{
+                pointerEvents: 'auto',
+                width: idx === i ? 26 : 9, height: 9, borderRadius: 20, border: 0, padding: 0, cursor: 'pointer',
+                background: idx === i ? C.navy : C.borderSoft, transition: 'width .18s ease-out',
+                // Fotoğrafın üstüne denk geldiğinde kaybolmasın diye ince bir hâle.
+                boxShadow: '0 0 0 2px rgba(255,255,255,.65)',
+              }}
+            />
+          ))}
+        </div>
+      )}
       {peek && frame(slides[peek.nb], false)}
     </section>
   );
