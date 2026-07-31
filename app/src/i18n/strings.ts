@@ -216,6 +216,18 @@ export const tr = {
     urgentEmpty: 'Şu an açık bir ihtiyaç kaydı yok.',
     urgentBox: (bolge: number, kalan: number, birim: string) =>
       (bolge === 1 ? `1 bölge · ${kalan} ${birim}` : `${bolge} bölge · ${kalan} ${birim}`),
+    // Kart başlığının yanındaki operasyon seçici.
+    urgentAllOps: 'Tüm operasyonlar',
+    urgentOpAria: 'Acil ihtiyaçlarda operasyon seçimi',
+    // "Tümü" seçiliyken bir kaleme tıklanınca açılan operasyon listesi. Kalem birden
+    // çok operasyonda arandığında hepsini gösterir: ziyaretçiyi rastgele birine
+    // göndermek, yanlış ile gitmesine yol açardı.
+    urgentPinsTitle: (kalem: string) => `${kalem} — hangi operasyon?`,
+    urgentPinRemaining: (kalan: number, birim: string) => `${kalan} ${birim} kalan`,
+    urgentPinsClose: 'Kapat',
+    // Seçili operasyonda hiç açık kalem kalmamışsa. Boşluk "ihtiyaç yok" demektir
+    // ve öyle yazılır; bir şey gizlendiği izlenimi bırakmaz.
+    urgentEmptyOp: 'Bu operasyonda şu an açık bir ihtiyaç kaydı yok.',
     helpTitle: 'Nasıl yardımcı olabilirim?',
     help: {
       volunteer: { title: 'Gönüllü ol', body: 'Sahada görev alarak destek olun.' },
@@ -393,7 +405,11 @@ export const tr = {
     modalIntro: 'Aynı yerde ve aynı günlerde bildirilen benzer olaylar tek bildirimde birleştirilir.',
     stepNames: ['Olay türü', 'Konum ve zaman', 'Açıklama ve iletişim'],
     fProvince: 'İl', fDistrict: 'İlçe',
-    fLocation: 'Konum tarifi', fLocationPh: 'Mahalle, sokak veya bilinen bir nokta',
+    fSettlements: 'Etkilenen mahalle / köyler',
+    settlementsNeedDistrict: 'Önce il ve ilçe seçin',
+    // "Konum tarifi" kalıyor: yukarıdaki liste resmî yerleşim adları, bu ise sokak
+    // ya da bilinen bir nokta. İkisi farklı sorular.
+    fLocation: 'Konum tarifi', fLocationPh: 'Sokak veya bilinen bir nokta',
     fDate: 'Gözlem tarihi',
     fDescription: 'Ne görüyorsunuz?', fDescriptionPh: 'Duman yönü, su seviyesi, kapanan yol, tahliye durumu…',
     contactSection: 'İletişim bilgileriniz',

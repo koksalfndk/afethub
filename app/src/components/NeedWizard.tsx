@@ -3,7 +3,7 @@ import { useApp, type WizardMode } from '../store';
 import { useAuth } from '../auth';
 import { tr, priorityLabel } from '../i18n/strings';
 import { C } from '../theme';
-import { Field, inputStyle, Btn, Chip, Ico } from '../ui';
+import { Field, inputStyle, Btn, Chip, Ico, DateInput } from '../ui';
 import { Picker, toOptions } from './Picker';
 import { UNIT_PRESETS } from '../util';
 import { PROVINCES } from '../data/trLocations';
@@ -469,7 +469,7 @@ function LocationStep({ v, set, coordLocs }: { v: WizardValues; set: SetFn; coor
         )}
       </Field>
       <Field label={tr.wizard.fDeadline} full>
-        <input value={v.deadline} onChange={(e) => set('deadline', e.target.value)} type="date" style={inputStyle} />
+        <DateInput value={v.deadline} onChange={(x) => set('deadline', x)} />
       </Field>
     </Grid>
   );

@@ -5,7 +5,7 @@ import { tr } from '../i18n/strings';
 import { PROVINCES, districtsOf } from '../data/trLocations';
 import { C } from '../theme';
 import { enrichSorted, cols } from '../select';
-import { Field, inputStyle, eyebrow, StatusBadge } from '../ui';
+import { Field, inputStyle, eyebrow, StatusBadge, DateInput } from '../ui';
 import { Picker, toOptions } from '../components/Picker';
 import { DIAL_COUNTRIES, dialLabel } from '../data/dialCodes';
 import { PhotoUploader } from '../components/PhotoUploader';
@@ -154,8 +154,11 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
             </Field>
             <Field label={tr.report.fields.quantity} hint={pickedNeed ? `· ${tr.report.remainingHint(pickedNeed.remaining, pickedNeed.unit)}` : undefined}>
               <div style={{ display: 'flex', gap: 8 }}>
+                {/* Yer tutucu YOK: "30" yazan soluk bir sayı, gerçekten girilmiş bir
+                    miktarla karıştırılıyordu. Kalan miktar zaten alan başlığında
+                    yazıyor ve "Tümü" düğmesi onu tek dokunuşla dolduruyor. */}
                 <input value={f.qty} onChange={(e) => a.setForm('qty', e.target.value)} type="number" min={1}
-                  inputMode="numeric" placeholder="30" style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
+                  inputMode="numeric" style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
                 {/* "Tümü": kalan miktarın tamamını getirir. Teslim noktasında tek elle
                     doldurulan bir formda en sık yazılan sayı bu; elle yazmak hem
                     yavaş hem de yanlış yazmaya açık. Kalan 0 ise düğme yok —
@@ -200,7 +203,7 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
                 options={(a.snap?.locations ?? []).map((l) => ({ value: l.name, label: l.name }))} />
             </Field>
             <Field label={tr.report.fields.date}>
-              <input value={f.date} onChange={(e) => a.setForm('date', e.target.value)} type="date" style={inputStyle} />
+              <DateInput value={f.date} onChange={(x) => a.setForm('date', x)} />
             </Field>
             <Field label={tr.report.fields.eta}>
               <Picker value={f.eta} onChange={(x) => a.setForm('eta', x)} ariaLabel={tr.report.fields.eta}

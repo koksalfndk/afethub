@@ -7,6 +7,8 @@ import { cols } from '../select';
 import { Field, Ico, inputStyle, eyebrow, type IcoName } from '../ui';
 import { Picker, toOptions } from '../components/Picker';
 import { PROVINCES, districtsOf } from '../data/trLocations';
+import { SettlementPicker } from '../components/SettlementPicker';
+import { DateInput } from '../ui';
 import { formatDate } from '../util';
 import type { DisasterReport, DisasterReportInput, DisasterType } from '../types';
 
@@ -37,6 +39,7 @@ export function ReportDisasterForm({ onClose }: { onClose?: () => void }) {
   const [type, setType] = useState<DisasterType | ''>('');
   const [province, setProvince] = useState('');
   const [district, setDistrict] = useState('');
+  const [settlements, setSettlements] = useState<string[]>([]);
   const [locationNote, setLocationNote] = useState('');
   const [occurredOn, setOccurredOn] = useState(today());
   const [description, setDescription] = useState('');
@@ -50,7 +53,7 @@ export function ReportDisasterForm({ onClose }: { onClose?: () => void }) {
   const byName = loggedIn ? (auth.profile?.fullName || 'Gönüllü') : name;
   const byEmail = loggedIn ? (auth.user?.email || '') : email;
   const input = (): DisasterReportInput => ({
-    type: type as DisasterType, province, district, locationNote, occurredOn, description,
+    type: type as DisasterType, province, district, settlements, locationNote, occurredOn, description,
     name: byName, email: byEmail, phone,
   });
 
@@ -75,7 +78,7 @@ export function ReportDisasterForm({ onClose }: { onClose?: () => void }) {
   };
 
   const reset = () => {
-    setStep(0); setType(''); setProvince(''); setDistrict(''); setLocationNote('');
+    setStep(0); setType(''); setProvince(''); setDistrict(''); setSettlements([]); setLocationNote('');
     setOccurredOn(today()); setDescription(''); setSimilar(null); setDone(null); setErr('');
   };
 
@@ -184,20 +187,33 @@ export function ReportDisasterForm({ onClose }: { onClose?: () => void }) {
         <div style={{ display: 'grid', gap: 12, gridTemplateColumns: L.form }}>
           <Field label={tr.reportDisaster.fProvince}>
             <Picker value={province} ariaLabel={tr.reportDisaster.fProvince}
-              onChange={(x) => { setProvince(x); setDistrict(''); }}
+              onChange={(x) => { setProvince(x); setDistrict(''); setSettlements([]); }}
               placeholder={tr.orgs.pickProvince} options={toOptions(PROVINCES)} />
           </Field>
           <Field label={tr.reportDisaster.fDistrict}>
             <Picker value={district} ariaLabel={tr.reportDisaster.fDistrict}
-              onChange={setDistrict} disabled={!province}
+              onChange={(x) => { setDistrict(x); setSettlements([]); }} disabled={!province}
               placeholder={province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}
               options={toOptions(districtsOf(province))} />
+          </Field>
+          {/* Mahalle / köy seçimi ilçeden SONRA: liste ilçenin gerçek yerleşimlerinden
+              okunuyor, ilçe seçilmeden gösterilecek bir şey yok. Serbest metin "Konum
+              tarifi" alanı duruyor — sokak ya da bilinen bir nokta oraya yazılır. */}
+          <Field label={tr.reportDisaster.fSettlements} full>
+            {province && district ? (
+              <SettlementPicker province={province} districts={[district]}
+                value={settlements} onChange={setSettlements} />
+            ) : (
+              <div style={{ ...inputStyle, color: C.muted2, display: 'flex', alignItems: 'center' }}>
+                {tr.reportDisaster.settlementsNeedDistrict}
+              </div>
+            )}
           </Field>
           <Field label={tr.reportDisaster.fLocation} full>
             <input name="report-location" autoComplete="off" value={locationNote} onChange={(e) => setLocationNote(e.target.value)} placeholder={tr.reportDisaster.fLocationPh} style={inputStyle} />
           </Field>
           <Field label={tr.reportDisaster.fDate}>
-            <input type="date" name="report-date" autoComplete="off" value={occurredOn} onChange={(e) => setOccurredOn(e.target.value)} max={today()} style={inputStyle} />
+            <DateInput name="report-date" value={occurredOn} onChange={setOccurredOn} max={today()} />
           </Field>
         </div>
       )}

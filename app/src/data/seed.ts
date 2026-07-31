@@ -477,6 +477,7 @@ export const organizations: Organization[] = [
 export const reports: DisasterReport[] = [
   {
     id: 'rep1', type: 'Wildfire', province: 'İzmir', district: 'Karaburun',
+    settlements: [],
     locationNote: 'Sarpıncık yolu, kıyı sırtı', occurredOn: '2026-07-30',
     description: 'Sırtta duman görülüyor, rüzgâr kuzeyden. Henüz ekip gelmedi.',
     reportCount: 7, status: 'Pending verification', disasterSlug: null,
@@ -484,6 +485,7 @@ export const reports: DisasterReport[] = [
   },
   {
     id: 'rep2', type: 'Flood', province: 'Rize', district: 'Ardeşen',
+    settlements: [],
     locationNote: 'Dere kenarı, alt mahalle', occurredOn: '2026-07-29',
     description: 'Sağanak sonrası dere taştı, iki sokak su altında.',
     reportCount: 3, status: 'Pending verification', disasterSlug: null,
@@ -491,6 +493,7 @@ export const reports: DisasterReport[] = [
   },
   {
     id: 'rep3', type: 'Storm', province: 'Ankara', district: 'Çankaya',
+    settlements: [],
     locationNote: 'Ayrancı, ağaç devrilmesi', occurredOn: '2026-07-29',
     description: 'Fırtınada ağaçlar devrildi, bir sokak kapandı.',
     reportCount: 2, status: 'Pending verification', disasterSlug: null,

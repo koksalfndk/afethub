@@ -731,6 +731,7 @@ export class SupabaseRepo implements Repo {
     id: String(r.id), type: (r.type as DisasterType) ?? 'Other',
     province: String(r.province ?? ''), district: String(r.district ?? ''),
     locationNote: String(r.location_note ?? ''),
+    settlements: Array.isArray(r.settlements) ? (r.settlements as unknown[]).map(String) : [],
     occurredOn: String(r.occurred_on ?? '').slice(0, 10),
     description: String(r.description ?? ''),
     reportCount: Number(r.report_count ?? 1),
@@ -763,6 +764,7 @@ export class SupabaseRepo implements Repo {
       p_location_note: input.locationNote.trim(), p_occurred_on: input.occurredOn,
       p_description: input.description.trim(),
       p_name: input.name.trim(), p_email: input.email.trim(), p_phone: input.phone.trim(),
+      p_settlements: input.settlements,
     }).single();
     if (error) throw error;
     const row = data as Record<string, unknown>;

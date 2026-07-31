@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../store';
 import { useAuth } from '../auth';
 import { tr, disasterTypeLabel } from '../i18n/strings';
@@ -43,6 +43,17 @@ export function Disaster() {
   // Anlık görüntü arka planda yenilendiğinde (bir teslimat doğrulandı) pencere
   // donmuş bir kopyayı değil, güncel sayıları göstermeli.
   const [quickId, setQuickId] = useState<string | null>(null);
+
+  // Ana sayfadaki "Acil ihtiyaçlar" kutusundan gelindiğinde o kalemin penceresi
+  // kendiliğinden açılır. Anlık görüntü henüz yüklenmemiş olabileceği için efekt
+  // snap'e de bağlı: niyet, kalem gerçekten listede belirene kadar bekler.
+  useEffect(() => {
+    const want = a.focusNeedId;
+    if (!want) return;
+    if (!a.snap?.needs.some((n) => n.id === want)) return;
+    setQuickId(want);
+    a.clearFocusNeed();
+  }, [a.focusNeedId, a.snap, a]);
   // A zero-height marker, NOT the bar itself: the bar is sticky, so once it is stuck its
   // bounding rect reports the pinned position (top = header height) and the computed
   // scroll target collapses to "where we already are".

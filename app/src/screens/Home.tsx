@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../store';
 import { tr, disasterTypeLabel, priorityLabel } from '../i18n/strings';
 import { categoryIcon } from '../needForm';
@@ -8,6 +9,7 @@ import { agoMinutes, clockLabel, formatDate } from '../util';
 import { HeroBanner } from '../components/HeroBanner';
 import { HomeOperationsMap } from '../components/HomeOperationsMap';
 import { ReportConfirmModal } from '../components/ReportConfirmModal';
+import { Picker } from '../components/Picker';
 import { COMMUNITY_THRESHOLD } from '../data/repo';
 import type { DisasterType, DisasterReport } from '../types';
 import type { DisasterCard } from '../data/repo';
@@ -78,6 +80,13 @@ export function Home() {
   const mob = a.device === 'mobile';
   const ov = a.overview;
 
+  // "Acil ihtiyaçlar" kartındaki operasyon seçimi. '' = tüm operasyonlar.
+  const [urgentOp, setUrgentOp] = useState('');
+  // Tıklanan kalemin operasyon pinleri. Bağlantı noktasının ölçüsü tıklama ANINDA
+  // alınır ve saklanır: sonradan ölçüp yerini düzeltmek, kartın açıldıktan sonra
+  // zıplamasına yol açıyordu (aynı hata operasyon haritasında da yaşandı).
+  const [pins, setPins] = useState<{ name: string; rect: DOMRect } | null>(null);
+
   const [type, setType] = useState<DisasterType | ''>('');
   const [onlyActive, setOnlyActive] = useState(true);
   const [q, setQ] = useState('');
@@ -130,20 +139,47 @@ export function Home() {
   // Acil ihtiyaçlar KALEM ADIYLA toplanır. `ov.urgent` operasyon başına satır
   // veriyor; olduğu gibi basıldığında "Maske" kutusu üç kez yan yana çıkıyordu ve
   // ziyaretçi üç ayrı ihtiyaç sanıyordu. Kaç bölgede aranıyorsa o yazılır.
-  const urgentByName = (() => {
-    const m = new Map<string, { name: string; cat: string; priority: PriorityKey; remaining: number; unit: string; ops: Set<string>; slug: string }>();
+  //
+  // Seçicide yalnızca ACİL KALEMİ OLAN operasyonlar listelenir. Boş bir operasyonu
+  // listelemek, seçilince "hiçbir şey yok" gösteren bir seçenek sunmak olurdu.
+  const urgentOps = (() => {
+    const m = new Map<string, { id: string; name: string; slug: string; type: DisasterType }>();
     for (const n of ov.urgent) {
+      if (m.has(n.disasterId)) continue;
+      const card = ov.disasters.find((c) => c.disaster.id === n.disasterId);
+      m.set(n.disasterId, {
+        id: n.disasterId, name: n.disasterName, slug: n.disasterSlug,
+        type: card?.disaster.type ?? 'Other',
+      });
+    }
+    return [...m.values()].sort((x, y) => x.name.localeCompare(y.name, 'tr'));
+  })();
+  // Seçili operasyon kapanır ya da kalemleri biterse listeden düşer; seçim o zaman
+  // "tümü"ne döner. Türetilmiş değer, çünkü bir efektle düzeltmek arada bir kare
+  // boyunca boş liste gösterirdi.
+  const activeOp = urgentOps.some((o) => o.id === urgentOp) ? urgentOp : '';
+  const urgentSource = activeOp ? ov.urgent.filter((n) => n.disasterId === activeOp) : ov.urgent;
+
+  const urgentByName = (() => {
+    type Op = { id: string; name: string; slug: string; needId: string; remaining: number; type: DisasterType };
+    const m = new Map<string, { name: string; cat: string; priority: PriorityKey; remaining: number; unit: string; ops: Op[] }>();
+    for (const n of urgentSource) {
+      const card = ov.disasters.find((c) => c.disaster.id === n.disasterId);
+      const op: Op = {
+        id: n.disasterId, name: n.disasterName, slug: n.disasterSlug, needId: n.id,
+        remaining: n.remaining, type: card?.disaster.type ?? 'Other',
+      };
       const cur = m.get(n.name);
       if (cur) {
         cur.remaining += n.remaining;
-        cur.ops.add(n.disasterId);
+        cur.ops.push(op);
         if ((PRI[n.priority] ?? PRI.Normal).rank < (PRI[cur.priority] ?? PRI.Normal).rank) cur.priority = n.priority;
       } else {
-        m.set(n.name, { name: n.name, cat: n.cat, priority: n.priority, remaining: n.remaining, unit: n.unit, ops: new Set([n.disasterId]), slug: n.disasterSlug });
+        m.set(n.name, { name: n.name, cat: n.cat, priority: n.priority, remaining: n.remaining, unit: n.unit, ops: [op] });
       }
     }
     return [...m.values()]
-      .sort((x, y) => (PRI[x.priority] ?? PRI.Normal).rank - (PRI[y.priority] ?? PRI.Normal).rank || y.ops.size - x.ops.size)
+      .sort((x, y) => (PRI[x.priority] ?? PRI.Normal).rank - (PRI[y.priority] ?? PRI.Normal).rank || y.ops.length - x.ops.length)
       .slice(0, 8);
   })();
 
@@ -258,33 +294,78 @@ export function Home() {
 
       {/* ---- Acil ihtiyaçlar + nasıl yardımcı olabilirim -------------------- */}
       <div style={{ display: 'grid', gap: 14, alignItems: 'stretch', gridTemplateColumns: mob ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)' }}>
-        <section style={{ ...panel, padding: '16px 17px 17px', display: 'flex', flexDirection: 'column' }}>
-          <SectionHead title={tr.home.urgentTitle} />
+        {/* Acil ihtiyaçlar, ana sayfadaki tek "şimdi eksik olan" kartı; kırmızı
+            tonlu zemin onu komşusundan ayırıyor. Gradyan yalnızca KART zemininde:
+            kalem kutuları düz beyaz kalıyor, çünkü metin gradyanın üstünde
+            okunmamalı (rules/04 §Gradients). */}
+        <section style={{
+          ...panel, padding: '16px 17px 17px', display: 'flex', flexDirection: 'column',
+          background: G.criticalPanel, border: `1px solid ${C.errorBorder}`,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+            <h2 style={{ margin: 0, fontSize: 16.5, fontWeight: 700, letterSpacing: '-.01em', color: C.navy }}>{tr.home.urgentTitle}</h2>
+            {/* Seçici yalnızca birden çok operasyon varken anlamlı: tek operasyonda
+                "tümü" ile onu seçmek aynı listeyi verir. */}
+            {urgentOps.length > 1 && (
+              <span style={{ marginLeft: 'auto', minWidth: 172, maxWidth: '100%' }}>
+                <Picker
+                  value={activeOp} onChange={(v) => { setUrgentOp(v); setPins(null); }}
+                  ariaLabel={tr.home.urgentOpAria} placeholder={tr.home.urgentAllOps}
+                  style={{ minHeight: 36, padding: '6px 30px 6px 11px', fontSize: 12.5, background: C.surface }}
+                  options={[
+                    { value: '', label: tr.home.urgentAllOps },
+                    ...urgentOps.map((o) => ({ value: o.id, label: o.name })),
+                  ]}
+                />
+              </span>
+            )}
+          </div>
           {urgentByName.length === 0 ? (
-            <p style={{ margin: 0, fontSize: 13, color: C.muted }}>{tr.home.urgentEmpty}</p>
+            <p style={{ margin: 0, fontSize: 13, color: C.muted }}>
+              {activeOp ? tr.home.urgentEmptyOp : tr.home.urgentEmpty}
+            </p>
           ) : (
             <div style={{
               display: 'grid', gap: 10, flex: 1, alignContent: 'start',
               gridTemplateColumns: mob ? 'repeat(2, minmax(0,1fr))' : 'repeat(4, minmax(0,1fr))',
             }}>
-              {urgentByName.map((n) => (
-                <button key={n.name} onClick={() => a.openDisaster(n.slug, 'needs')} className="hv-navy" style={{
-                  border: `1px solid ${C.border}`, borderRadius: 11, padding: '12px 8px',
-                  background: C.surface, cursor: 'pointer', textAlign: 'center', minWidth: 0,
-                }}>
-                  <span style={{
-                    width: 42, height: 42, borderRadius: 12, background: C.chipNavyBg, margin: '0 auto 8px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}><Ico n={categoryIcon(n.cat)} size={20} color={(PRI[n.priority] ?? PRI.Normal).bar} /></span>
-                  <span style={{
-                    display: 'block', fontSize: 12.5, fontWeight: 600, color: C.navy,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>{n.name}</span>
-                  <span className="tnum" style={{ display: 'block', fontSize: 11, color: C.muted2, marginTop: 2 }}>
-                    {tr.home.urgentBox(n.ops.size, n.remaining, n.unit)}
-                  </span>
-                </button>
-              ))}
+              {urgentByName.map((n) => {
+                // Belirli bir operasyon seçiliyse tıklama doğrudan o kalemin hızlı
+                // bakış penceresine gider — soracak bir şey kalmamıştır. "Tümü"
+                // seçiliyken hangi operasyon olduğu ziyaretçinin kararı: kalem birden
+                // çok operasyonda aranıyor olabilir ve rastgele birine göndermek
+                // yanlış sahaya gitmesine yol açar.
+                const direct = n.ops.length === 1;
+                const open = (e: React.MouseEvent<HTMLButtonElement>) => {
+                  if (direct) {
+                    const o = n.ops[0];
+                    a.openDisaster(o.slug, 'needs', o.needId);
+                    return;
+                  }
+                  setPins({ name: n.name, rect: e.currentTarget.getBoundingClientRect() });
+                };
+                return (
+                  <button key={n.name} onClick={open} className="hv-navy"
+                    aria-haspopup={direct ? undefined : 'dialog'}
+                    aria-expanded={direct ? undefined : pins?.name === n.name}
+                    style={{
+                      border: `1px solid ${pins?.name === n.name ? C.emergency : C.border}`, borderRadius: 11,
+                      padding: '12px 8px', background: C.surface, cursor: 'pointer', textAlign: 'center', minWidth: 0,
+                    }}>
+                    <span style={{
+                      width: 42, height: 42, borderRadius: 12, background: C.chipNavyBg, margin: '0 auto 8px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}><Ico n={categoryIcon(n.cat)} size={20} color={(PRI[n.priority] ?? PRI.Normal).bar} /></span>
+                    <span style={{
+                      display: 'block', fontSize: 12.5, fontWeight: 600, color: C.navy,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>{n.name}</span>
+                    <span className="tnum" style={{ display: 'block', fontSize: 11, color: C.muted2, marginTop: 2 }}>
+                      {tr.home.urgentBox(n.ops.length, n.remaining, n.unit)}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
           <p style={{ margin: '11px 0 0', fontSize: 11.5, color: C.muted2 }}>{tr.common.remainingUnchanged}</p>
@@ -792,6 +873,104 @@ export function Home() {
       </p>
 
       {confirming && <ReportConfirmModal report={confirming} onClose={() => setConfirming(null)} />}
+
+      {pins && (
+        <UrgentPins
+          title={tr.home.urgentPinsTitle(pins.name)}
+          anchor={pins.rect}
+          ops={urgentByName.find((x) => x.name === pins.name)?.ops ?? []}
+          unit={urgentByName.find((x) => x.name === pins.name)?.unit ?? ''}
+          onPick={(o) => { setPins(null); a.openDisaster(o.slug, 'needs', o.needId); }}
+          onClose={() => setPins(null)}
+        />
+      )}
     </div>
+  );
+}
+
+// Bir kalemin hangi operasyonlarda arandığını gösteren pin listesi.
+//
+// document.body'ye taşınıyor: kart `overflow: hidden` bir panelin içinde ve normal
+// akışta konumlanan bir katman kenarda kırpılırdı (Picker de aynı sebeple böyle).
+//
+// Konum tıklama anındaki ölçüyle BİR KEZ hesaplanıyor; sonradan ölçüp düzeltmek
+// katmanın açıldıktan sonra yerinden zıplamasına yol açıyor.
+const PIN_W = 264;
+function UrgentPins({ title, anchor, ops, unit, onPick, onClose }: {
+  title: string;
+  anchor: DOMRect;
+  unit: string;
+  ops: { id: string; name: string; slug: string; needId: string; remaining: number; type: DisasterType }[];
+  onPick: (o: { slug: string; needId: string }) => void;
+  onClose: () => void;
+}) {
+  const boxRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    // Sayfa kaydırılınca bağlantı noktası altından kayar; katman yerinde kalıp
+    // ilgisiz bir kutuya işaret etmektense kapanır.
+    const onScroll = () => onClose();
+    const onDown = (e: MouseEvent) => {
+      if (!boxRef.current?.contains(e.target as Node)) onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    // Yakalama evresinde DEĞİL: kendi düğmelerimizin tıklaması önce çalışmalı.
+    document.addEventListener('mousedown', onDown);
+    boxRef.current?.focus();
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+      document.removeEventListener('mousedown', onDown);
+    };
+  }, [onClose]);
+
+  const h = 46 + ops.length * 54 + 10;
+  const below = anchor.bottom + 8 + h <= window.innerHeight - 10;
+  const top = below ? anchor.bottom + 8 : Math.max(10, anchor.top - 8 - h);
+  const left = Math.min(
+    Math.max(10, anchor.left + anchor.width / 2 - PIN_W / 2),
+    Math.max(10, window.innerWidth - PIN_W - 10),
+  );
+
+  return createPortal(
+    <div ref={boxRef} tabIndex={-1} role="dialog" aria-label={title} className="anim-in" style={{
+      position: 'fixed', top, left, width: PIN_W, zIndex: 80,
+      background: C.surface, border: `1px solid ${C.errorBorder}`, borderRadius: 12,
+      boxShadow: '0 14px 38px rgba(11,30,48,.22)', overflow: 'hidden', outline: 'none',
+    }}>
+      <div style={{
+        padding: '10px 12px', borderBottom: `1px solid ${C.borderFaint}`, background: G.criticalPanel,
+        fontSize: 12, fontWeight: 700, color: C.navy,
+      }}>{title}</div>
+      <div style={{ padding: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {ops.map((o) => (
+          <button key={o.id} onClick={() => onPick(o)} className="hv-navy" style={{
+            display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left',
+            background: C.surface, border: `1px solid ${C.border}`, borderRadius: 9,
+            padding: '9px 10px', cursor: 'pointer', minHeight: 46,
+          }}>
+            <span style={{
+              width: 28, height: 28, flex: '0 0 28px', borderRadius: 8, background: C.chipNavyBg,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}><Ico n={DISASTER_ICON[o.type]} size={15} color={C.emergency} /></span>
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <span style={{
+                display: 'block', fontSize: 13, fontWeight: 600, color: C.navy,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>{o.name}</span>
+              <span className="tnum" style={{ display: 'block', fontSize: 11.5, color: C.muted2, marginTop: 1 }}>
+                {tr.home.urgentPinRemaining(o.remaining, unit)}
+              </span>
+            </span>
+            <span style={{ flex: '0 0 auto', color: C.muted2, fontSize: 15 }}>›</span>
+          </button>
+        ))}
+      </div>
+    </div>,
+    document.body,
   );
 }

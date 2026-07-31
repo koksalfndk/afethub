@@ -760,7 +760,14 @@ export class LocalRepo implements Repo {
   async submitDisasterReport(input: DisasterReportInput): Promise<{ report: DisasterReport; merged: boolean }> {
     const existing = reports.find((r) => r.status === 'Pending verification' && isSameEvent(r, input));
     if (existing) {
-      const merged = { ...existing, reportCount: existing.reportCount + 1, lastReportLabel: NOW };
+      // Birleştirmede mahalle listelerinin BİRLEŞİMİ alınır (migration 0034 ile aynı
+      // kural): ikinci bildiren farklı bir köy saymış olabilir.
+      const merged = {
+        ...existing,
+        reportCount: existing.reportCount + 1,
+        lastReportLabel: NOW,
+        settlements: [...new Set([...existing.settlements, ...input.settlements.map((x) => x.trim()).filter(Boolean)])],
+      };
       reports = reports.map((r) => (r.id === existing.id ? merged : r));
       addLog(activeDisasterId(), {
         user: input.name || 'Misafir', action: 'Afet bildirimi birleştirildi',
@@ -774,7 +781,9 @@ export class LocalRepo implements Repo {
     const created: DisasterReport = {
       id: nextId('rep'), type: input.type,
       province: input.province.trim(), district: input.district.trim(),
-      locationNote: input.locationNote.trim(), occurredOn: input.occurredOn,
+      locationNote: input.locationNote.trim(),
+      settlements: [...new Set(input.settlements.map((x) => x.trim()).filter(Boolean))],
+      occurredOn: input.occurredOn,
       description: input.description.trim(),
       reportCount: 1, status: 'Pending verification', disasterSlug: null,
       createdLabel: NOW, lastReportLabel: NOW,

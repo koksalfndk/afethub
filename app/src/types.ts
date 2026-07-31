@@ -435,6 +435,9 @@ export interface DisasterReport {
   province: string;
   district: string;
   locationNote: string;      // landmark / neighbourhood, free text
+  // Etkilenen mahalle / köyler (migration 0034). BOŞ = kaydedilmedi; asla
+  // "hiçbiri etkilenmedi" demek değil. Birleştirilen bildirimlerde birleşim alınır.
+  settlements: string[];
   occurredOn: string;        // YYYY-MM-DD — the day the event was observed
   description: string;
   reportCount: number;       // how many people reported this same event
@@ -449,6 +452,7 @@ export interface DisasterReportInput {
   province: string;
   district: string;
   locationNote: string;
+  settlements: string[];
   occurredOn: string;
   description: string;
   name: string; email: string; phone: string;

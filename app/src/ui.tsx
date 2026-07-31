@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useRef, type CSSProperties, type ReactNode } from 'react';
 import {
   Activity, BatteryCharging, Building2, Bus, Check, ChevronDown, ChevronRight, CircleCheck, Clock,
   CloudRain, Flame, House, LogOut, MapPin, Menu, Package, PackageSearch, PawPrint, Plus, Search,
@@ -14,6 +14,45 @@ export const inputStyle: CSSProperties = {
   background: C.surface, border: `1px solid ${C.borderSoft}`, borderRadius: 9,
   padding: '11px 12px', fontSize: 14, color: C.navy, minHeight: 46, width: '100%',
 };
+// Tarih alanı. Tek fark: alanın HERHANGİ bir yerine tıklamak takvimi açıyor.
+//
+// Tarayıcının kendi `<input type="date">` alanında takvim yalnızca sağdaki küçük
+// ikonla açılıyor; alanın ortasına tıklayan kişi imleci gün hanesine koyup elle
+// yazmak zorunda kalıyor. Sahada, telefonla, tek elle çalışan biri için o ikon
+// çok küçük bir hedef (rules/01) — ve kimse ikonu aramak zorunda kalmamalı.
+//
+// `showPicker()` desteklenmeyen tarayıcıda hiçbir şey bozulmuyor: alan normal bir
+// tarih girişi olarak çalışmaya devam ediyor, ikon da yerinde duruyor.
+export function DateInput({ value, onChange, name, min, max, style }: {
+  value: string;
+  onChange: (v: string) => void;
+  name?: string;
+  min?: string;
+  max?: string;
+  style?: CSSProperties;
+}) {
+  // Fare ile gelindiğinde odak ve tıklama ARDIŞIK gelir; ikisinde de açmak takvimi
+  // tek harekette iki kez çağırır. Bayrak, her etkileşimde tam bir çağrı bırakıyor.
+  const byMouse = useRef(false);
+  const open = (e: { currentTarget: HTMLInputElement }) => {
+    const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
+    try { el.showPicker?.(); } catch { /* kullanıcı hareketi olmadan çağrılırsa atar */ }
+  };
+  return (
+    <input
+      type="date" name={name} autoComplete="off"
+      value={value} onChange={(e) => onChange(e.target.value)}
+      min={min} max={max}
+      onMouseDown={() => { byMouse.current = true; }}
+      onClick={(e) => { open(e); byMouse.current = false; }}
+      // Klavyeyle gelen kullanıcı için de aynı: Tab ile alana girince takvim açılır.
+      onFocus={(e) => { if (!byMouse.current) open(e); }}
+      onBlur={() => { byMouse.current = false; }}
+      style={{ ...inputStyle, cursor: 'pointer', ...style }}
+    />
+  );
+}
+
 export const cardStyle: CSSProperties = {
   background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18,
 };

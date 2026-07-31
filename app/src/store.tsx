@@ -225,7 +225,15 @@ export interface AppApi {
   deliveryOpen: boolean;
 
   go: (r: Route, extra?: Partial<{ tab: Tab }>) => void;
-  openDisaster: (slug: string, tab?: Tab) => void;
+  // `needId` verilirse afet sayfası açıldığında o kalemin hızlı bakış penceresi
+  // kendiliğinden açılır. Ana sayfadaki "Acil ihtiyaçlar" kutusu bunu kullanıyor:
+  // ziyaretçiyi dokuz kalemlik listenin başına bırakıp aradığını kendi bulmasını
+  // beklemek, tıkladığı şeyi kaybetmesi demekti.
+  openDisaster: (slug: string, tab?: Tab, needId?: string) => void;
+  // Açılışta odaklanacak ihtiyaç. Afet ekranı okuyup TÜKETİR (clearFocusNeed):
+  // ikinci bir gezinmede pencere kendiliğinden yeniden açılmamalı.
+  focusNeedId: string | null;
+  clearFocusNeed: () => void;
   // Koordinatörün operasyon sayfası. Ziyaretçi görünümünden ayrı bir rota, çünkü
   // aynı slug iki farklı ekranı besliyor.
   openCoordDisaster: (slug: string) => void;
@@ -319,6 +327,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Signed in but email not confirmed → privileged (coordinator) actions are blocked.
   const unverified = auth.enabled && !!auth.user && !auth.emailVerified;
   const [currentSlug, setCurrentSlug] = useState<string>(initial.slug ?? '');
+  // Ana sayfadan bir kaleme tıklanınca taşınan niyet. Afet ekranı okur ve siler.
+  const [focusNeedId, setFocusNeedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('All');
   const [subFilter, setSubFilter] = useState<SubFilter>('Pending');
@@ -654,7 +664,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     staff, invites, staffLoading, staffError,
 
     go: (r, extra) => { setRoute(r); if (extra?.tab) setTab(extra.tab); },
-    openDisaster: (slug, t) => { setCurrentSlug(slug); setRoute('disaster'); setTab(t ?? 'needs'); if (slug !== currentSlug) loadSnapshot(slug); },
+    openDisaster: (slug, t, needId) => {
+      setCurrentSlug(slug); setRoute('disaster'); setTab(t ?? 'needs');
+      setFocusNeedId(needId ?? null);
+      // Belirli bir kaleme gidiliyorsa önceki ziyaretten kalan süzgeçler temizlenir.
+      // "Yalnızca kritik" açık kalmışken Normal öncelikli bir kaleme gelmek,
+      // pencereyi kapattığında listede olmayan bir şeyi aramakla bitiyordu.
+      if (needId) {
+        setFilter('All'); setQuery(''); setCatFilter(''); setLocFilter('');
+        setOnlyCritical(false); setUpdatedToday(false);
+      }
+      if (slug !== currentSlug) loadSnapshot(slug);
+    },
+    focusNeedId,
+    clearFocusNeed: () => setFocusNeedId(null),
     openCoordDisaster: (slug) => { setCurrentSlug(slug); setRoute('coordDisaster'); if (slug !== currentSlug) loadSnapshot(slug); },
     selectOperation: (slug) => { setCurrentSlug(slug); if (slug !== currentSlug) loadSnapshot(slug); },
     reloadCoordDashboard: () => loadCoordDashboard(),
@@ -1116,7 +1139,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Every piece of state exposed on `api` must be listed here, or consumers keep the
   // previous value: `deliveryOpen` and `slides` were missing, so the delivery overlay
   // never appeared and the slide list could go stale after a save.
-  }), [snap, loadError, overview, coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError, logDisasterId]);
+  }), [snap, loadError, overview, coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError, logDisasterId, focusNeedId]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
