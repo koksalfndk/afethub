@@ -110,6 +110,23 @@ export const tr = {
     errPasswordShort: 'Parola en az 6 karakter olmalı.',
     genericError: 'Bir sorun oluştu. Bilgileri kontrol edip tekrar deneyin.',
     volunteerNote: 'Gönüllü olarak giriş yaptın. Koordinatör yetkisi bir yönetici tarafından verilir.',
+
+    // Parolamı unuttum (şifre sıfırlama akışı)
+    forgotLink: 'Parolamı unuttum',
+    forgotTitle: 'Parolanı sıfırla',
+    forgotIntro: 'Hesabının e-posta adresini gir; sana bir sıfırlama bağlantısı gönderelim.',
+    forgotSend: 'Sıfırlama bağlantısı gönder',
+    forgotSent: 'Bu e-posta kayıtlıysa, bir sıfırlama bağlantısı gönderdik. Gelen kutunu ve spam klasörünü kontrol et.',
+    backToSignIn: '← Girişe dön',
+    // E-postadaki bağlantıyla gelince yeni parola belirleme
+    recoveryTitle: 'Yeni parola belirle',
+    recoveryIntro: 'Hesabın için yeni bir parola gir.',
+    newPassword: 'Yeni parola',
+    newPasswordConfirm: 'Yeni parola (tekrar)',
+    updatePasswordBtn: 'Parolayı güncelle',
+    passwordUpdated: 'Parolan güncellendi ✓',
+    errPasswordMismatch: 'Parolalar eşleşmiyor.',
+    closeBtn: 'Kapat',
   },
 
   // Menu labels are Title Case (each word capitalised).
@@ -1852,6 +1869,18 @@ export const tr = {
     panelMembership: 'Kurum bilgisi',
     panelNoOrg: 'Kayıtlı kurum bilgisi yok.',
     panelAddOrg: 'Hesabımdan ekle',
+    // Parola değiştirme bölümü
+    sectionPassword: 'Parola',
+    pwNote: 'Parolanı değiştirmek için önce mevcut parolanı gir.',
+    pwCurrent: 'Mevcut parola',
+    pwNew: 'Yeni parola',
+    pwConfirm: 'Yeni parola (tekrar)',
+    pwChange: 'Parolayı Değiştir',
+    pwChanged: 'Parolanız güncellendi ✓',
+    pwErrShort: 'Yeni parola en az 6 karakter olmalı.',
+    pwErrMismatch: 'Yeni parolalar eşleşmiyor.',
+    pwErrCurrent: 'Mevcut parola hatalı.',
+    pwErrGeneric: 'Parola değiştirilemedi. Lütfen tekrar deneyin.',
   },
 
   sidebarFooter: { regionSuffix: 'Koordinasyon açık' },
