@@ -263,7 +263,8 @@ export interface Repo {
   cancelRoleInvite(email: string): Promise<void>;
 }
 
-// Aciliyet skoru — afethub_urgency_score() (migration 0025) ile AYNI formül.
+// Aciliyet skoru — afethub_urgency_score() (migration 0025, 0027 ile güncellendi)
+// ile AYNI formül.
 // Yetkili hesap veritabanında; bu kopya yalnızca Supabase'siz yerel mod içindir ve
 // ikisi birlikte değiştirilmelidir. Ağırlıklar migration dosyasında gerekçeleriyle
 // yazılı; burada tekrar edilmiyor ki iki açıklama birbirinden ayrı düşmesin.
@@ -272,12 +273,17 @@ export function urgencyScore(x: {
   critical: number; urgent: number; pending: number; slaBreached: number;
   deliveryPoints: number; required: number; verified: number;
 }): number {
-  const raw = x.critical * 12
-    + x.urgent * 4
+  // Kalan iş hacmi logaritmik ölçekte: 100 kalem 6, 1.000 kalem 12, 10.000 kalem 18
+  // puan. Doğrusal olsaydı tek bir büyük operasyon diğer bütün bileşenleri ezerdi.
+  const volume = Math.max(0, Math.min(24,
+    Math.round((Math.log10(Math.max(1, x.required - x.verified)) - 1) * 6)));
+  const raw = x.critical * 10
+    + x.urgent * 3
     + x.pending * 2
-    + x.slaBreached * 6
+    + x.slaBreached * 5
     + (x.status === 'Active' && x.deliveryPoints === 0 ? 15 : 0)
-    + (x.required > 0 ? Math.round((1 - Math.min(1, x.verified / x.required)) * 25) : 0);
+    + (x.required > 0 ? Math.round((1 - Math.min(1, x.verified / x.required)) * 18) : 0)
+    + volume;
   const capped = x.status === 'Active' ? raw : Math.min(raw, 20);
   return Math.max(0, Math.min(100, capped));
 }
