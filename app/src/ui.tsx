@@ -3,7 +3,7 @@ import {
   Activity, BatteryCharging, Building2, Bus, Check, ChevronDown, ChevronRight, CircleCheck, Clock,
   CloudRain, Flame, House, LogOut, MapPin, Menu, Package, PackageSearch, PawPrint, Plus, Search,
   ShieldCheck, Shirt, Soup, SprayCan, Stethoscope, TriangleAlert, Truck, User, Users, Waves, Wind,
-  SlidersHorizontal, Wrench, X, type LucideIcon,
+  SlidersHorizontal, Wrench, X, Share2, Copy, SquarePen, Eye, MessageCircle, type LucideIcon,
 } from 'lucide-react';
 import { C, G, PRI, STATUS, barFill, ribbon, wash, type PriorityKey, type StatusKey } from './theme';
 import { priorityLabel, statusLabel } from './i18n/strings';
@@ -138,7 +138,7 @@ export function LiveDot({ color = C.emergency, size = 7, still }: { color?: stri
 export type IcoName =
   | 'need' | 'verified' | 'pending' | 'completed' | 'pin' | 'people' | 'critical' | 'activity' | 'search'
   | 'user' | 'menu' | 'close' | 'chev' | 'down' | 'home' | 'track' | 'plus' | 'logout'
-  | 'org' | 'shield' | 'filter'
+  | 'org' | 'shield' | 'filter' | 'share' | 'copy' | 'pencil' | 'eye' | 'chat'
   // Disaster kinds. Mapped here so an operation's icon is decided once and every screen
   // (home cards, coordinator list, detail header) shows the same one.
   | 'dWildfire' | 'dFlood' | 'dEarthquake' | 'dStorm' | 'dEvacuation' | 'dOther'
@@ -178,6 +178,13 @@ const ICO: Record<IcoName, LucideIcon> = {
   org: Building2,
   shield: ShieldCheck,
   filter: SlidersHorizontal,
+  share: Share2,
+  copy: Copy,
+  pencil: SquarePen,
+  eye: Eye,
+  // WhatsApp bir marka; lucide'de markalı ikon yok ve marka ikonunu taklit etmek
+  // yanlış olur. Genel sohbet ikonu + yazıyla "WhatsApp" diyoruz.
+  chat: MessageCircle,
   dWildfire: Flame,
   dFlood: Waves,
   dEarthquake: Activity,

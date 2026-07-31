@@ -995,7 +995,7 @@ export const tr = {
 
   coordDisasters: {
     title: 'Afet Yönetimi',
-    subtitle: 'Aktif ve kapanmış operasyonlar. Buradan detayları düzenleyebilir, yeni bir operasyon açabilirsiniz.',
+    subtitle: 'Aktif ve kapanmış operasyonlar. Bir operasyonu inceleyebilir, paylaşabilir, kaydını düzenleyebilir veya yeni bir operasyon açabilirsiniz.',
     add: 'Yeni Afet',
     directNotice: 'Koordinatör olarak açtığınız operasyon incelemeye düşmez, kaydettiğiniz anda herkese açık sayfada yayınlanır.',
     localNote: 'Bu ortamda veritabanı bağlı değil: değişiklikler yalnızca bu oturumda geçerli olur.',
@@ -1051,6 +1051,46 @@ export const tr = {
     countLabel: (n: number) => `${n} operasyon`,
     // Disaster detail page
     startedBy: 'Operasyonu başlatan',
+    // Tablo. Sütun başlıkları ekranda görünür — sıralanabilir olmayan bir listede bile
+    // hangi hücrenin ne olduğunu söylemek, satırı okumayı öğrenmeye gerek bırakmaz.
+    colDisaster: 'Afet',
+    colRegion: 'Bölge',
+    colStatus: 'Durum',
+    colStarted: 'Başlatan',
+    colUpdated: 'Güncelleme',
+    colActions: 'İşlem',
+    inspect: 'İncele',
+    share: 'Paylaş',
+    inspectAria: (name: string) => `${name} operasyonunu incele`,
+    editAria: (name: string) => `${name} kaydını düzenle`,
+    shareAria: (name: string) => `${name} operasyonunu paylaş`,
+  },
+
+  // Paylaşım penceresi. Koordinatör bağlantıyı elle yazmaz: yanlış yazılmış bir afet
+  // linki, yardım etmek isteyen birini 404'e götürür.
+  shareDisaster: {
+    title: 'Operasyonu paylaş',
+    intro: 'Herkese açık afet sayfasının bağlantısı. Bu sayfada güncel ihtiyaç listesi ve teslim noktaları yer alır.',
+    linkLabel: 'Herkese açık bağlantı',
+    copy: 'Bağlantıyı kopyala',
+    copied: 'Kopyalandı ✓',
+    copyFailed: 'Kopyalanamadı. Bağlantıyı seçip elle kopyalayabilirsiniz.',
+    whatsapp: "WhatsApp'ta paylaş",
+    // Yeni sekmede açılır; kullanıcıya önceden söylenir (rules/04 §Accessibility).
+    whatsappHint: 'WhatsApp yeni bir sekmede açılır, mesaj hazır gelir.',
+    openPublic: 'Sayfayı aç',
+    close: 'Kapat',
+    previewLabel: 'Gönderilecek mesaj',
+    // WhatsApp mesajı. Bağlantı SON satırda: WhatsApp önizlemeyi son bağlantıdan
+    // üretir ve mesajın kuyruğunda duran bir link, uzun metinde kaybolmaz.
+    message: (o: { name: string; typeLabel: string; region: string; statusLabel: string; situation: string; url: string }) => [
+      `AfetHUB — ${o.name}`,
+      `Durum: ${o.statusLabel} · ${o.typeLabel}`,
+      `Bölge: ${o.region}`,
+      o.situation ? `\n${o.situation}` : '',
+      `\nGüncel ihtiyaç listesi ve teslim noktaları:`,
+      o.url,
+    ].filter(Boolean).join('\n'),
   },
 
   coordOrgEdits: {
