@@ -9,6 +9,7 @@ import { Picker, toOptions } from '../components/Picker';
 import { detailPairs, categoryIcon } from '../needForm';
 import { LocationMap } from '../components/LocationMap';
 import { NeedFilterSheet, activeFilterCount } from '../components/NeedFilterSheet';
+import { NeedQuickView } from '../components/NeedQuickView';
 import { isToday, formatDate } from '../util';
 import type { Filter, Tab } from '../store';
 
@@ -38,6 +39,10 @@ export function Disaster() {
   // Declared before the snapshot guard: a hook after an early return would change hook
   // order between the loading and loaded renders.
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // Hızlı bakış penceresinde açık olan kalem — nesnenin kendisi DEĞİL, kimliği.
+  // Anlık görüntü arka planda yenilendiğinde (bir teslimat doğrulandı) pencere
+  // donmuş bir kopyayı değil, güncel sayıları göstermeli.
+  const [quickId, setQuickId] = useState<string | null>(null);
   // A zero-height marker, NOT the bar itself: the bar is sticky, so once it is stuck its
   // bounding rect reports the pinned position (top = header height) and the computed
   // scroll target collapses to "where we already are".
@@ -63,6 +68,7 @@ export function Disaster() {
   // the initiator is the crowd, and that is stated rather than left blank.
   const byCommunity = a.snap.disaster.openedByCommunity === true;
   const needs = enrichSorted(a.snap.needs);
+  const quickNeed = quickId ? (needs.find((n) => n.id === quickId) ?? null) : null;
   const pendingSubs = a.snap.subs.filter((s) => s.status === 'Pending verification');
   const pendingUnits = pendingSubs.reduce((x, s) => x + s.qty, 0);
   const activeNeeds = needs.filter((n) => n.remaining > 0).length;
@@ -473,7 +479,7 @@ export function Disaster() {
                   {/* Primary action stays visually dominant; details is a quiet secondary. */}
                   <div style={{ display: 'flex', gap: 8, marginTop: 'auto', flexWrap: 'wrap' }}>
                     <button onClick={() => a.prefillReport(n.id, n.unit, n.loc)} className={n.done ? undefined : 'hv-emergency'} style={{ flex: '1 1 160px', background: n.done ? C.muted3 : C.emergency, border: `1px solid ${n.done ? C.muted3 : C.emergency}`, color: '#fff', borderRadius: 9, padding: '13px 16px', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', minHeight: 48 }}>{n.done ? tr.disaster.fullyCovered : tr.disaster.iDelivered}</button>
-                    <button onClick={() => a.showToast(tr.toasts.detail(n.name, n.verified, n.pending, n.remaining))} className="hv-navy" style={{ flex: '0 0 auto', background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.heading2, borderRadius: 9, padding: '13px 15px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', minHeight: 48 }}>{tr.common.details}</button>
+                    <button onClick={() => setQuickId(n.id)} className="hv-navy" style={{ flex: '0 0 auto', background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.heading2, borderRadius: 9, padding: '13px 15px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', minHeight: 48 }}>{tr.common.details}</button>
                   </div>
                 </div>
               ))}
@@ -572,6 +578,9 @@ export function Disaster() {
           shown={visibleNeeds.length} total={needs.length}
         />
       )}
+    {/* Kalem silinmiş ya da süzgeç dışına düşmüş olabilir; kimlik listede yoksa
+        pencere hiç açılmaz — boş bir pencere göstermektense kapalı kalır. */}
+    {quickNeed && <NeedQuickView need={quickNeed} onClose={() => setQuickId(null)} />}
     </div>
   );
 }

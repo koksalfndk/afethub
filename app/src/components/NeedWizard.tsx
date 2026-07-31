@@ -7,6 +7,8 @@ import { Field, inputStyle, Btn, Chip, Ico } from '../ui';
 import { Picker, toOptions } from './Picker';
 import { UNIT_PRESETS } from '../util';
 import { PROVINCES } from '../data/trLocations';
+import { needPresets, presetUnit, hasPresets, OTHER_NEED } from '../data/needCatalog';
+import type { DisasterType } from '../types';
 import {
   CATEGORIES, PRIORITIES, PASSENGER_VEHICLES, CARGO_VEHICLES, ANIMALS, PET_NEEDS,
   emptyWizard, buildPayload, detailPairs, type WizardValues,
@@ -56,6 +58,14 @@ function WizardInner({ mode }: { mode: WizardMode }) {
   }, [needContact, mode]);
 
   const cat = CATEGORIES.find((c) => c.key === v.category);
+
+  // Kalem listesi afet türüne göre süzülüyor: selde kürek ve çizme listenin başında,
+  // yangında maske ve göz damlası. Tür seçilen afetten okunur — sihirbaz afet adımını
+  // atladıysa (coordScoped / ziyaretçi akışı) açık olan operasyondan.
+  const disasterType: DisasterType | null =
+    (a.snap?.disasters.find((d) => d.slug === v.disasterSlug)?.type
+      ?? a.snap?.disaster.type) ?? null;
+
   const set = (k: keyof WizardValues, val: string | string[]) =>
     setV((p) => ({ ...p, [k]: val }));
   const togglePetNeed = (n: string) =>
@@ -163,9 +173,16 @@ function WizardInner({ mode }: { mode: WizardMode }) {
           ) : current === 'disaster' ? (
             <DisasterStep value={v.disasterSlug} onPick={(slug) => { set('disasterSlug', slug); setErr(''); }} />
           ) : current === 'category' ? (
-            <CategoryStep value={v.category} onPick={(k) => { set('category', k); setErr(''); }} />
+            <CategoryStep value={v.category} onPick={(k) => {
+              // Kategori değişince kalem adı ve birimi de sıfırlanır: "Maske · kutu"
+              // seçiliyken kategoriyi Gıda'ya çevirip adı olduğu gibi bırakmak,
+              // listede olmayan bir kalemi sessizce kaydetmek olurdu.
+              setV((p) => ({ ...p, category: k, title: '', unit: '' }));
+              setErr('');
+            }} />
           ) : current === 'details' ? (
-            <DetailsStep v={v} set={set} togglePetNeed={togglePetNeed} cat={cat} />
+            <DetailsStep key={v.category} v={v} set={set} togglePetNeed={togglePetNeed} cat={cat}
+              disasterType={disasterType} />
           ) : current === 'location' ? (
             <LocationStep v={v} set={set} coordLocs={
               // Delivery points belong to an operation. Only offer the open snapshot's
@@ -295,8 +312,9 @@ function PrioritySelect({ v, set }: { v: WizardValues; set: SetFn }) {
   );
 }
 
-function DetailsStep({ v, set, togglePetNeed, cat }: {
+function DetailsStep({ v, set, togglePetNeed, cat, disasterType }: {
   v: WizardValues; set: SetFn; togglePetNeed: (n: string) => void; cat?: { key: string };
+  disasterType: DisasterType | null;
 }) {
 
   if (cat?.key === 'Ulaşım') {
@@ -358,11 +376,72 @@ function DetailsStep({ v, set, togglePetNeed, cat }: {
     );
   }
   // standard supply category
+  return <SupplyDetails v={v} set={set} disasterType={disasterType} />;
+}
+
+// Ayrı bileşen, çünkü kalem listesi state tutuyor ve yukarıdaki dallar erken dönüyor:
+// hook'lar koşullu return'lerin ardında çağrılamaz.
+function SupplyDetails({ v, set, disasterType }: {
+  v: WizardValues; set: SetFn; disasterType: DisasterType | null;
+}) {
+  // Listeden seçilen kalem. Kaydedilen değer v.title; bu yalnızca dropdown'ın hangi
+  // satırda durduğunu tutuyor. Geri/ileri gidildiğinde v.title dolu ama liste dışıysa
+  // (eski kayıt, "Diğer" ile yazılmış ad) seçim "Diğer"e düşer.
+  // Kategorinin kapalı bir listesi yoksa (yeni bir kategori eklenmiş, kalemleri henüz
+  // yazılmamış) dropdown'ı tek seçenekle göstermek anlamsız: doğrudan elle yazdırılır.
+  const closed = hasPresets(v.category);
+  const presets = useMemo(() => needPresets(v.category, disasterType), [v.category, disasterType]);
+  const [preset, setPreset] = useState(() => {
+    if (!closed) return OTHER_NEED;
+    if (!v.title) return '';
+    return presets.some((p) => p.name === v.title) ? v.title : OTHER_NEED;
+  });
+
+  const pickPreset = (name: string) => {
+    setPreset(name);
+    if (name === OTHER_NEED) { set('title', ''); return; }
+    set('title', name);
+    // Birim kalemle birlikte geliyor: "İçme Suyu" litre, "Maske" kutu. Koordinatörün
+    // her seferinde birim seçmesi hem yavaş hem yanlış birime açık.
+    const u = presetUnit(v.category, name);
+    if (u) set('unit', u);
+  };
+
   return (
     <Grid>
-      <Field label={tr.wizard.fTitle} full>
-        <input value={v.title} onChange={(e) => set('title', e.target.value)} placeholder={tr.wizard.fTitlePh} style={inputStyle} />
-      </Field>
+      {/* Kalem adı serbest metin DEĞİL, afet türüne ve kategoriye göre süzülmüş bir
+          liste. Serbest metinde aynı şey üç kayıtta üç ad alıyor ("Maske", "maske",
+          "N95 maske") ve panodaki "en acil kalemler" listesi bunları tek kalem
+          olarak toplayamıyor.
+
+          Liste kapalı değil: "Diğer" seçilince adı elle yazılıyor. Sahada listede
+          olmayan bir şey her zaman çıkar; onu engellemek koordinatörü yanlış bir
+          kaleme zorlamak olurdu. */}
+      {closed && (
+        <Field label={tr.wizard.fTitle} full={preset !== OTHER_NEED}>
+          <Picker
+            value={preset}
+            onChange={pickPreset}
+            ariaLabel={tr.wizard.fTitle}
+            placeholder={tr.wizard.fTitlePick}
+            options={[
+              ...presets.map((x) => ({ value: x.name, label: `${x.name} · ${x.unit}` })),
+              { value: OTHER_NEED, label: tr.wizard.fTitleOther },
+            ]}
+          />
+        </Field>
+      )}
+      {preset === OTHER_NEED && (
+        <Field label={closed ? tr.wizard.fTitleOtherLabel : tr.wizard.fTitle} full={!closed}>
+          <input
+            value={v.title}
+            onChange={(e) => set('title', e.target.value)}
+            placeholder={tr.wizard.fTitlePh}
+            autoComplete="off"
+            style={inputStyle}
+          />
+        </Field>
+      )}
       <Field label={tr.wizard.fRequired}>
         <input value={v.required} onChange={(e) => set('required', e.target.value)} type="number" placeholder="100" style={inputStyle} />
       </Field>

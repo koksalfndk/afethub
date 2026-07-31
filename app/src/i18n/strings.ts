@@ -110,23 +110,6 @@ export const tr = {
     errPasswordShort: 'Parola en az 6 karakter olmalı.',
     genericError: 'Bir sorun oluştu. Bilgileri kontrol edip tekrar deneyin.',
     volunteerNote: 'Gönüllü olarak giriş yaptın. Koordinatör yetkisi bir yönetici tarafından verilir.',
-
-    // Parolamı unuttum (şifre sıfırlama akışı)
-    forgotLink: 'Parolamı unuttum',
-    forgotTitle: 'Parolanı sıfırla',
-    forgotIntro: 'Hesabının e-posta adresini gir; sana bir sıfırlama bağlantısı gönderelim.',
-    forgotSend: 'Sıfırlama bağlantısı gönder',
-    forgotSent: 'Bu e-posta kayıtlıysa, bir sıfırlama bağlantısı gönderdik. Gelen kutunu ve spam klasörünü kontrol et.',
-    backToSignIn: '← Girişe dön',
-    // E-postadaki bağlantıyla gelince yeni parola belirleme
-    recoveryTitle: 'Yeni parola belirle',
-    recoveryIntro: 'Hesabın için yeni bir parola gir.',
-    newPassword: 'Yeni parola',
-    newPasswordConfirm: 'Yeni parola (tekrar)',
-    updatePasswordBtn: 'Parolayı güncelle',
-    passwordUpdated: 'Parolan güncellendi ✓',
-    errPasswordMismatch: 'Parolalar eşleşmiyor.',
-    closeBtn: 'Kapat',
   },
 
   // Menu labels are Title Case (each word capitalised).
@@ -175,6 +158,24 @@ export const tr = {
     loadSlow: 'Bağlantı yavaş görünüyor. Veri gelmezse yeniden denemeyi seçebilirsiniz.',
     loadFailed: 'Veri yüklenemedi. Bağlantınızı kontrol edip yeniden deneyin — girdiğiniz bilgiler kaybolmadı.',
     retry: 'Yeniden dene',
+    close: 'Kapat',
+  },
+
+  // İhtiyaç kartındaki "Detaylar" düğmesinin açtığı hızlı bakış penceresi.
+  needQuick: {
+    required: 'Gerekli',
+    verified: 'Doğrulanan',
+    pending: 'Bekleyen',
+    dropOff: 'Teslim noktası',
+    hours: (h: string) => `Saatler: ${h}`,
+    // Sıfır olan parça HİÇ yazılmaz. "0 teslimat doğrulandı" satırı, yanında
+    // "30 kutu doğrulandı" yazarken kendisiyle çelişiyordu: doğrulanmış miktarın bir
+    // kısmı bu sayfada kaydı olmayan (operasyon açılmadan önceki) teslimatlardan
+    // geliyor. Satır yalnızca gerçekten var olan bildirim kayıtlarını sayar.
+    deliveredSubs: (v: number) => `${v} teslimat doğrulandı`,
+    pendingSubs: (p: number) => `${p} bildirim incelemede`,
+    // Kayıt yokluğu "ihtiyaç yok" demek değil; boş durum bunu söylüyor (rules/04).
+    noDeliveries: 'Bu kaleme henüz teslimat bildirilmedi.',
   },
 
   home: {
@@ -770,6 +771,9 @@ export const tr = {
     chooseCategory: 'Ne tür bir ihtiyaç?',
     // standard supply fields
     fTitle: 'İhtiyaç başlığı', fTitlePh: 'Yanık pansumanı',
+    fTitlePick: 'Kalem seçin',
+    fTitleOther: 'Diğer — listede yok',
+    fTitleOtherLabel: 'Kalem adı',
     fRequired: 'Gerekli miktar', fUnit: 'Birim',
     fPriority: 'Öncelik',
     // transport / logistics
@@ -900,7 +904,6 @@ export const tr = {
     rejected: (code: string) => `${code} reddedildi — kalan değişmedi`,
     infoRequested: (name: string) => `${name} kişisinden bilgi istendi`,
     approved: (q: number, u: string, n: string, rem: number) => `${q} ${u} onaylandı · ${n} kalan şimdi ${rem}`,
-    detail: (n: string, v: number, p: number, rem: number) => `${n} · ${v} doğrulandı, ${p} bekliyor, ${rem} kalan`,
   },
 
   componentsScreen: {
@@ -1849,18 +1852,6 @@ export const tr = {
     panelMembership: 'Kurum bilgisi',
     panelNoOrg: 'Kayıtlı kurum bilgisi yok.',
     panelAddOrg: 'Hesabımdan ekle',
-    // Parola değiştirme bölümü
-    sectionPassword: 'Parola',
-    pwNote: 'Parolanı değiştirmek için önce mevcut parolanı gir.',
-    pwCurrent: 'Mevcut parola',
-    pwNew: 'Yeni parola',
-    pwConfirm: 'Yeni parola (tekrar)',
-    pwChange: 'Parolayı Değiştir',
-    pwChanged: 'Parolanız güncellendi ✓',
-    pwErrShort: 'Yeni parola en az 6 karakter olmalı.',
-    pwErrMismatch: 'Yeni parolalar eşleşmiyor.',
-    pwErrCurrent: 'Mevcut parola hatalı.',
-    pwErrGeneric: 'Parola değiştirilemedi. Lütfen tekrar deneyin.',
   },
 
   sidebarFooter: { regionSuffix: 'Koordinasyon açık' },
