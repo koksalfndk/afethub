@@ -130,25 +130,33 @@ export function CoordDisaster() {
               başlıkla birlikte okunmalı, sayfanın ortasında ayrı bir bölüm olarak
               değil. Koyu şeride yalnızca kısa etiketler ve şekil giriyor; açıklayıcı
               cümleler burada YOK (rules/04: gradyan zeminde gövde metni olmaz). */}
-          <div style={{ flex: mob ? '1 1 100%' : '0 0 268px', width: mob ? '100%' : 268, minWidth: 0 }}>
+          {/* Açık ada: harita koyu şeridin ÜSTÜNDE değil, içine gömülü açık bir kartta.
+              Doğrudan gradyanın üstünde denendi, nötr ilçeler zeminden ayrışmıyordu;
+              çözüm rengi değiştirmek değil, yüzey vermek oldu. Kart panodaki il
+              haritasıyla aynı paleti kullanır — bakımda ikinci bir renk kipi yok. */}
+          <div style={{
+            flex: mob ? '1 1 100%' : '0 0 284px', width: mob ? '100%' : 284, minWidth: 0,
+            background: '#F7F9FB', border: '1px solid #DCE4EC', borderRadius: 12,
+            padding: '11px 12px 12px',
+          }}>
             <div style={{
               fontSize: 10.5, fontWeight: 700, letterSpacing: '.09em',
-              color: D.muted, marginBottom: 6,
+              color: C.muted2, marginBottom: 8,
             }}>{tr.coordOperation.districtTitle.toLocaleUpperCase('tr')}</div>
 
             {d.districts.length === 0 ? (
-              <div style={heroNote}>{tr.coordOperation.districtNoneShort}</div>
+              <div style={cardNote}>{tr.coordOperation.districtNoneShort}</div>
             ) : plate == null ? (
-              <div style={heroNote}>{tr.coordOperation.districtUnknownShort}</div>
+              <div style={cardNote}>{tr.coordOperation.districtUnknownShort}</div>
             ) : (
               <>
-                <DistrictMap plate={plate} affected={d.districts} accent={accent} onDark />
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                <DistrictMap plate={plate} affected={d.districts} accent={accent} />
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 9 }}>
                   {d.districts.map((x) => (
                     <span key={x} style={{
-                      fontSize: 11.5, fontWeight: 600, color: '#fff',
-                      background: 'rgba(255,255,255,.10)', border: `1px solid ${D.rowBd}`,
-                      borderLeft: `3px solid ${accent}`, borderRadius: 7, padding: '3px 9px',
+                      fontSize: 11.5, fontWeight: 600, color: C.navy, background: C.surface,
+                      border: `1px solid ${C.border}`, borderLeft: `3px solid ${accent}`,
+                      borderRadius: 7, padding: '3px 9px',
                     }}>{x}</span>
                   ))}
                 </div>
@@ -431,9 +439,9 @@ function Head({ title, hint, badge }: { title: string; hint?: string; badge?: nu
   );
 }
 
-const heroNote = {
-  fontSize: 12, color: D.fg2, background: 'rgba(255,255,255,.07)',
-  border: `1px solid ${D.rowBd}`, borderRadius: 9, padding: '10px 11px',
+const cardNote = {
+  fontSize: 12, color: C.muted, background: C.surface,
+  border: `1px solid ${C.border}`, borderRadius: 9, padding: '10px 11px',
 } as const;
 
 const panel = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' } as const;
