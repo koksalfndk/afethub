@@ -569,6 +569,12 @@ export const tr = {
   },
 
   report: {
+    // Miktar alanı. "Tümü" kalanın tamamını doldurur; teslim noktasında en sık
+    // yazılan sayı bu.
+    fillAll: 'Tümü',
+    fillAllAria: (n: number, unit: string) => `Kalan ${n} ${unit} miktarının tamamını yaz`,
+    remainingHint: (n: number, unit: string) => `${n} ${unit} kalan`,
+    unitFromNeed: 'ihtiyaçtan geliyor',
     // A signed-in coordinator often records a delivery on someone else's behalf, so the
     // giver's own contact details are asked separately from the account's.
     onBehalfTitle: 'Yardımı yapan kişi',
@@ -772,6 +778,7 @@ export const tr = {
 
   // Panel → Sistem Kaydı (admin only).
   coordLog: {
+    allDisasters: 'Tüm operasyonlar',
     title: 'Sistem Kaydı',
     subtitle: 'Platformda yapılan tüm işlemler: koordinatör ve yönetici aksiyonları, kullanıcı yetkileri, kurum kararları, afet ve ihtiyaç değişiklikleri, yardım bildirimleri. Değiştirilemez.',
     adminOnly: 'Bu sayfa yalnızca yöneticilere açıktır. Herkese açık canlı akış bu kaydın yalnızca operasyonel bölümünü gösterir.',
@@ -792,6 +799,18 @@ export const tr = {
     // Yazma başarılı, tazeleme başarısız. Ayrı mesaj: "kaydedilemedi" demek burada
     // yalan olur ve aynı teslimatın ikinci kez işlenmesine yol açar.
     savedNotRefreshed: 'Karar kaydedildi, ancak ekran tazelenemedi. Sayfayı yenileyin.',
+    revised: (code: string) => `${code} kaydı düzeltildi ✓`,
+    undone: (code: string) => `${code} kararı geri alındı, kayıt kuyruğa döndü ✓`,
+    reviseTitle: (need: string) => `${need} kaydını düzelt`,
+    reviseIntro: 'Verilen karar değiştirilecek. Eski karar geri alınır, yenisi uygulanır; ikisi de sistem kaydına yazılır.',
+    reviseReason: 'Düzeltme gerekçesi',
+    reviseCta: 'Düzeltmeyi kaydet',
+    undo: 'Kararı geri al',
+    undoAria: (code: string) => `${code} kararını geri al, kayıt kuyruğa dönsün`,
+    revise: 'Düzelt',
+    reviseAria: (code: string) => `${code} kaydının kararını düzelt`,
+    // 0031 öncesinde verilmiş kararlarda "kim verdi" bilinmiyor; tahmin edilmiyor.
+    reviseLocked: 'Bu kararı yalnızca kararı veren koordinatör veya bir yönetici düzeltebilir.',
     reported: 'Bildirilen', remainingNow: 'Şu anki kalan', afterApproval: 'Onay sonrası',
     verifiedQty: 'Doğrulanan miktar',
     reasonReject: 'Reddetme gerekçesi',
@@ -1462,6 +1481,7 @@ export const tr = {
     districtUnmatched: (names: string) => `Haritada eşleşmeyen ilçe adı: ${names}. Yazımı kontrol edin.`,
 
     logTitle: 'Operasyon kaydı',
+    logAll: 'Tüm kayıtlar',
     logHint: 'son hareketler',
     logEmpty: 'Bu operasyonda henüz kayıtlı hareket yok.',
   },

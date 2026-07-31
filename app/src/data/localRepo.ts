@@ -1,5 +1,5 @@
 import type {
-  LogEntry, Need, Submission, VerifyKind, DeliveryInput, Organization, OrganizationInput,
+  LogEntry, Need, Submission, VerifyKind, RevisionKind, DeliveryInput, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
   BannerSlide, BannerSlideInput, OrgEditRequestInput,
   OrgEditRequest, Disaster, DisasterInput, OrganizationSave, OrgStatus,
@@ -959,6 +959,74 @@ export class LocalRepo implements Repo {
     if (nowComplete) {
       addLog(need.disasterId, { action: 'İhtiyaç tamamlandı', detail: `${need.name} gerekli miktara ulaştı`, oldValue: 'Aktif', newValue: 'Tamamlandı', color: '#159947' });
     }
+    return snap();
+  }
+
+  // Verilmiş bir kararın düzeltilmesi / geri alınması.
+  //
+  // Sunucudaki `revise_submission` ile AYNI aritmetiği yapar (migration 0032): eski
+  // kararın uyguladığı miktar geri alınır, yeni karar uygulanır. Sıfırdan yeniden
+  // hesap yapılmaz — bellek içi tohum verisinde de `verified` değerleri arkasında
+  // teslimat kaydı olmayan bir başlangıçtan geliyor.
+  //
+  // Yerel modda YETKİ KONTROLÜ YOK: oturum yok, "kararı veren kişi" diye bir şey de
+  // yok. Bu kasıtlı; kuralı burada taklit etmek, gerçek kuralın nerede uygulandığı
+  // konusunda yanlış bir güven verirdi.
+  async reviseSubmission(subId: string, kind: RevisionKind, qtyIn: number, reason: string): Promise<Snapshot> {
+    const sub = subs.find((s) => s.id === subId);
+    if (!sub) return snap();
+    const need = find(sub.needId)!;
+
+    const oldStatus = sub.status;
+    const oldApplied = oldStatus === 'Verified' || oldStatus === 'Partially verified'
+      ? (sub.verifiedQty ?? 0) : 0;
+    const oldPendingEffect = oldStatus === 'Information requested' ? 0 : sub.qty;
+
+    const baseV = Math.max(0, need.verified - oldApplied);
+    let newPending = need.pending + oldPendingEffect;
+    let newV = baseV;
+    let nextStatus: Submission['status'] = 'Pending verification';
+    let nextVerified: number | null = null;
+    let note = reason;
+
+    if (kind === 'undo') {
+      note = reason || 'Karar geri alındı, teslimat yeniden doğrulama bekliyor.';
+    } else if (kind === 'reject') {
+      nextStatus = 'Rejected'; nextVerified = 0;
+      newPending = Math.max(0, newPending - sub.qty);
+      note = reason || 'Düzeltme: teslim noktasında doğrulanamadı.';
+    } else if (kind === 'info') {
+      nextStatus = 'Information requested';
+      note = reason || 'Düzeltme: bağışçıdan ek bilgi istendi.';
+    } else {
+      const qty = Math.max(0, Math.min(qtyIn || 0, sub.qty));
+      newV = Math.min(need.required, baseV + qty);
+      const partial = qty < sub.qty;
+      nextStatus = partial ? 'Partially verified' : 'Verified';
+      nextVerified = qty;
+      newPending = Math.max(0, newPending - sub.qty);
+      note = reason || (partial ? `Düzeltme: ${qty} adet doğrulandı.` : 'Düzeltme: teslimatın tamamı doğrulandı.');
+    }
+
+    const nowComplete = need.required - newV <= 0;
+    subs = subs.map((x) => (x.id === sub.id
+      ? { ...x, status: nextStatus, verifiedQty: nextVerified, note }
+      : x));
+    needs = needs.map((n) => (n.id === need.id ? {
+      ...n, verified: newV, pending: newPending, updated: NOW,
+      // Düzeltme tamamlanmış bir ihtiyacı tekrar açabilir; 'Completed' kalırsa
+      // ekranlarda karşılanmış görünür.
+      priority: nowComplete ? 'Completed' : n.priority === 'Completed' ? 'Normal' : n.priority,
+    } : n));
+
+    addLog(need.disasterId, {
+      action: kind === 'undo' ? 'Teslimat kararı geri alındı' : 'Teslimat kararı düzeltildi',
+      detail: `${need.name} · ${sub.code} · ${sub.qty} ${sub.unit} bildirildi`
+        + (reason ? ` · gerekçe: ${reason}` : ''),
+      oldValue: `${oldStatus} · ${need.verified} doğrulanmış`,
+      newValue: `${nextStatus} · ${newV} doğrulanmış`,
+      color: kind === 'undo' ? '#627D98' : '#F97316',
+    });
     return snap();
   }
 

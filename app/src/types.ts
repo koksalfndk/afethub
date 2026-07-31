@@ -102,6 +102,10 @@ export interface Submission {
   note: string;
   photoUrl?: string | null;
   needName?: string;     // set by the public tracking RPC (Supabase mode)
+  // Kararı veren koordinatör (migration 0031). null = karar verilmemiş YA DA 0031
+  // öncesinde verilmiş; ikinci durumda kaydı yalnızca yönetici düzeltebilir.
+  // Arayüz düğmeyi buna bakarak gösterir; asıl kural sunucuda (revise_submission).
+  decidedBy?: string | null;
 }
 
 export interface LogEntry {
@@ -152,6 +156,8 @@ export interface LocationInput {
 
 // Verification action kinds handled by the data layer / RPC.
 export type VerifyKind = 'approve' | 'partial' | 'reject' | 'info';
+// Verilmiş bir kararın düzeltilmesi. 'undo' kaydı doğrulama kuyruğuna geri koyar.
+export type RevisionKind = VerifyKind | 'undo';
 
 export interface DeliveryInput {
   needId: string; qty: number; unit: string; loc: string;

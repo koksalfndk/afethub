@@ -42,7 +42,14 @@ export type SubFilter = 'Pending' | 'Verified' | 'Partially' | 'Rejected' | 'All
 
 // `error`: karar yazılamadığında pencere AÇIK kalır ve sebep burada durur. Kaybolan
 // bir toast, koordinatörün "bastım, oldu sandım" demesine yol açıyordu.
-export interface ModalState { subId: string; kind: VerifyKind; qty: string; reason: string; error?: string; detail?: string; }
+// `revise`: pencere verilmiş bir kararı DÜZELTİYOR. Aynı pencere kullanılıyor çünkü
+// sorulan şey aynı (miktar + gerekçe); değişen tek şey hangi RPC'ye gittiği ve
+// başlığı. İki ayrı pencere, ikisinden birinde yapılan düzeltmenin ötekine
+// taşınmaması demekti.
+export interface ModalState {
+  subId: string; kind: VerifyKind; qty: string; reason: string;
+  revise?: boolean; error?: string; detail?: string;
+}
 
 // ---- Clean URL routing (History API): every screen is a real, shareable path ----
 // A Vercel SPA rewrite (vercel.json) serves index.html for these paths.
@@ -242,7 +249,9 @@ export interface AppApi {
   publishNeed: (p: NeedPayload) => Promise<boolean>;
   requestNeed: (p: NeedPayload, contact: { name: string; email: string; phone: string; city: string }) => Promise<string | null>;
   bumpNeed: (id: string) => void; togglePause: (id: string) => void;
-  openModal: (sub: Submission, kind: VerifyKind) => void; closeModal: () => void;
+  openModal: (sub: Submission, kind: VerifyKind, revise?: boolean) => void; closeModal: () => void;
+  // Verilmiş bir kararı doğrudan geri alır: miktar sorulmaz, kayıt kuyruğa döner.
+  undoDecision: (sub: Submission) => Promise<void>;
   setModalQty: (v: string) => void; setModalReason: (v: string) => void; confirmModal: () => void;
   doTrack: () => void; fillDemoCode: () => void;
   showToast: (m: string) => void;
@@ -265,6 +274,12 @@ export interface AppApi {
   // the private rows name people.
   systemLog: LogEntry[]; systemLogLoading: boolean; systemLogError: string;
   reloadSystemLog: () => void;
+  // Sistem kaydını belirli bir operasyona daraltılmış olarak açar. Afet detay
+  // sayfasındaki "Tüm kayıtlar" düğmesi buradan geçer: koordinatör o operasyonun
+  // tamamını görmek istiyor, bütün platformun kaydını değil.
+  logDisasterId: string | null;
+  openSystemLog: (disasterId?: string | null) => void;
+  setLogDisasterId: (id: string | null) => void;
   // Volunteer drill-down from the operation form. `mode` decides which list the staff
   // screen opens on, so "şu an nöbette · 3" lands on those three people.
   volunteerFilter: { disasterId: string | null; mode: 'approved' | 'onShift' } | null;
@@ -322,6 +337,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [disasterFormOpen, setDisasterFormOpen] = useState(false);
   const [deliveryOpen, setDeliveryOpen] = useState(false);
   const [modal, setModal] = useState<ModalState | null>(null);
+  const [logDisasterId, setLogDisasterId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [trackedSub, setTrackedSub] = useState<Submission | null>(null);
   const [mySubs, setMySubs] = useState<Submission[]>([]);
@@ -627,7 +643,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     route, tab, device, role, currentSlug, frame, showToolbar: IS_DEV, query, filter, subFilter,
     catFilter, locFilter, onlyCritical, updatedToday,
     form, track, reportStage, lastCode, formError, copied,
-    modal, toast, trackedSub, trackError, wizardMode, disasterFormOpen, deliveryOpen,
+    modal, toast, trackedSub, trackError, wizardMode, disasterFormOpen, deliveryOpen, logDisasterId,
     mySubs, mySubsLoading, mySubsError,
     orgEdits, orgEditsLoading, orgEditsError, orgEditsPending,
     reportQueue, reportQueueLoading, reportQueueError,
@@ -733,7 +749,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     bumpNeed: (id) => { if (unverified) return showToast(tr.auth.verifyFirst); repo.bumpNeed(id).then((s) => { setSnap(s); const n = s.needs.find((x) => x.id === id); if (n) showToast(tr.coord.bumpToast(n.name, n.required, n.unit)); }); },
     togglePause: (id) => { if (unverified) return showToast(tr.auth.verifyFirst); repo.togglePause(id).then(setSnap); },
 
-    openModal: (sub, kind) => setModal({ subId: sub.id, kind, qty: String(kind === 'partial' ? Math.max(1, sub.qty - 5) : sub.qty), reason: '' }),
+    openModal: (sub, kind, revise) => setModal({
+      subId: sub.id, kind, revise,
+      // Düzeltmede varsayılan, kaydın BİLDİRİLEN miktarı: düzeltmelerin çoğu
+      // "gerisi de geldi" durumu ve oraya varsayılan olarak konması doğru.
+      qty: String(kind === 'partial' && !revise ? Math.max(1, sub.qty - 5) : sub.qty),
+      reason: '',
+    }),
+    undoDecision: async (sub) => {
+      if (unverified) { showToast(tr.auth.verifyFirst); return; }
+      try {
+        setSnap(await withTimeout(repo.reviseSubmission(sub.id, 'undo', 0, ''), WRITE_TIMEOUT_MS));
+        showToast(tr.modal.undone(sub.code));
+        loadCoordDashboard();
+      } catch (e) {
+        console.error('revise_submission undo failed', e);
+        if (e instanceof RefreshFailedError) { showToast(tr.modal.savedNotRefreshed); return; }
+        showToast(reasonOf(e) || tr.modal.failed);
+      }
+    },
     closeModal: () => setModal(null),
     setModalQty: (v) => setModal((m) => (m ? { ...m, qty: v } : m)),
     setModalReason: (v) => setModal((m) => (m ? { ...m, reason: v } : m)),
@@ -758,9 +792,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         try {
           // Yazma bütçesi okuma bütçesinden ayrı: bu çağrı RPC + iki tekil sorgu +
           // altı tablonun yeniden okunmasını kapsıyor, 6 sn'ye sığmayabiliyor.
-          setSnap(await withTimeout(repo.verifySubmission(modal.subId, kind, qty, modal.reason), WRITE_TIMEOUT_MS));
+          setSnap(await withTimeout(
+            modal.revise
+              ? repo.reviseSubmission(modal.subId, kind, qty, modal.reason)
+              : repo.verifySubmission(modal.subId, kind, qty, modal.reason),
+            WRITE_TIMEOUT_MS,
+          ));
           setModal(null);
-          if (kind === 'reject') showToast(tr.toasts.rejected(code));
+          if (modal.revise) showToast(tr.modal.revised(code));
+          else if (kind === 'reject') showToast(tr.toasts.rejected(code));
           else if (kind === 'info') showToast(tr.toasts.infoRequested(contributor));
           else showToast(tr.toasts.approved(qty, unit, needName, remAfter));
           // Karar; bekleyen doğrulama, bugün karara bağlanan, karşılama oranı, SLA ve
@@ -770,7 +810,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // kaydedilmemiş gibi görünüyor.
           loadCoordDashboard();
         } catch (e) {
-          console.error('verify_submission failed', e);
+          console.error(modal.revise ? 'revise_submission failed' : 'verify_submission failed', e);
           if (e instanceof RefreshFailedError) {
             // Karar YAZILDI, yalnızca ekran tazelenemedi. "Kayıt değişmedi" demek
             // koordinatöre aynı teslimatı ikinci kez işletirdi.
@@ -994,6 +1034,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     reloadReportQueue: () => { void loadReportQueue(); },
     reloadSystemLog: () => { void loadSystemLog(); },
+    openSystemLog: (disasterId) => { setLogDisasterId(disasterId ?? null); setRoute('coordLog'); },
+    setLogDisasterId,
     openVolunteers: (disasterId, mode) => {
       setVolunteerFilter({ disasterId, mode });
       setRoute('coordStaff');
@@ -1074,7 +1116,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Every piece of state exposed on `api` must be listed here, or consumers keep the
   // previous value: `deliveryOpen` and `slides` were missing, so the delivery overlay
   // never appeared and the slide list could go stale after a save.
-  }), [snap, loadError, overview, coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
+  }), [snap, loadError, overview, coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError, logDisasterId]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

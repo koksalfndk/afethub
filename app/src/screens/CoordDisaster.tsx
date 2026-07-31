@@ -468,7 +468,24 @@ export function CoordDisaster() {
         </section>
 
         <section style={panel}>
-          <Head title={tr.coordOperation.logTitle} hint={tr.coordOperation.logHint} />
+          {/* Kart bir ÖZET: son 10 satır. Tamamı ayrı bir ekranda, arama ve
+              süzgeçlerle. Buradan gidildiğinde liste bu operasyona daraltılmış
+              açılır — koordinatör platformun tamamının kaydını değil, bu
+              operasyonunkini görmek istiyor. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '13px 14px' }}>
+            <h2 style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: C.navy }}>{tr.coordOperation.logTitle}</h2>
+            <span style={{ marginLeft: 'auto', fontSize: 11.5, color: C.muted2 }}>{tr.coordOperation.logHint}</span>
+            <button
+              onClick={() => a.openSystemLog(d.id)}
+              className="hv-navy"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy,
+                borderRadius: 9, height: 36, padding: '0 12px', fontSize: 12.5,
+                fontWeight: 600, cursor: 'pointer',
+              }}
+            >{tr.coordOperation.logAll}<Ico n="chev" size={14} color={C.muted} /></button>
+          </div>
           <ul style={{ listStyle: 'none', margin: 0, padding: '6px 0' }}>
             {snap.log.slice(0, 10).map((e) => (
               <li key={e.id} style={{ display: 'flex', gap: 10, padding: '8px 14px', alignItems: 'flex-start' }}>

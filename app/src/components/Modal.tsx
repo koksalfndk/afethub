@@ -18,9 +18,15 @@ export function Modal() {
   const isApprove = m.kind === 'approve' || m.kind === 'partial';
   const remAfter = isApprove ? Math.max(0, remNow - qty) : remNow;
 
-  const title = m.kind === 'reject' ? tr.modal.titleReject : m.kind === 'info' ? tr.modal.titleInfo : tr.modal.titleVerify(need.name);
-  const reasonLabel = m.kind === 'reject' ? tr.modal.reasonReject : m.kind === 'info' ? tr.modal.reasonInfo : (qty < sub.qty ? tr.modal.reasonNoteWhy : tr.modal.reasonNoteOpt);
-  const cta = m.kind === 'reject' ? tr.modal.ctaReject : m.kind === 'info' ? tr.modal.ctaInfo : tr.modal.ctaApprove(qty);
+  const title = m.revise
+    ? tr.modal.reviseTitle(need.name)
+    : m.kind === 'reject' ? tr.modal.titleReject : m.kind === 'info' ? tr.modal.titleInfo : tr.modal.titleVerify(need.name);
+  const reasonLabel = m.revise
+    ? tr.modal.reviseReason
+    : m.kind === 'reject' ? tr.modal.reasonReject : m.kind === 'info' ? tr.modal.reasonInfo : (qty < sub.qty ? tr.modal.reasonNoteWhy : tr.modal.reasonNoteOpt);
+  const cta = m.revise
+    ? tr.modal.reviseCta
+    : m.kind === 'reject' ? tr.modal.ctaReject : m.kind === 'info' ? tr.modal.ctaInfo : tr.modal.ctaApprove(qty);
   const ctaBg = m.kind === 'reject' ? C.emergency : m.kind === 'info' ? C.navy : C.success;
   const warn = isApprove && qty < sub.qty ? tr.modal.warn(sub.qty - qty, sub.unit) : '';
 
@@ -38,6 +44,15 @@ export function Modal() {
           <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: C.muted2 }}>{sub.code} · {sub.contributor}</div>
           <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4, color: C.navy }}>{title}</div>
           <div style={{ fontSize: 13, color: C.muted, marginTop: 3 }}>{tr.modal.subReported(sub.qty, sub.unit, sub.loc, sub.submitted)}</div>
+          {/* Düzeltmede ne olacağı önden yazılır: eski karar geri alınıp yenisi
+              uygulanacak, ikisi de kayda geçecek. Sessizce üzerine yazmak, denetim
+              kaydına güvenen bir ekipte kabul edilemez. */}
+          {m.revise && (
+            <div style={{
+              marginTop: 9, background: '#FFF8E5', border: '1px solid #F2DFA8',
+              borderRadius: 9, padding: '9px 11px', fontSize: 12.5, color: C.warningText,
+            }}>{tr.modal.reviseIntro}</div>
+          )}
         </div>
         <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 8 }}>

@@ -1,6 +1,6 @@
 import type {
   Disaster, Location, Need, Submission, LogEntry, Announcement,
-  VerifyKind, DeliveryInput, PriorityKey, Organization, OrganizationInput,
+  VerifyKind, RevisionKind, DeliveryInput, PriorityKey, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
   BannerSlide, BannerSlideInput, SlideAction,
   OrgEditRequestInput, OrgEditable, OrgEditRequest, DisasterInput,
@@ -213,6 +213,9 @@ export interface Repo {
   setVolunteerShift(applicationId: string, onShift: boolean): Promise<VolunteerApplication[]>;
   createDelivery(input: DeliveryInput): Promise<CreateDeliveryResult>;
   verifySubmission(subId: string, kind: VerifyKind, qty: number, reason: string): Promise<Snapshot>;
+  // Verilmiş bir kararı düzeltir ya da geri alır (migration 0032). Yetki sunucuda:
+  // kararı veren koordinatör veya yönetici.
+  reviseSubmission(subId: string, kind: RevisionKind, qty: number, reason: string): Promise<Snapshot>;
   // Coordinator-managed operations. A new disaster goes live immediately: the person
   // creating it is the reviewer (rules/03 — authorisation is enforced by RLS, not here).
   saveDisaster(id: string | null, input: DisasterInput): Promise<Snapshot>;
@@ -400,6 +403,42 @@ const PUBLIC_AUDIT_ACTIONS = new Set([
 ]);
 
 export const isPublicAuditAction = (action: string): boolean => PUBLIC_AUDIT_ACTIONS.has(action);
+
+// Eski kayıtlar için İngilizce → Türkçe aksiyon adı.
+//
+// `verify_submission` migration 0031'e kadar denetim kaydına İngilizce yazıyordu.
+// O satırlar DÜZELTİLEMEZ: `audit_log` bir immutability trigger'ı taşıyor ve
+// denetim kaydının geriye dönük değiştirilmemesi kasıtlı — bir olay kaydı, sonradan
+// düzeltilebiliyorsa kayıt değildir. Bu yüzden çeviri görüntüleme anında yapılır ve
+// saklanan satıra dokunulmaz.
+//
+// Yeni satırlar zaten Türkçe geliyor; bu eşleme yalnızca geçmişi okunur kılıyor ve
+// listede aynı olayın iki ayrı adla görünmesini engelliyor.
+const LEGACY_ACTION_TR: Record<string, string> = {
+  'Delivery verified': 'Teslimat doğrulandı',
+  'Delivery partially verified': 'Teslimat kısmen doğrulandı',
+  'Delivery rejected': 'Teslimat reddedildi',
+  'Information requested': 'Bilgi istendi',
+  'Need completed': 'İhtiyaç tamamlandı',
+};
+
+export const auditActionLabel = (action: string): string => LEGACY_ACTION_TR[action] ?? action;
+
+// Aynı satırların İngilizce detay metni ("30 of 30 kutu"). Yalnızca bu kalıp
+// çevriliyor; tanınmayan metin olduğu gibi bırakılır — anlamadığı bir cümleyi
+// tahminle Türkçeleştiren bir eşleyici, kaydı bozar.
+export const auditDetailLabel = (detail: string): string =>
+  detail.replace(/(\d+)\s+of\s+(\d+)\s+/g, '$2 bildirildi, $1 doğrulandı · ');
+
+export const auditValueLabel = (value: string): string =>
+  value.replace(/^(\d+)\s+verified$/, '$1 doğrulanmış')
+    .replace(/^Pending verification$/, 'Doğrulama bekliyor')
+    .replace(/^Verified$/, 'Doğrulandı')
+    .replace(/^Partially verified$/, 'Kısmen doğrulandı')
+    .replace(/^Rejected$/, 'Reddedildi')
+    .replace(/^Information requested$/, 'Bilgi istendi')
+    .replace(/^Active$/, 'Aktif')
+    .replace(/^Completed$/, 'Tamamlandı');
 
 // How many people must report the same event before an operation opens by itself.
 // Mirrors community_report_threshold() in migration 0016 — change both together, or

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   Disaster, Location, Need, Submission, LogEntry, Announcement,
-  VerifyKind, DeliveryInput, PriorityKey, StatusKey, DisasterType,
+  VerifyKind, RevisionKind, DeliveryInput, PriorityKey, StatusKey, DisasterType,
   Organization, OrganizationInput, OrgStatus, OrgKind, OrgScope,
   DisasterReport, DisasterReportInput, ReportStatus, ReportConfirmInput, ReportConfirmResult,
   ReportQueueItem, BannerSlide, BannerSlideInput, SlideAction,
@@ -15,7 +15,7 @@ import type {
   CoordOverview, CoordDisasterRow, CoordQueueItem,
 } from './repo';
 import type { NeedPayload } from '../needForm';
-import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW, isLocalSlideImage, disasterSlug, isPublicAuditAction, SLA_HOURS, splitDistricts } from './repo';
+import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW, isLocalSlideImage, disasterSlug, isPublicAuditAction, SLA_HOURS, splitDistricts, auditActionLabel, auditDetailLabel, auditValueLabel } from './repo';
 import { PRI } from '../theme';
 import { RefreshFailedError } from '../util';
 
@@ -107,6 +107,7 @@ export class SupabaseRepo implements Repo {
       loc: String(r.location_name), submitted: rel(String(r.submitted_at)),
       status: r.status as StatusKey, verifiedQty: r.verified_qty == null ? null : Number(r.verified_qty),
       note: String(r.note), photoUrl: r.photo_url ? String(r.photo_url) : null,
+      decidedBy: r.decided_by ? String(r.decided_by) : null,
     }));
 
     // The public feed reads the same for everyone. RLS lets an admin read private rows
@@ -117,8 +118,13 @@ export class SupabaseRepo implements Repo {
       id: String(r.id), disasterId: String(r.disaster_id ?? ''),
       disasterName: byId.get(String(r.disaster_id))?.name ?? '',
       disasterSlug: byId.get(String(r.disaster_id))?.slug ?? '',
-      user: String(r.actor), action: String(r.action), detail: String(r.detail),
-      oldValue: String(r.old_value), newValue: String(r.new_value), time: rel(String(r.created_at)),
+      // Türkçeleştirme eşleme katmanında, TEK yerde: 0031 öncesi satırlar İngilizce
+      // ve `audit_log` değiştirilemez. Ekranların her biri kendi çevirisini yapsaydı,
+      // aynı olay listede iki ayrı adla görünürdü.
+      user: String(r.actor), action: auditActionLabel(String(r.action)),
+      detail: auditDetailLabel(String(r.detail)),
+      oldValue: auditValueLabel(String(r.old_value)), newValue: auditValueLabel(String(r.new_value)),
+      time: rel(String(r.created_at)),
       color: String(r.color),
     }));
 
@@ -215,8 +221,9 @@ export class SupabaseRepo implements Repo {
         id: String(r.id), disasterId: String(r.disaster_id ?? ''),
         disasterName: byId.get(String(r.disaster_id))?.name ?? '',
         disasterSlug: byId.get(String(r.disaster_id))?.slug ?? '',
-        user: String(r.actor), action: String(r.action), detail: String(r.detail),
-        oldValue: String(r.old_value), newValue: String(r.new_value),
+        user: String(r.actor), action: auditActionLabel(String(r.action)),
+        detail: auditDetailLabel(String(r.detail)),
+        oldValue: auditValueLabel(String(r.old_value)), newValue: auditValueLabel(String(r.new_value)),
         time: rel(String(r.created_at)), color: String(r.color),
       })),
       urgent: active.flatMap((c) => topOf(c.disaster, 3))
@@ -814,8 +821,9 @@ export class SupabaseRepo implements Repo {
       disasterSlug: names.get(String(r.disaster_id))?.slug ?? '',
       // The admin log is the one place the name is NOT masked: it is the record an
       // administrator is accountable for reading, and it is gated by is_admin().
-      user: String(r.actor), action: String(r.action), detail: String(r.detail),
-      oldValue: String(r.old_value), newValue: String(r.new_value),
+      user: String(r.actor), action: auditActionLabel(String(r.action)),
+      detail: auditDetailLabel(String(r.detail)),
+      oldValue: auditValueLabel(String(r.old_value)), newValue: auditValueLabel(String(r.new_value)),
       time: rel(String(r.created_at)), color: String(r.color),
     }));
   }
@@ -872,6 +880,27 @@ export class SupabaseRepo implements Repo {
       // argümansız çağrıldığında "ilk aktif afet"e düşüyor: koordinatör Kastamonu
       // sayfasında onay verdiğinde ekran sessizce başka bir operasyonun verisine
       // geçiyor ve karar verilen satır geri gelmiş gibi görünüyordu.
+      const { data } = await this.db.from('submissions').select('disaster_id').eq('id', subId).maybeSingle();
+      const disasterId = data ? String((data as Record<string, unknown>).disaster_id) : '';
+      return disasterId ? await this.snapOf(disasterId) : await this.getSnapshot();
+    } catch (e) {
+      throw new RefreshFailedError(e);
+    }
+  }
+
+  async reviseSubmission(subId: string, kind: RevisionKind, qty: number, reason: string): Promise<Snapshot> {
+    // Yetki sunucuda: kararı veren koordinatör veya yönetici (migration 0032).
+    // Buradaki düğmenin gizlenmesi yetkilendirme DEĞİL, gereksiz reddedilen çağrıyı
+    // önleme (rules/03 §Server-Side Authorization).
+    const { error } = await this.db.rpc('revise_submission', {
+      p_submission: subId, p_kind: kind,
+      // 'undo' ve 'reject' miktar taşımaz; null göndermek fonksiyonun kendi
+      // varsayılanını kullanmasını sağlar.
+      p_qty: kind === 'approve' || kind === 'partial' ? qty : null,
+      p_reason: reason || null,
+    });
+    if (error) throw error;
+    try {
       const { data } = await this.db.from('submissions').select('disaster_id').eq('id', subId).maybeSingle();
       const disasterId = data ? String((data as Record<string, unknown>).disaster_id) : '';
       return disasterId ? await this.snapOf(disasterId) : await this.getSnapshot();

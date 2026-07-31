@@ -74,6 +74,8 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
   }
 
   const needOptions = enrichSorted(a.snap.needs).map((n) => ({ id: n.id, label: `${n.name} — ${n.remaining} ${n.unit} kalan` }));
+  // Seçilen ihtiyacın kendisi: birim ve kalan miktar buradan geliyor.
+  const pickedNeed = enrichSorted(a.snap.needs).find((n) => n.id === f.needId) ?? null;
 
   // Step-by-step: the form asks for one thing at a time. A delivery report is filled in
   // at a drop-off point, one-handed, often on a weak connection (rules/01, rules/04
@@ -136,17 +138,60 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
         {stepKey === 'delivery' && (
           <div style={{ display: 'grid', gap: 12, gridTemplateColumns: L.form }}>
             <Field label={tr.report.fields.need} full>
-              <Picker value={f.needId} onChange={(x) => a.setForm('needId', x)} ariaLabel={tr.report.pickNeed}
+              {/* İhtiyaç seçilince birim de onunla birlikte set edilir: alan artık
+                  kilitli olduğu için kullanıcı bunu düzeltemez, dolayısıyla doğru
+                  değerin forma girmesi burada garanti altına alınmalı. */}
+              <Picker
+                value={f.needId}
+                onChange={(x) => {
+                  a.setForm('needId', x);
+                  const n = a.snap?.needs.find((y) => y.id === x);
+                  if (n) a.setForm('unit', n.unit);
+                }}
+                ariaLabel={tr.report.pickNeed}
                 placeholder={tr.report.pickNeed}
                 options={needOptions.map((o) => ({ value: o.id, label: o.label }))} />
             </Field>
-            <Field label={tr.report.fields.quantity}>
-              <input value={f.qty} onChange={(e) => a.setForm('qty', e.target.value)} type="number" min={1} inputMode="numeric" placeholder="30" style={inputStyle} />
+            <Field label={tr.report.fields.quantity} hint={pickedNeed ? `· ${tr.report.remainingHint(pickedNeed.remaining, pickedNeed.unit)}` : undefined}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input value={f.qty} onChange={(e) => a.setForm('qty', e.target.value)} type="number" min={1}
+                  inputMode="numeric" placeholder="30" style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
+                {/* "Tümü": kalan miktarın tamamını getirir. Teslim noktasında tek elle
+                    doldurulan bir formda en sık yazılan sayı bu; elle yazmak hem
+                    yavaş hem de yanlış yazmaya açık. Kalan 0 ise düğme yok —
+                    dolduracak bir şey olmadığında bir düğme sunmak yalan olur. */}
+                {pickedNeed && pickedNeed.remaining > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => a.setForm('qty', String(pickedNeed.remaining))}
+                    className="hv-navy"
+                    aria-label={tr.report.fillAllAria(pickedNeed.remaining, pickedNeed.unit)}
+                    style={{
+                      flex: '0 0 auto', background: C.surface, border: `1px solid ${C.borderSoft}`,
+                      color: C.navy, borderRadius: 9, minHeight: 46, padding: '0 13px',
+                      fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+                    }}
+                  >{tr.report.fillAll}</button>
+                )}
+              </div>
             </Field>
             <Field label={tr.report.fields.unit}>
-              {/* Closed list: mixed spellings of the same unit cannot be added up. */}
-              <Picker value={f.unit} onChange={(x) => a.setForm('unit', x)} ariaLabel={tr.wizard.unitPick}
-                placeholder={tr.wizard.unitPick} options={toOptions(UNIT_PRESETS)} />
+              {/* Birim ihtiyacın kendisinden geliyor ve DEĞİŞTİRİLEMEZ. Bağışçının
+                  "adet" yerine "koli" seçmesi, ihtiyacın kalan miktarıyla toplanamayan
+                  bir sayı üretiyordu — aynı satırda iki farklı ölçü birimi.
+                  İhtiyaç seçilmeden önce liste açık kalır, çünkü henüz bir birim yok. */}
+              {pickedNeed ? (
+                <div style={{
+                  ...inputStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  gap: 8, background: C.canvas, color: C.heading2,
+                }}>
+                  <span>{pickedNeed.unit}</span>
+                  <span style={{ fontSize: 11.5, color: C.muted2 }}>{tr.report.unitFromNeed}</span>
+                </div>
+              ) : (
+                <Picker value={f.unit} onChange={(x) => a.setForm('unit', x)} ariaLabel={tr.wizard.unitPick}
+                  placeholder={tr.wizard.unitPick} options={toOptions(UNIT_PRESETS)} />
+              )}
             </Field>
             <Field label={tr.report.fields.location} full>
               {/* Delivery points follow the loaded operation instead of a fixed list. */}

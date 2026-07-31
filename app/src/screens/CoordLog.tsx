@@ -35,9 +35,20 @@ export function CoordLog() {
     [a.systemLog],
   );
 
+  // Operasyon süzgeci. Afet detay sayfasındaki "Tüm kayıtlar" düğmesi buraya o
+  // operasyonla giriyor; kullanıcı buradan genişletebilir. Liste, adı olan
+  // operasyonlardan kuruluyor — kaydı olmayan bir operasyonu seçenek olarak sunmak
+  // boş bir sonuç vaat etmek olurdu.
+  const disasters = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of a.systemLog) if (e.disasterId && e.disasterName) m.set(e.disasterId, e.disasterName);
+    return [...m.entries()].sort((x, y) => x[1].localeCompare(y[1], 'tr'));
+  }, [a.systemLog]);
+
   const needle = q.trim().toLocaleLowerCase('tr');
   const rows = a.systemLog.filter((e) => (
-    (!action || e.action === action)
+    (!a.logDisasterId || e.disasterId === a.logDisasterId)
+    && (!action || e.action === action)
     && (!needle
       || e.action.toLocaleLowerCase('tr').includes(needle)
       || e.user.toLocaleLowerCase('tr').includes(needle)
@@ -92,6 +103,20 @@ export function CoordLog() {
             placeholder={tr.coordLog.allActions}
             options={[{ value: '', label: tr.coordLog.allActions }, ...toOptions(actions)]} />
         </span>
+        {disasters.length > 1 && (
+          <span style={{ minWidth: 240 }}>
+            <Picker
+              value={a.logDisasterId ?? ''}
+              onChange={(v) => a.setLogDisasterId(v || null)}
+              ariaLabel={tr.coordLog.allDisasters}
+              placeholder={tr.coordLog.allDisasters}
+              options={[
+                { value: '', label: tr.coordLog.allDisasters },
+                ...disasters.map(([id, name]) => ({ value: id, label: name })),
+              ]}
+            />
+          </span>
+        )}
         <span className="tnum" style={{ fontSize: 12.5, color: C.muted2 }}>
           {tr.coordLog.countLabel(rows.length, a.systemLog.length)}
         </span>
