@@ -145,7 +145,22 @@ export function CoordDisaster() {
             }}>{tr.coordOperation.districtTitle.toLocaleUpperCase('tr')}</div>
 
             {d.districts.length === 0 ? (
-              <div style={cardNote}>{tr.coordOperation.districtNoneShort}</div>
+              // Bekleyen bir iş olduğunu söyler ve doğrudan oraya götürür; boş bir
+              // harita çizmek "hiçbir yer etkilenmedi" diye okunurdu.
+              <div style={cardNote}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 7, color: C.warningText, fontWeight: 600 }}>
+                  <Ico n="pending" size={14} color={C.warning} />
+                  {tr.coordOperation.districtWaitingTitle}
+                </span>
+                <span style={{ display: 'block', marginTop: 5, color: C.muted }}>
+                  {tr.coordOperation.districtWaitingBody}
+                </span>
+                <button onClick={() => a.go('coordDisasters')} className="hv-navy" style={{
+                  marginTop: 9, background: C.surface, border: `1px solid ${C.borderSoft}`,
+                  color: C.navy, borderRadius: 8, padding: '7px 11px',
+                  fontSize: 12.5, fontWeight: 600, cursor: 'pointer', minHeight: 36,
+                }}>{tr.coordOperation.districtEdit}</button>
+              </div>
             ) : plate == null ? (
               <div style={cardNote}>{tr.coordOperation.districtUnknownShort}</div>
             ) : (

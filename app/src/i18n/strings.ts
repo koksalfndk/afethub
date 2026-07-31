@@ -1352,9 +1352,13 @@ export const tr = {
     districtTitle: 'Etkilenen ilçeler',
     districtHint: (n: number) => (n === 1 ? '1 ilçe kayıtlı' : `${n} ilçe kayıtlı`),
     districtNone: 'Bu operasyonda etkilenen ilçe kaydedilmemiş. Afet kaydını düzenleyip ilçeyi yazarsanız burada haritada görünür.',
-    // Koyu komuta şeridi yalnızca kısa etiket taşır; uzun açıklama oraya girmez.
-    districtNoneShort: 'Kaydedilmemiş — afet kaydını düzenleyip ilçe yazın.',
+    // Bekleme durumu. "Kaydedilmemiş" kuru bir olumsuzlama; koordinatörün görmesi
+    // gereken şey bunun BEKLEYEN BİR İŞ olduğu. Boş bir harita ya da boş bir liste
+    // "hiçbir yer etkilenmedi" diye okunur, o yüzden ikisi de çizilmez.
+    districtWaitingTitle: 'Etkilenen bölge bilgisi bekleniyor',
+    districtWaitingBody: 'Afet kaydında ilçe ve yerleşim girilmemiş. Girildiğinde harita ve liste burada görünür.',
     districtUnknownShort: 'İl adı tanınmadı, harita açılamadı.',
+    districtEdit: 'Afet kaydını düzenle',
     districtUnknownProvince: (province: string) => `"${province}" tanınan bir il adı değil, ilçe haritası açılamadı. Afet kaydındaki il adını kontrol edin.`,
     districtFailed: 'İlçe haritası yüklenemedi. Etkilenen ilçeler yanda yazılı.',
     districtAria: (names: string) => `İl haritası, etkilenen ilçeler: ${names}`,
