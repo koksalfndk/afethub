@@ -210,16 +210,29 @@ export function HomeOperationsMap() {
         )}
 
         {openCards && anchor && (
+          // Konumlandırma ile animasyon AYRI elemanlarda.
+          //
+          // Tek elemanda toplandığında kart açılırken sağa kayıp sonra ortaya
+          // zıplıyordu: `.anim-in` giriş animasyonu `transform: none` ile bitiyor ve
+          // animasyon süresince satır içi `translateX(-50%)` değerini eziyor. Kart
+          // ortalanmamış çiziliyor, animasyon bitince yerine oturuyordu.
+          //
+          // Dıştaki eleman yalnızca yerleştirme (transform da onda), içteki yalnızca
+          // animasyon yapıyor — ikisi artık aynı özelliği paylaşmıyor.
           <div
-            role="dialog"
-            aria-label={tr.home.mapCardAria(openCards[0].disaster.province)}
-            className="anim-in"
             style={{
               position: 'absolute', left: `${anchor.x}%`,
               ...(anchor.below
                 ? { top: `calc(${anchor.y}% + 14px)` }
                 : { bottom: `calc(${100 - anchor.y}% + 14px)` }),
               transform: 'translateX(-50%)', zIndex: 5, width: CARD_W, maxWidth: '94%',
+            }}
+          >
+          <div
+            role="dialog"
+            aria-label={tr.home.mapCardAria(openCards[0].disaster.province)}
+            className="anim-in"
+            style={{
               background: C.surface, border: `1px solid ${C.borderSoft}`, borderRadius: 12,
               boxShadow: '0 16px 40px rgba(11,30,48,.22)', padding: '10px 11px 11px',
             }}
@@ -272,6 +285,7 @@ export function HomeOperationsMap() {
                 );
               })}
             </div>
+          </div>
           </div>
         )}
       </div>
