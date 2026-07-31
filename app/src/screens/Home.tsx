@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useApp } from '../store';
-import { tr, disasterTypeLabel } from '../i18n/strings';
+import { tr, disasterTypeLabel, priorityLabel } from '../i18n/strings';
 import { categoryIcon } from '../needForm';
 import { C, G, PRI, D, type PriorityKey } from '../theme';
-import { LiveDot, Ico, DISASTER_ICON, PriorityBadge, MetricCell, ProgressBar, eyebrow, srOnly } from '../ui';
+import { LiveDot, Ico, DISASTER_ICON, PriorityBadge, MetricCell, ProgressBar, eyebrow, srOnly, type IcoName } from '../ui';
 import { agoMinutes, clockLabel, formatDate } from '../util';
 import { HeroBanner } from '../components/HeroBanner';
 import { HomeOperationsMap } from '../components/HomeOperationsMap';
@@ -43,6 +43,36 @@ function worstPriority(c: DisasterCard): PriorityKey {
 // separate boxes to answer "where is it worst right now" (rules/04 §Dense dashboard
 // layouts, §Content Hierarchy). Mobile keeps cards: a six-column table at 390px
 // is unusable.
+// Sayaç şeridinin yüksekliği. Negatif üst boşluk bunun yarısı: şerit kahramanın
+// alt kenarını tam ortasından kesiyor.
+const HERO_STRIP_H = 112;
+// Dış kapsayıcının satırlar arası boşluğu. Negatif üst boşluk bunu da geri almalı;
+// yoksa şerit kahramanın kenarının bu kadar altında kalır.
+const HOME_GAP = 14;
+
+// "Nasıl yardımcı olabilirim" listesi. Tek yerde tanımlı, çünkü aynı dört yol
+// başlıkta, ana sayfada ve nasıl-çalışır sayfasında geçiyor.
+const HELP_ACTIONS: { key: 'volunteer' | 'supply' | 'donate' | 'report'; icon: IcoName; run: (a: ReturnType<typeof useApp>) => void }[] = [
+  { key: 'volunteer', icon: 'people',   run: (a) => a.go('volunteer') },
+  { key: 'supply',    icon: 'need',     run: (a) => a.go('report') },
+  { key: 'donate',    icon: 'org',      run: (a) => a.go('orgs') },
+  { key: 'report',    icon: 'critical', run: (a) => a.openDisasterForm() },
+];
+
+function SectionHead({ title, link, onLink }: { title: string; link?: string; onLink?: () => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+      <h2 style={{ margin: 0, fontSize: 16.5, fontWeight: 700, letterSpacing: '-.01em', color: C.navy }}>{title}</h2>
+      {link && onLink && (
+        <button onClick={onLink} className="lnk" style={{
+          marginLeft: 'auto', background: 'none', border: 0, padding: 0,
+          font: 'inherit', fontSize: 13, fontWeight: 600, color: C.info, cursor: 'pointer',
+        }}>{link}</button>
+      )}
+    </div>
+  );
+}
+
 export function Home() {
   const a = useApp();
   const mob = a.device === 'mobile';
@@ -56,6 +86,9 @@ export function Home() {
   // read as decoration. It still collapses, and it is the same feed for everyone —
   // signed in or not (audit_is_public in the database decides, not the session).
   const [feedOpen, setFeedOpen] = useState(true);
+  // Operasyonların tamamı KATLI geliyor. Ana sayfa yönlendirme ekranı; ama listeye
+  // gidilecek başka bir yer olmadığı için kaldırmak yerine kapalı tutuluyor.
+  const [showAll, setShowAll] = useState(false);
   // The report being confirmed, if any. Confirming is a form, not a click: see
   // ReportConfirmModal for why the counter cannot be anonymous.
   const [confirming, setConfirming] = useState<DisasterReport | null>(null);
@@ -76,14 +109,43 @@ export function Home() {
 
   // Dark strip cells. Colour lives on the figure only; the labels stay muted so the
   // strip reads as one instrument panel rather than six competing badges.
-  const cells: { label: string; value: number; tone: string }[] = [
-    { label: tr.dash.totals.disasters, value: ov.totals.activeDisasters, tone: '#FF8A8F' },
-    { label: tr.dash.totals.needs, value: ov.totals.activeNeeds, tone: D.fg },
-    { label: tr.dash.totals.verified, value: ov.totals.verifiedSubs, tone: D.success },
-    { label: tr.dash.totals.pending, value: ov.totals.pendingSubs, tone: D.warning },
-    { label: tr.dash.totals.volunteers, value: ov.totals.volunteers, tone: '#7FD8CF' },
-    { label: tr.dash.totals.points, value: ov.totals.deliveryPoints, tone: '#9BC7ED' },
+  // DÖRT sayı, altı değil. Hepsinin arkasında gerçek bir kayıt var: uydurulabilecek
+  // ya da hesaplanamayacak bir ölçü ("destekçi sayısı" gibi) buraya konmadı.
+  const provinces = new Set(ov.disasters.filter((c) => c.disaster.status === 'Active').map((c) => c.disaster.province));
+  const cells: { label: string; value: number; unit: string; tone: string; icon: IcoName }[] = [
+    { label: tr.home.statDisasters, value: ov.totals.activeDisasters, unit: tr.home.statDisastersUnit(provinces.size), tone: '#FF8A8F', icon: 'pin' },
+    { label: tr.home.statVolunteers, value: ov.totals.volunteers, unit: tr.home.statVolunteersUnit, tone: '#7FD8CF', icon: 'people' },
+    { label: tr.home.statNeeds, value: ov.totals.activeNeeds, unit: tr.home.statNeedsUnit, tone: '#9BC7ED', icon: 'need' },
+    { label: tr.home.statVerified, value: ov.totals.verifiedSubs, unit: tr.home.statVerifiedUnit, tone: '#6EE7A8', icon: 'verified' },
   ];
+
+  // Özet listede en ağır dört operasyon: önce önceliğe, sonra açık ihtiyaç sayısına.
+  const topDisasters = ov.disasters
+    .filter((c) => c.disaster.status === 'Active')
+    .slice()
+    .sort((x, y) => (PRI[worstPriority(x)] ?? PRI.Normal).rank - (PRI[worstPriority(y)] ?? PRI.Normal).rank
+      || y.activeNeeds - x.activeNeeds)
+    .slice(0, 4);
+
+  // Acil ihtiyaçlar KALEM ADIYLA toplanır. `ov.urgent` operasyon başına satır
+  // veriyor; olduğu gibi basıldığında "Maske" kutusu üç kez yan yana çıkıyordu ve
+  // ziyaretçi üç ayrı ihtiyaç sanıyordu. Kaç bölgede aranıyorsa o yazılır.
+  const urgentByName = (() => {
+    const m = new Map<string, { name: string; cat: string; priority: PriorityKey; remaining: number; unit: string; ops: Set<string>; slug: string }>();
+    for (const n of ov.urgent) {
+      const cur = m.get(n.name);
+      if (cur) {
+        cur.remaining += n.remaining;
+        cur.ops.add(n.disasterId);
+        if ((PRI[n.priority] ?? PRI.Normal).rank < (PRI[cur.priority] ?? PRI.Normal).rank) cur.priority = n.priority;
+      } else {
+        m.set(n.name, { name: n.name, cat: n.cat, priority: n.priority, remaining: n.remaining, unit: n.unit, ops: new Set([n.disasterId]), slug: n.disasterSlug });
+      }
+    }
+    return [...m.values()]
+      .sort((x, y) => (PRI[x.priority] ?? PRI.Normal).rank - (PRI[y.priority] ?? PRI.Normal).rank || y.ops.size - x.ops.size)
+      .slice(0, 8);
+  })();
 
   const panel = {
     background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
@@ -98,52 +160,208 @@ export function Home() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Slider yarı genişliğe indi, yanına operasyon haritası girdi. Harita
-          dekoratif değil: bir ile tıklamak o ildeki operasyonların kartını açıyor ve
-          oradan afet sayfasına gidiliyor. Mobilde alt alta — 390 px'te iki sütun,
-          ikisini de okunmaz yapardı. */}
-      <div style={{
-        display: 'grid', gap: 14, alignItems: 'stretch',
-        gridTemplateColumns: mob ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)',
-      }}>
-        <HeroBanner />
+      {/* ---- Kahraman + dört sayı ------------------------------------------
+          Ana sayfa bir kontrol paneli değil, yönlendirme ekranı. Ziyaretçi beş
+          saniyede üç şeyi anlamalı: nerede afet var, neye ihtiyaç var, nasıl destek
+          olabilir. Bu yüzden altı sayaçlık ulusal şerit dörde indi ve tekrar eden
+          operasyon tabloları katlanan bir bölüme taşındı.
+
+          Sayaç şeridi kahramanın ALT KENARINI dikey ortasından kesiyor. Kahramanın
+          içine konup taşırılamıyor: orada `overflow: hidden` var ve taşan yarısı
+          kırpılırdı. Bu yüzden dışarıda duruyor ve negatif üst boşlukla çekiliyor. */}
+      <HeroBanner />
+      <div style={{ position: 'relative', zIndex: 3, marginTop: -(HERO_STRIP_H / 2 + HOME_GAP), marginBottom: 4 }}>
+        <div style={{
+          background: '#0F2C46', border: `1px solid ${D.rowBd}`, borderRadius: 14,
+          boxShadow: '0 18px 44px rgba(11,30,48,.28)', overflow: 'hidden',
+          display: 'grid', gridTemplateColumns: mob ? 'repeat(2, minmax(0,1fr))' : 'repeat(4, minmax(0,1fr))',
+        }}>
+          {cells.map((c, i) => (
+            <div key={c.label} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: mob ? '13px 14px' : '0 20px',
+              minHeight: mob ? 0 : HERO_STRIP_H,
+              borderRight: !mob && i < cells.length - 1 ? `1px solid ${D.rowBd}` : 0,
+              borderTop: mob && i > 1 ? `1px solid ${D.rowBd}` : 0,
+              borderLeft: mob && i % 2 === 1 ? `1px solid ${D.rowBd}` : 0,
+            }}>
+              <span style={{
+                width: 38, height: 38, borderRadius: 11, flex: '0 0 38px',
+                background: D.rowBg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}><Ico n={c.icon} size={18} color={c.tone} /></span>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 12.5, color: D.fg2 }}>{c.label}</span>
+                <span className="tnum" style={{ display: 'block', fontSize: 22, fontWeight: 700, letterSpacing: '-.02em', color: '#fff' }}>
+                  {c.value}
+                  <small style={{ fontSize: 12, fontWeight: 500, color: D.fg2, marginLeft: 5 }}>{c.unit}</small>
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ---- Aktif afetler + ihtiyaç haritası ------------------------------- */}
+      <div style={{ display: 'grid', gap: 14, alignItems: 'stretch', gridTemplateColumns: mob ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)' }}>
+        <section style={{ ...panel, padding: '16px 17px 17px', display: 'flex', flexDirection: 'column' }}>
+          <SectionHead title={tr.home.activeTitle} link={tr.home.seeAll} onLink={() => setShowAll(true)} />
+          {topDisasters.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 13, color: C.muted }}>{tr.dash.noMatchBody}</p>
+          ) : (
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, flex: 1 }}>
+              {topDisasters.map((c, i, arr) => {
+                const pr = worstPriority(c);
+                const tone = (PRI[pr] ?? PRI.Normal);
+                return (
+                  <li key={c.disaster.id} style={{ borderBottom: i === arr.length - 1 ? 0 : `1px solid ${C.borderFaint}` }}>
+                    <button onClick={() => a.openDisaster(c.disaster.slug)} className="hv-navy" style={{
+                      display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
+                      background: 'none', border: 0, padding: '11px 2px', cursor: 'pointer',
+                    }}>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', flex: '0 0 10px', background: tone.bar }} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: C.navy }}>{c.disaster.name}</span>
+                        <span style={{ display: 'block', fontSize: 12.5, color: C.muted2 }}>{c.disaster.region}</span>
+                      </span>
+                      {/* Öncelik renkle DEĞİL kelimeyle; renk yalnızca tekrar ediyor. */}
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, borderRadius: 20, padding: '3px 9px', whiteSpace: 'nowrap',
+                        color: tone.fg, background: tone.bg, border: `1px solid ${tone.border}`,
+                      }}>{priorityLabel[pr].toLocaleUpperCase('tr')}</span>
+                      <span style={{ textAlign: 'right', flex: '0 0 58px' }}>
+                        <span className="tnum" style={{ display: 'block', fontSize: 17, fontWeight: 700, color: C.navy }}>{c.activeNeeds}</span>
+                        <span style={{ display: 'block', fontSize: 11, color: C.muted2 }}>{tr.home.needWord}</span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <button onClick={() => setShowAll((v) => !v)} className="hv-navy" style={{
+            marginTop: 12, width: '100%', background: C.surface, border: `1px solid ${C.borderSoft}`,
+            color: C.navy, borderRadius: 10, height: 42, fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+          }}>{showAll ? tr.home.hideAllDisasters : tr.home.allDisasters}</button>
+        </section>
+
         <HomeOperationsMap />
       </div>
 
-      {/* Sample content must be labelled so it can never pass as verified live data. */}
-      {ov.demo && (
-        <div style={{
-          background: 'linear-gradient(135deg,#FFFDF4,#FFF8E5)', border: '1px solid #F2DFA8',
-          borderLeft: `3px solid ${C.warning}`, borderRadius: 10, padding: '10px 13px',
-          display: 'flex', gap: 9, alignItems: 'flex-start',
-        }}>
-          <span style={{ paddingTop: 1 }}><Ico n="critical" size={15} color={C.warningText} /></span>
-          <div>
-            <b style={{ fontSize: 12.5, color: C.warningText }}>{tr.dash.demoTitle}</b>
-            <div style={{ fontSize: 12, color: C.heading2, marginTop: 1 }}>{tr.dash.demoBody}</div>
-          </div>
-        </div>
-      )}
+      {/* ---- Acil ihtiyaçlar + nasıl yardımcı olabilirim -------------------- */}
+      <div style={{ display: 'grid', gap: 14, alignItems: 'stretch', gridTemplateColumns: mob ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)' }}>
+        <section style={{ ...panel, padding: '16px 17px 17px', display: 'flex', flexDirection: 'column' }}>
+          <SectionHead title={tr.home.urgentTitle} />
+          {urgentByName.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 13, color: C.muted }}>{tr.home.urgentEmpty}</p>
+          ) : (
+            <div style={{
+              display: 'grid', gap: 10, flex: 1, alignContent: 'start',
+              gridTemplateColumns: mob ? 'repeat(2, minmax(0,1fr))' : 'repeat(4, minmax(0,1fr))',
+            }}>
+              {urgentByName.map((n) => (
+                <button key={n.name} onClick={() => a.openDisaster(n.slug, 'needs')} className="hv-navy" style={{
+                  border: `1px solid ${C.border}`, borderRadius: 11, padding: '12px 8px',
+                  background: C.surface, cursor: 'pointer', textAlign: 'center', minWidth: 0,
+                }}>
+                  <span style={{
+                    width: 42, height: 42, borderRadius: 12, background: C.chipNavyBg, margin: '0 auto 8px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}><Ico n={categoryIcon(n.cat)} size={20} color={(PRI[n.priority] ?? PRI.Normal).bar} /></span>
+                  <span style={{
+                    display: 'block', fontSize: 12.5, fontWeight: 600, color: C.navy,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>{n.name}</span>
+                  <span className="tnum" style={{ display: 'block', fontSize: 11, color: C.muted2, marginTop: 2 }}>
+                    {tr.home.urgentBox(n.ops.size, n.remaining, n.unit)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          <p style={{ margin: '11px 0 0', fontSize: 11.5, color: C.muted2 }}>{tr.common.remainingUnchanged}</p>
+        </section>
 
-      {/* ---- Komuta şeridi: the six national counters as one panel ---- */}
-      <div style={{
-        background: G.opsBar, borderRadius: 12, display: 'grid',
-        gridTemplateColumns: mob ? 'repeat(2, minmax(0,1fr))' : 'repeat(6, minmax(0,1fr))',
-        overflow: 'hidden',
-      }}>
-        {cells.map((c, i) => (
-          <div key={c.label} style={{
-            padding: mob ? '10px 12px' : '11px 14px',
-            borderRight: !mob && i < cells.length - 1 ? `1px solid ${D.rowBd}` : 0,
-            borderTop: mob && i > 1 ? `1px solid ${D.rowBd}` : 0,
-            borderLeft: mob && i % 2 === 1 ? `1px solid ${D.rowBd}` : 0,
-          }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: D.muted }}>{c.label}</div>
-            <div className="tnum" style={{ fontSize: mob ? 19 : 21, fontWeight: 700, letterSpacing: '-.02em', color: c.tone, marginTop: 2 }}>{c.value}</div>
+        <section style={{ ...panel, padding: '16px 17px 17px', display: 'flex', flexDirection: 'column' }}>
+          <SectionHead title={tr.home.helpTitle} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+            {HELP_ACTIONS.map((h) => (
+              <button key={h.key} onClick={() => h.run(a)} className="hv-navy" style={{
+                display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
+                border: `1px solid ${C.border}`, borderRadius: 11, padding: '11px 13px',
+                background: C.surface, cursor: 'pointer', minHeight: 60,
+              }}>
+                <span style={{
+                  width: 36, height: 36, borderRadius: 10, flex: '0 0 36px', background: C.chipNavyBg,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}><Ico n={h.icon} size={18} color={C.text} /></span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: C.navy }}>{tr.home.help[h.key].title}</span>
+                  <span style={{ display: 'block', fontSize: 12, color: C.muted2 }}>{tr.home.help[h.key].body}</span>
+                </span>
+                <Ico n="chev" size={16} color={C.muted3} />
+              </button>
+            ))}
           </div>
-        ))}
+        </section>
       </div>
 
+      {/* ---- Son hareketler + koordinasyon ---------------------------------- */}
+      <div style={{ display: 'grid', gap: 14, alignItems: 'stretch', gridTemplateColumns: mob ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)' }}>
+        <section style={{ ...panel, padding: '16px 17px 17px', display: 'flex', flexDirection: 'column' }}>
+          <SectionHead title={tr.home.recentTitle} />
+          {ov.log.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 13, color: C.muted }}>{tr.home.recentEmpty}</p>
+          ) : (
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, flex: 1 }}>
+              {ov.log.slice(0, 4).map((e, i, arr) => (
+                <li key={e.id} style={{
+                  display: 'flex', gap: 11, padding: '10px 0',
+                  borderBottom: i === arr.length - 1 ? 0 : `1px solid ${C.borderFaint}`,
+                }}>
+                  {/* Göreli zaman ("22 dakika önce") dar bir sütuna sığmıyor ve üç
+                      satıra bölünüyordu; alt satırın sonuna alındı. */}
+                  <span style={{ width: 9, height: 9, borderRadius: '50%', flex: '0 0 9px', background: e.color, marginTop: 5 }} />
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: C.navy }}>{e.action}</span>
+                    <span className="tnum" style={{ display: 'block', fontSize: 12, color: C.muted2 }}>
+                      {[e.user, e.detail, e.disasterName, e.time].filter(Boolean).join(' · ')}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section style={{
+          ...panel, padding: '16px 17px 17px', display: 'flex', flexDirection: 'column',
+          background: G.surfaceSoft, border: `1px solid ${C.borderSoft}`,
+        }}>
+          <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700, letterSpacing: '-.02em', color: C.navy }}>{tr.home.togetherTitle}</h2>
+          <p style={{ margin: '6px 0 0', fontSize: 13.5, color: C.text, maxWidth: '38ch' }}>{tr.home.togetherBody}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 12, margin: '18px 0 0' }}>
+            {[
+              [a.orgs.filter((o) => o.status === 'Verified').length, tr.home.togetherOrgs],
+              [ov.totals.volunteers, tr.home.togetherVolunteers],
+              [ov.totals.deliveryPoints, tr.home.togetherPoints],
+            ].map(([v, l]) => (
+              <span key={String(l)}>
+                <span className="tnum" style={{ display: 'block', fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: C.navy }}>{v}</span>
+                <span style={{ display: 'block', fontSize: 12, color: C.muted2 }}>{l}</span>
+              </span>
+            ))}
+          </div>
+          <button onClick={() => a.go('orgs')} style={{
+            marginTop: 'auto', background: G.navyBtn, border: `1px solid ${C.navy}`, color: '#fff',
+            borderRadius: 10, height: 44, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', width: '100%',
+          }}>{tr.home.togetherCta}</button>
+        </section>
+      </div>
+
+      {/* ---- Katlanan bölüm: operasyonların tamamı --------------------------
+          Kaldırılmadı, KATLANDI. Ana sayfa artık yönlendirme ekranı ama "tüm
+          operasyonlar"a gidilecek başka bir yer yok; arama ve süzgeçlerle birlikte
+          burada, kapalı duruyor. */}
+      {showAll && (
       <div style={{ display: 'grid', gap: 14, gridTemplateColumns: mob ? '1fr' : 'minmax(0,1.9fr) minmax(290px,1fr)', alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 11, minWidth: 0 }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -472,6 +690,81 @@ export function Home() {
             <Ico n="chev" size={16} color={C.muted2} />
           </button>
         </div>
+      </div>
+      )}
+
+      {/* ---- Topluluk bildirimleri: tam genişlik, dört sütun -----------------
+          Bir iddia sayısıdır, doğrulanmış bir olgu DEĞİL. Aynı olaya dair bildirimler
+          birleştirilir, yani bu "n satır" değil "n kişi bildirdi". Eşiği geçtiğinde
+          bildirim operasyonu kendiliğinden açar — teyit ederken kim olduğunuzun
+          sorulmasının sebebi tam olarak budur. */}
+      <section style={{ ...panel, padding: '16px 17px 17px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+          <h2 style={{ margin: 0, fontSize: 16.5, fontWeight: 700, letterSpacing: '-.01em', color: C.navy }}>{tr.dashReports.title}</h2>
+          <span className="tnum" style={{ fontSize: 11.5, fontWeight: 700, background: C.chipNavyBg, color: C.text, borderRadius: 20, padding: '1px 8px' }}>{ov.reports.length}</span>
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: C.muted2 }}>{tr.dashReports.note}</span>
+        </div>
+        {ov.reports.length === 0 ? (
+          <p style={{ margin: 0, fontSize: 13, color: C.muted }}>{tr.dashReports.empty}</p>
+        ) : (
+          <div style={{
+            display: 'grid', gap: 11,
+            gridTemplateColumns: mob ? '1fr' : 'repeat(4, minmax(0,1fr))',
+          }}>
+            {ov.reports.slice(0, 4).map((r) => {
+              const left = Math.max(0, COMMUNITY_THRESHOLD - r.reportCount);
+              return (
+                <article key={r.id} style={{
+                  border: '1px solid #F2DFA8', background: '#FFFDF4', borderRadius: 12,
+                  padding: '12px 13px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0,
+                }}>
+                  <span style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700, color: C.navy }}>
+                        {[r.province, r.district].filter(Boolean).join(' / ')}
+                      </span>
+                      <span className="tnum" style={{ display: 'block', fontSize: 11.5, color: C.muted2, marginTop: 1 }}>
+                        {disasterTypeLabel[r.type]} · {formatDate(r.occurredOn)}
+                      </span>
+                    </span>
+                    <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <span className="tnum" style={{ display: 'block', fontSize: 17, fontWeight: 700, color: C.warning }}>{r.reportCount}</span>
+                      <span style={{ display: 'block', fontSize: 11, color: C.muted }}>{tr.dashReports.reportedWord}</span>
+                    </span>
+                  </span>
+                  {/* Eşiğe ne kadar kaldığı SAYIYLA yazılır; rakamsız bir ilerleme
+                      çubuğu "ne kadar" sorusunu yanıtsız bırakır (rules/04). */}
+                  {left > 0 && (
+                    <span className="tnum" style={{ fontSize: 11.5, color: C.muted2 }}>{tr.dashReports.toThreshold(left)}</span>
+                  )}
+                  <button onClick={() => setConfirming(r)} className="hv-navy" style={{
+                    marginTop: 'auto', background: C.surface, border: `1px solid ${C.borderSoft}`,
+                    color: C.navy, borderRadius: 9, height: 38, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                  }}>{tr.dashReports.confirm}</button>
+                </article>
+              );
+            })}
+          </div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
+          <span style={{ fontSize: 11.5, color: C.muted2, flex: '1 1 260px' }}>{tr.dashReports.thresholdNote(COMMUNITY_THRESHOLD)}</span>
+          <button onClick={a.openDisasterForm} style={{
+            background: G.emergencyBtn, border: '1px solid #BE2A31', color: '#fff', borderRadius: 10,
+            height: 44, padding: '0 18px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+          }}>{tr.dashReports.all}</button>
+        </div>
+      </section>
+
+      {/* ---- Güven bilgilendirmesi ------------------------------------------ */}
+      <div style={{
+        display: 'flex', gap: 12, alignItems: 'flex-start', background: '#F2F7FC',
+        border: '1px solid #D6E6F5', borderRadius: 12, padding: '14px 16px',
+      }}>
+        <span style={{ paddingTop: 1, flex: '0 0 auto' }}><Ico n="verified" size={19} color={C.info} /></span>
+        <span>
+          <b style={{ display: 'block', fontSize: 13.5, color: C.heading2 }}>{tr.home.trustTitle}</b>
+          <span style={{ display: 'block', fontSize: 13, color: C.text, marginTop: 3 }}>{tr.home.trustBody}</span>
+        </span>
       </div>
 
       <p style={{ fontSize: 11.5, lineHeight: 1.5, color: C.muted2, margin: 0, paddingTop: 10, borderTop: `1px solid ${C.borderFaint}` }}>

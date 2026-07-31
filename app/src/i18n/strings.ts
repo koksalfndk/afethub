@@ -161,6 +161,43 @@ export const tr = {
   },
 
   home: {
+    // Kahramanın alt kenarını kesen dört sayı. Hepsinin arkasında gerçek bir kayıt
+    // var; hesaplanamayan bir ölçü ("destekçi sayısı") buraya konmuyor.
+    statDisasters: 'Aktif afet',
+    statDisastersUnit: (il: number) => `${il} ilde`,
+    statVolunteers: 'Gönüllü',
+    statVolunteersUnit: 'kayıtlı',
+    statNeeds: 'Açık ihtiyaç',
+    statNeedsUnit: 'kalem',
+    statVerified: 'Doğrulanan teslimat',
+    statVerifiedUnit: 'adet',
+
+    activeTitle: 'Aktif afetler',
+    seeAll: 'Tümünü gör',
+    needWord: 'ihtiyaç',
+    allDisasters: 'Tüm aktif afetler',
+    hideAllDisasters: 'Listeyi kapat',
+    urgentTitle: 'Acil ihtiyaçlar',
+    urgentEmpty: 'Şu an açık bir ihtiyaç kaydı yok.',
+    urgentBox: (bolge: number, kalan: number, birim: string) =>
+      (bolge === 1 ? `1 bölge · ${kalan} ${birim}` : `${bolge} bölge · ${kalan} ${birim}`),
+    helpTitle: 'Nasıl yardımcı olabilirim?',
+    help: {
+      volunteer: { title: 'Gönüllü ol', body: 'Sahada görev alarak destek olun.' },
+      supply: { title: 'Destek malzemesi gönder', body: 'İhtiyaç listesine göre malzeme gönderin.' },
+      donate: { title: 'Kurumlara ulaş', body: 'Doğrulanmış kurumlar üzerinden destek olun.' },
+      report: { title: 'Afet bildir', body: 'Bulunduğunuz bölgedeki afetleri bildirin.' },
+    },
+    recentTitle: 'Son hareketler',
+    recentEmpty: 'Henüz kayıtlı bir hareket yok.',
+    togetherTitle: 'Koordinasyon bir arada.',
+    togetherBody: 'Kurumlar, gönüllüler ve teslim noktaları tek bir platformda buluşuyor.',
+    togetherOrgs: 'Doğrulanmış kurum',
+    togetherVolunteers: 'Gönüllü',
+    togetherPoints: 'Teslim noktası',
+    togetherCta: 'Kurumlar sayfasını gör',
+    trustTitle: 'Afet anında doğru bilgi, hızlı koordinasyon ve bilinçli destek hayat kurtarır.',
+    trustBody: 'Buradaki kalan miktarlar yalnızca teslim noktasında doğrulanmış teslimatlarla düşer. Resmî kaynakları takip edin, doğrulanmamış bilgilere itibar etmeyin.',
     // Ana sayfadaki operasyon haritası. Renk aciliyet SKORUNA göre değil — o skor
     // koordinatöre özel. Ziyaretçinin zaten gördüğü iki şeye göre: açık mı, kritik
     // ihtiyacı var mı.
@@ -243,7 +280,7 @@ export const tr = {
     contribute: 'Katkı ver',
     about: 'Hakkımızda',
     copyright: '© 2026 AfetHUB — bağımsız sivil koordinasyon platformu',
-    dataNote: 'Bu sürümdeki afet ve miktar bilgileri demo veridir.',
+    dataNote: 'Bağış toplamaz, yardım dağıtmaz; koordinasyonu görünür kılar.',
   },
 
   about: {
@@ -275,8 +312,6 @@ export const tr = {
   dash: {
     title: 'Türkiye genelinde aktif afetler',
     subtitle: 'Her operasyonun doğrulanmış ihtiyaçlarını, teslim noktalarını ve son hareketlerini tek ekranda izle.',
-    demoTitle: 'Demo veri',
-    demoBody: 'Bu ekrandaki afetler gerçek yerleşimlere dayanır; miktarlar, teslim noktaları ve bildirimler örnek veridir. Doğrulanmış canlı operasyon verisi değildir.',
     totals: {
       disasters: 'Aktif afet', needs: 'Aktif ihtiyaç', verified: 'Doğrulanan teslimat',
       pending: 'Doğrulama bekliyor', volunteers: 'Gönüllü', points: 'Teslim noktası',
