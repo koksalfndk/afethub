@@ -112,13 +112,34 @@ export function HeroBanner({ bottomInset = 0 }: {
   const [dx, setDx] = useState(0);
   const timer = useRef(0);
   const raf = useRef(0);
+  // Her geçiş kendi numarasını alıyor. Gecikmiş bir animasyon karesi, ait olduğu geçiş
+  // çoktan bittiyse hiçbir şey yapmamalı — aşağıdaki donma hatasının sebebi buydu.
+  const gen = useRef(0);
   const busy = phase === 'enter' || phase === 'commit';
 
   useEffect(() => () => { window.clearTimeout(timer.current); cancelAnimationFrame(raf.current); }, []);
 
+  // Geçişi bitirir ve bekleyen animasyon karesini iptal eder.
+  //
+  // NEDEN: `requestAnimationFrame` sekme ARKA PLANDAYKEN hiç çalışmıyor, `setTimeout`
+  // ise (kısılarak da olsa) çalışıyor. Sekme arkadayken otomatik geçiş başladığında
+  // zaman aşımı geçişi tamamlayıp durumu 'idle' yapıyor, ama kuyrukta bekleyen kare
+  // kullanıcı sekmeye DÖNDÜĞÜNDE çalışıp durumu tekrar 'commit' yapıyordu. O anda
+  // gelen slayt (`peek`) yok; görünen slayt bir kare genişliği kadar dışarı itiliyor ve
+  // geriye bomboş beyaz bir kutu kalıyordu. Üstelik kalıcı olarak: 'idle' olmayan bir
+  // durumda ne otomatik geçiş ne nokta ne de sürükleme çalışıyor.
+  const finish = (next: number | null) => {
+    cancelAnimationFrame(raf.current);
+    gen.current += 1;
+    if (next !== null) setI(next);
+    setPeek(null); setPhase('idle'); setDx(0);
+  };
+
   const go = (target: number, side: 1 | -1) => {
     if (!many || target === i || phase !== 'idle') return;
     window.clearTimeout(timer.current);
+    const my = gen.current + 1;
+    gen.current = my;
     setPeek({ nb: target, side });
     setDx(0);
     // Paint the incoming frame off-screen first, then animate on the next frame.
@@ -126,11 +147,10 @@ export function HeroBanner({ bottomInset = 0 }: {
     // the slide simply appears — the amateur version of this component.
     setPhase('enter');
     raf.current = requestAnimationFrame(() => {
-      raf.current = requestAnimationFrame(() => setPhase('commit'));
+      if (gen.current !== my) return;
+      raf.current = requestAnimationFrame(() => { if (gen.current === my) setPhase('commit'); });
     });
-    timer.current = window.setTimeout(() => {
-      setI(target); setPeek(null); setPhase('idle'); setDx(0);
-    }, DUR);
+    timer.current = window.setTimeout(() => finish(target), DUR);
   };
   const step = (d: 1 | -1) => go((i + d + slides.length) % slides.length, d);
 
@@ -214,12 +234,10 @@ export function HeroBanner({ bottomInset = 0 }: {
     window.clearTimeout(timer.current);
     if ((Math.abs(travel) >= need || flick) && target !== undefined) {
       setPhase('commit');
-      timer.current = window.setTimeout(() => {
-        setI(target); setPeek(null); setPhase('idle'); setDx(0);
-      }, DUR);
+      timer.current = window.setTimeout(() => finish(target), DUR);
     } else {
       setPhase('cancel');
-      timer.current = window.setTimeout(() => { setPeek(null); setPhase('idle'); setDx(0); }, DUR);
+      timer.current = window.setTimeout(() => finish(null), DUR);
     }
   };
 
@@ -231,11 +249,28 @@ export function HeroBanner({ bottomInset = 0 }: {
   };
 
   const side = peek?.side ?? 1;
-  const curX = phase === 'drag' ? `${dx}px` : phase === 'commit' ? `${-side * 100}%` : '0px';
+  // Görünen slaytı yalnızca GERÇEKTEN bir slayt geliyorsa dışarı it. `peek` yokken
+  // -%100'e itmek, geriye boş bir kutu bırakır — durum makinesi bir daha bozulursa
+  // sonuç kırık bir animasyon olsun, kalıcı olarak beyaz bir kahraman değil.
+  const curX = phase === 'drag' ? `${dx}px`
+    : (phase === 'commit' && peek) ? `${-side * 100}%`
+    : '0px';
   const nbX = phase === 'drag' ? `calc(${dx}px + ${side * 100}%)`
     : phase === 'commit' ? '0px'
     : `${side * 100}%`;
   const move = phase === 'drag' ? 'none' : `transform ${DUR}ms cubic-bezier(.22,.61,.36,1)`;
+
+  // Slayt listesi ÇALIŞMA ANINDA değişebiliyor: koordinatör panelden bir slaytı pasife
+  // aldığında (ya da veritabanı yüklenip yerleşik yedeğin yerini aldığında) dizi kısalıyor
+  // ve elimizdeki sıra numarası listenin dışında kalabiliyor. `slides[i]` o anda undefined
+  // olur ve kare çizilirken patlar — yine bomboş bir kahraman. Sıra numarası okunurken
+  // sınırlanıyor; ayrıca aşağıdaki efekt durumu da düzeltiyor.
+  const cur = slides[i] ?? slides[0];
+  const nb = peek ? (slides[peek.nb] ?? null) : null;
+  useEffect(() => {
+    if (i > slides.length - 1) finish(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slides.length, i]);
 
   // One slide's worth of layers. Everything is positioned against the frame, so the
   // frame is the only thing that moves.
@@ -353,7 +388,7 @@ export function HeroBanner({ bottomInset = 0 }: {
         userSelect: phase === 'drag' ? 'none' : undefined,
       }}
     >
-      {frame(slides[i], true)}
+      {frame(cur, true)}
 
       {/* Göstergeler KARENİN İÇİNDE değil, bölümün üstünde sabit bir katmanda.
           İçerideyken slaytla birlikte kayıyorlardı: kullanıcı hangi slaytta olduğunu
@@ -384,7 +419,7 @@ export function HeroBanner({ bottomInset = 0 }: {
           ))}
         </div>
       )}
-      {peek && frame(slides[peek.nb], false)}
+      {nb && frame(nb, false)}
     </section>
   );
 }
