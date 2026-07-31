@@ -807,7 +807,11 @@ export class LocalRepo implements Repo {
     const next = { ...r, reportCount: r.reportCount + 1, lastReportLabel: NOW };
     reports = reports.map((x) => (x.id === reportId ? next : x));
     addLog(activeDisasterId(), {
-      user: 'Topluluk', action: 'Afet bildirimi doğrulandı',
+      // Akıştaki "kim" sütunu burada kişi değil SAYI: bildirimi teyit eden vatandaşın
+      // adını herkese açık akışta yayınlamak onu ismiyle teşhir etmek olurdu.
+      // Supabase yolunda aynı dönüşüm eşleme katmanında yapılıyor (auditActorLabel);
+      // yerel mod da aynı şeyi göstermeli, yoksa iki ortam iki farklı ürün olur.
+      user: `${next.reportCount} kişi bildirdi`, action: 'Afet bildirimi doğrulandı',
       detail: `${next.province}${next.district ? ' / ' + next.district : ''} · ${disasterTypeLabel[next.type]}`,
       oldValue: `${r.reportCount} kişi bildirdi`, newValue: `${next.reportCount} kişi bildirdi`,
       color: '#E6A700',

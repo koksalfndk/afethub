@@ -15,7 +15,7 @@ import type {
   CoordOverview, CoordDisasterRow, CoordQueueItem,
 } from './repo';
 import type { NeedPayload } from '../needForm';
-import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW, isLocalSlideImage, disasterSlug, isPublicAuditAction, SLA_HOURS, splitDistricts, auditActionLabel, auditDetailLabel, auditValueLabel } from './repo';
+import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW, isLocalSlideImage, disasterSlug, isPublicAuditAction, SLA_HOURS, splitDistricts, auditActionLabel, auditDetailLabel, auditValueLabel, auditActorLabel } from './repo';
 import { PRI } from '../theme';
 import { RefreshFailedError } from '../util';
 
@@ -121,7 +121,8 @@ export class SupabaseRepo implements Repo {
       // Türkçeleştirme eşleme katmanında, TEK yerde: 0031 öncesi satırlar İngilizce
       // ve `audit_log` değiştirilemez. Ekranların her biri kendi çevirisini yapsaydı,
       // aynı olay listede iki ayrı adla görünürdü.
-      user: String(r.actor), action: auditActionLabel(String(r.action)),
+      user: auditActorLabel(String(r.action), String(r.actor), String(r.new_value)),
+      action: auditActionLabel(String(r.action)),
       detail: auditDetailLabel(String(r.detail)),
       oldValue: auditValueLabel(String(r.old_value)), newValue: auditValueLabel(String(r.new_value)),
       time: rel(String(r.created_at)),
@@ -221,7 +222,8 @@ export class SupabaseRepo implements Repo {
         id: String(r.id), disasterId: String(r.disaster_id ?? ''),
         disasterName: byId.get(String(r.disaster_id))?.name ?? '',
         disasterSlug: byId.get(String(r.disaster_id))?.slug ?? '',
-        user: String(r.actor), action: auditActionLabel(String(r.action)),
+        user: auditActorLabel(String(r.action), String(r.actor), String(r.new_value)),
+      action: auditActionLabel(String(r.action)),
         detail: auditDetailLabel(String(r.detail)),
         oldValue: auditValueLabel(String(r.old_value)), newValue: auditValueLabel(String(r.new_value)),
         time: rel(String(r.created_at)), color: String(r.color),
@@ -821,7 +823,8 @@ export class SupabaseRepo implements Repo {
       disasterSlug: names.get(String(r.disaster_id))?.slug ?? '',
       // The admin log is the one place the name is NOT masked: it is the record an
       // administrator is accountable for reading, and it is gated by is_admin().
-      user: String(r.actor), action: auditActionLabel(String(r.action)),
+      user: auditActorLabel(String(r.action), String(r.actor), String(r.new_value)),
+      action: auditActionLabel(String(r.action)),
       detail: auditDetailLabel(String(r.detail)),
       oldValue: auditValueLabel(String(r.old_value)), newValue: auditValueLabel(String(r.new_value)),
       time: rel(String(r.created_at)), color: String(r.color),

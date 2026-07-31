@@ -424,11 +424,37 @@ const LEGACY_ACTION_TR: Record<string, string> = {
 
 export const auditActionLabel = (action: string): string => LEGACY_ACTION_TR[action] ?? action;
 
-// Aynı satırların İngilizce detay metni ("30 of 30 kutu"). Yalnızca bu kalıp
-// çevriliyor; tanınmayan metin olduğu gibi bırakılır — anlamadığı bir cümleyi
-// tahminle Türkçeleştiren bir eşleyici, kaydı bozar.
+// Aynı satırların İngilizce detay metni ("30 of 30 kutu", "· Storm"). Yalnızca
+// TANINAN kalıplar çevrilir; tanınmayan metin olduğu gibi bırakılır — anlamadığı bir
+// cümleyi tahminle Türkçeleştiren bir eşleyici, kaydı bozar.
+const EN_DISASTER_TYPE: Record<string, string> = {
+  Wildfire: 'Orman Yangını', Flood: 'Sel ve Taşkın', Earthquake: 'Deprem',
+  Storm: 'Fırtına', Evacuation: 'Tahliye', Other: 'Diğer',
+};
+
 export const auditDetailLabel = (detail: string): string =>
-  detail.replace(/(\d+)\s+of\s+(\d+)\s+/g, '$2 bildirildi, $1 doğrulandı · ');
+  detail
+    // "30 of 30 kutu" → "30 kutu bildirildi, 30 doğrulandı". Birim ayrılmadan
+    // kalmalı: "30 bildirildi, 30 doğrulandı · kutu" cümle olmaktan çıkıyor.
+    .replace(/(\d+)\s+of\s+(\d+)\s+(\S+)/g, '$2 $3 bildirildi, $1 doğrulandı')
+    // Afet türü yalnızca "· <Tür>" biçiminde ve satırın SONUNDAYSA çevrilir; metnin
+    // ortasındaki aynı kelime bir yer adı olabilir.
+    .replace(/·\s*(Wildfire|Flood|Earthquake|Storm|Evacuation|Other)\s*$/,
+      (_m, t: string) => `· ${EN_DISASTER_TYPE[t] ?? t}`);
+
+// Satırın "kim" sütunu.
+//
+// Topluluk doğrulamalarında ("Afet bildirimi doğrulandı") aktör bir koordinatör
+// değil, bildirimi teyit eden VATANDAŞ. Adı herkese açık akışta yayınlamak, bir
+// afeti bildiren kişiyi ismiyle teşhir etmek olurdu — migration 0024 zaten tam bunun
+// için `audit_log_public` görünümünü maskeliyor ve satıra 'Misafir' / 'Topluluk'
+// yazıyor.
+//
+// Anlamlı bilgi kişi değil, O ANA KADAR KAÇ KİŞİNİN aynı olayı bildirdiği: bir afet
+// operasyonu bu sayı eşiği geçince kendiliğinden açılıyor. O sayı zaten satırda
+// duruyor ("4 kişi bildirdi"), yalnızca yanlış sütunda görünüyordu.
+export const auditActorLabel = (action: string, actor: string, newValue: string): string =>
+  action === 'Afet bildirimi doğrulandı' && newValue.trim() ? newValue.trim() : actor;
 
 export const auditValueLabel = (value: string): string =>
   value.replace(/^(\d+)\s+verified$/, '$1 doğrulanmış')
