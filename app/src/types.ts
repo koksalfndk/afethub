@@ -19,6 +19,9 @@ export interface Disaster {
   // Dizi çünkü gerçek kayıtlarda birden çok ilçe var ("Bozkurt ve İnebolu").
   // Afet sayfasındaki ilçe haritası bunu boyar (migration 0026).
   districts: string[];
+  // İlçenin bir kademe altı: etkilenen mahalle / köyler (migration 0029). Boş =
+  // kaydedilmemiş; ASLA "hiçbiri etkilenmedi" demek değil.
+  settlements: string[];
   type: DisasterType;
   status: 'Active' | 'Resolved' | 'Archived';
   situation: string;
@@ -216,6 +219,9 @@ export interface BannerSlideInput {
 // break existing links.
 export interface DisasterInput {
   name: string; type: DisasterType; province: string; district: string;
+  // Koordinatörün seçtiği yerleşimler. Serbest metin değil: seçici, ilin gerçek
+  // mahalle/köy listesinden okutuyor, böylece ad yazımı kayıtlar arasında tutarlı.
+  settlements: string[];
   status: Disaster['status']; situation: string;
   openedByOrgId: string | null;
   // No volunteer figures here on purpose. "Kayıtlı gönüllü" and "şu an nöbette" are

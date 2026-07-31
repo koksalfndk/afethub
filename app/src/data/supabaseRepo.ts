@@ -56,6 +56,7 @@ export class SupabaseRepo implements Repo {
       id: String(r.id), slug: String(r.slug ?? ''),
       legacySlugs: Array.isArray(r.legacy_slugs) ? (r.legacy_slugs as string[]) : [],
       districts: Array.isArray(r.districts) ? (r.districts as string[]) : [],
+      settlements: Array.isArray(r.settlements) ? (r.settlements as string[]) : [],
       name: String(r.name), region: String(r.region ?? ''), province: String(r.province ?? ''),
       type: (r.type as DisasterType) ?? 'Other',
       status: (r.status as Disaster['status']) ?? 'Active', situation: String(r.situation ?? ''),
@@ -145,6 +146,7 @@ export class SupabaseRepo implements Repo {
       id: String(r.id), slug: String(r.slug ?? ''),
       legacySlugs: Array.isArray(r.legacy_slugs) ? (r.legacy_slugs as string[]) : [],
       districts: Array.isArray(r.districts) ? (r.districts as string[]) : [],
+      settlements: Array.isArray(r.settlements) ? (r.settlements as string[]) : [],
       name: String(r.name), region: String(r.region ?? ''), province: String(r.province ?? ''),
       type: (r.type as DisasterType) ?? 'Other',
       status: (r.status as Disaster['status']) ?? 'Active', situation: String(r.situation ?? ''),
@@ -866,6 +868,7 @@ export class SupabaseRepo implements Repo {
       // Form tek bir alan topluyor ama koordinatör "Bozkurt ve İnebolu" yazabiliyor;
       // aynı ayırma kuralı migration 0026'daki geriye doldurmada da var.
       districts: splitDistricts(input.district),
+      settlements: input.settlements,
     };
     if (id) {
       const { error } = await this.db.from('disasters').update(row).eq('id', id);

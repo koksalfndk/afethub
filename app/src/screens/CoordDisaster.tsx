@@ -22,6 +22,10 @@ const nf = new Intl.NumberFormat('tr-TR');
 
 const CAPACITY_STEPS = [0, 25, 50, 75, 90, 100];
 
+// Kahraman şeridi bir özet; 65 yerleşimin tamamını buraya dökmek başlığı boğar.
+// Tamamı afet kaydında duruyor ve oradan düzenleniyor.
+const SETTLEMENT_PREVIEW = 8;
+
 export function CoordDisaster() {
   const a = useApp();
   const L = cols(a.device === 'mobile');
@@ -135,7 +139,7 @@ export function CoordDisaster() {
               çözüm rengi değiştirmek değil, yüzey vermek oldu. Kart panodaki il
               haritasıyla aynı paleti kullanır — bakımda ikinci bir renk kipi yok. */}
           <div style={{
-            flex: mob ? '1 1 100%' : '0 0 284px', width: mob ? '100%' : 284, minWidth: 0,
+            flex: mob ? '1 1 100%' : '0 0 430px', width: mob ? '100%' : 430, minWidth: 0,
             background: '#F7F9FB', border: '1px solid #DCE4EC', borderRadius: 12,
             padding: '11px 12px 12px',
           }}>
@@ -164,18 +168,55 @@ export function CoordDisaster() {
             ) : plate == null ? (
               <div style={cardNote}>{tr.coordOperation.districtUnknownShort}</div>
             ) : (
-              <>
+              // Solda harita, sağda liste: harita kareye yakın, tek sütunda kartın
+              // yarısı boş kalıyordu. Liste haritanın açıklaması değil, tamamlayıcısı —
+              // ilçe haritada, yerleşim yazıyla.
+              <div style={{
+                display: 'grid', gap: 12, alignItems: 'start',
+                gridTemplateColumns: mob ? '1fr' : 'minmax(0,168px) minmax(0,1fr)',
+              }}>
                 <DistrictMap plate={plate} affected={d.districts} accent={accent} />
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 9 }}>
-                  {d.districts.map((x) => (
-                    <span key={x} style={{
-                      fontSize: 11.5, fontWeight: 600, color: C.navy, background: C.surface,
-                      border: `1px solid ${C.border}`, borderLeft: `3px solid ${accent}`,
-                      borderRadius: 7, padding: '3px 9px',
-                    }}>{x}</span>
-                  ))}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {d.districts.map((x) => (
+                      <span key={x} style={{
+                        fontSize: 11.5, fontWeight: 600, color: C.navy, background: C.surface,
+                        border: `1px solid ${C.border}`, borderLeft: `3px solid ${accent}`,
+                        borderRadius: 7, padding: '3px 9px',
+                      }}>{x}</span>
+                    ))}
+                  </div>
+
+                  <div style={{
+                    fontSize: 10.5, fontWeight: 700, letterSpacing: '.08em',
+                    color: C.muted2, margin: '12px 0 6px',
+                  }}>{tr.coordOperation.settlementsTitle.toLocaleUpperCase('tr')}</div>
+
+                  {d.settlements.length === 0 ? (
+                    // Yerleşim girilmemiş olması ilçenin tamamının etkilendiği
+                    // anlamına GELMEZ; boş liste yerine ne olduğu yazılır.
+                    <p style={{ margin: 0, fontSize: 12, color: C.muted }}>
+                      {tr.coordOperation.settlementsWaiting}
+                    </p>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                        {d.settlements.slice(0, SETTLEMENT_PREVIEW).map((x) => (
+                          <span key={x} style={{
+                            fontSize: 11.5, color: C.text, background: C.surface,
+                            border: `1px solid ${C.border}`, borderRadius: 20, padding: '3px 9px',
+                          }}>{x}</span>
+                        ))}
+                      </div>
+                      {d.settlements.length > SETTLEMENT_PREVIEW && (
+                        <p style={{ margin: '6px 0 0', fontSize: 11.5, color: C.muted2 }}>
+                          {tr.coordOperation.settlementsMore(d.settlements.length - SETTLEMENT_PREVIEW)}
+                        </p>
+                      )}
+                    </>
+                  )}
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>

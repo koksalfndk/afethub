@@ -5,6 +5,8 @@ import { C, G } from '../theme';
 import { Ico, DISASTER_ICON, inputStyle, labelText, eyebrow, Field, LiveDot } from '../ui';
 import { Picker, toOptions } from '../components/Picker';
 import { PROVINCES, districtsOf } from '../data/trLocations';
+import { splitDistricts } from '../data';
+import { SettlementPicker } from '../components/SettlementPicker';
 import { agoMinutes } from '../util';
 import type { Disaster, DisasterInput, DisasterType } from '../types';
 
@@ -20,7 +22,7 @@ const TYPES: DisasterType[] = ['Wildfire', 'Flood', 'Earthquake', 'Storm', 'Evac
 const STATUSES: Disaster['status'][] = ['Active', 'Resolved', 'Archived'];
 
 const blank = (): DisasterInput => ({
-  name: '', type: 'Wildfire', province: '', district: '',
+  name: '', type: 'Wildfire', province: '', district: '', settlements: [],
   status: 'Active', situation: '', openedByOrgId: null,
 });
 
@@ -68,6 +70,8 @@ export function CoordDisasters() {
     setDraft({
       name: d.name, type: d.type, province: d.province,
       district: district === d.province ? '' : district,
+      // Yerleşimler artık kendi alanında (0029); `region`'dan türetilmiyor.
+      settlements: d.settlements.slice(),
       status: d.status, situation: d.situation, openedByOrgId: d.openedByOrgId,
     });
     setEditing(d.id); setErr('');
@@ -144,14 +148,22 @@ export function CoordDisasters() {
             </Field>
             <Field label={tr.coordDisasters.fProvince}>
               <Picker value={draft.province} ariaLabel={tr.coordDisasters.fProvince}
-                onChange={(x) => { set('province', x); set('district', ''); }}
+                onChange={(x) => { set('province', x); set('district', ''); set('settlements', []); }}
                 placeholder={tr.orgs.pickProvince} options={toOptions(PROVINCES)} />
             </Field>
             <Field label={tr.coordDisasters.fDistrict}>
               <Picker value={draft.district} ariaLabel={tr.coordDisasters.fDistrict}
-                onChange={(x) => set('district', x)} disabled={!draft.province}
+                onChange={(x) => { set('district', x); set('settlements', []); }} disabled={!draft.province}
                 placeholder={draft.province ? tr.orgs.allDistricts : tr.orgs.pickProvinceFirst}
                 options={toOptions(districtsOf(draft.province))} />
+            </Field>
+            <Field label={tr.coordDisasters.fSettlements} hint={tr.coordDisasters.fSettlementsHint} full>
+              <SettlementPicker
+                province={draft.province}
+                districts={splitDistricts(draft.district)}
+                value={draft.settlements}
+                onChange={(next) => set('settlements', next)}
+              />
             </Field>
             <Field label={tr.coordDisasters.fSituation} full>
               <textarea value={draft.situation} onChange={(e) => set('situation', e.target.value)} rows={3}

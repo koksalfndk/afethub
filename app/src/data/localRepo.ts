@@ -82,7 +82,8 @@ function openFromReport(r: DisasterReport, community: boolean): string {
   const created: Disaster = {
     id: nextId('d'), slug, legacySlugs: [],
     name, region: [r.district, r.province].filter(Boolean).join(', ') + ' · Türkiye',
-    province: r.province, districts: splitDistricts(r.district), type: r.type, status: 'Active',
+    province: r.province, districts: splitDistricts(r.district), settlements: [],
+    type: r.type, status: 'Active',
     situation: community
       ? `Bu operasyon, aynı olayı bildiren en az ${COMMUNITY_THRESHOLD} kişinin doğrulamasıyla otomatik açıldı. Koordinatör doğrulaması bekleniyor.${r.description ? `\n\n${r.description}` : ''}`
       : r.description,
@@ -970,7 +971,7 @@ export class LocalRepo implements Repo {
       if (!before) throw new Error(`unknown disaster: ${id}`);
       const next: Disaster = {
         ...before, name: input.name.trim(), type: input.type, province: input.province,
-        districts: splitDistricts(input.district),
+        districts: splitDistricts(input.district), settlements: input.settlements.slice(),
         region, status: input.status, situation: input.situation.trim(),
         openedByOrgId: input.openedByOrgId, updatedLabel: NOW,
       };
@@ -985,7 +986,7 @@ export class LocalRepo implements Repo {
     const created: Disaster = {
       id: nextId('d'), slug: disasterSlug(input.name, new Date()), legacySlugs: [],
       name: input.name.trim(), region, province: input.province, type: input.type,
-      districts: splitDistricts(input.district),
+      districts: splitDistricts(input.district), settlements: input.settlements.slice(),
       status: input.status, situation: input.situation.trim(),
       openedAt: new Date().toISOString().slice(0, 10), updatedLabel: NOW,
       // Counted from approved volunteer applications, never typed (migration 0017).
