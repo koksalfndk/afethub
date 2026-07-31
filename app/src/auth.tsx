@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { Session, User } from '@supabase/supabase-js';
+import type { EmailOtpType, Session, User } from '@supabase/supabase-js';
 import { supabase, hasSupabaseEnv } from './data/supabaseClient';
 import type { Profile, ProfileInput, UserRole } from './types';
 import { tr } from './i18n/strings';
@@ -81,6 +81,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data }) => apply(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => { void apply(session); });
     return () => { active = false; sub.subscription.unsubscribe(); };
+  }, []);
+
+  // Own-domain email confirmation. Our Supabase email templates point users to
+  //   https://afethub.com/?token_hash=...&type=signup
+  // instead of the supabase.co verify URL, so the link matches the sending domain
+  // (better deliverability, no cross-domain spam flag). The token arrives here as
+  // query params: exchange it for a session with verifyOtp, then strip it from the
+  // URL so a refresh cannot reuse a spent token. onAuthStateChange (above) applies
+  // the resulting session, so we only handle the failure case here.
+  useEffect(() => {
+    if (!supabase) return;
+    const params = new URLSearchParams(window.location.search);
+    const tokenHash = params.get('token_hash');
+    const type = params.get('type');
+    if (!tokenHash || !type) return;
+
+    void supabase.auth
+      .verifyOtp({ token_hash: tokenHash, type: type as EmailOtpType })
+      .then(({ error: e }) => {
+        if (e) {
+          // e.g. an expired or already-used link — surface it in the sign-in modal.
+          setModalMode('signIn');
+          setModalOpen(true);
+          setError(e.message);
+        }
+        // Remove token_hash/type/etc. from the address bar either way.
+        window.history.replaceState({}, '', window.location.pathname);
+      });
   }, []);
 
   const api: AuthApi = useMemo(() => ({

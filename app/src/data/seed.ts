@@ -32,6 +32,7 @@ export const disasters: Disaster[] = [
     legacySlugs: ['seydikemer-orman-yangini', 'seydikemer-orman-yangini-2026-07-21'],
     name: 'Seydikemer Orman Yangını',
     region: 'Seydikemer, Muğla · Türkiye',
+    districts: ['Seydikemer'],
     province: 'Muğla',
     type: 'Wildfire',
     status: 'Active',
@@ -50,6 +51,7 @@ export const disasters: Disaster[] = [
     legacySlugs: ['kas-orman-yangini-2026-07-27'],
     name: 'Kaş Orman Yangını',
     region: 'Kaş, Antalya · Türkiye',
+    districts: ['Kaş'],
     province: 'Antalya',
     type: 'Wildfire',
     status: 'Active',
@@ -68,6 +70,7 @@ export const disasters: Disaster[] = [
     legacySlugs: ['ayvacik-orman-yangini-2026-07-28'],
     name: 'Ayvacık Orman Yangını',
     region: 'Ayvacık, Çanakkale · Türkiye',
+    districts: ['Ayvacık'],
     province: 'Çanakkale',
     type: 'Wildfire',
     status: 'Active',
@@ -86,6 +89,7 @@ export const disasters: Disaster[] = [
     legacySlugs: ['tavsanli-orman-yangini-2026-07-29'],
     name: 'Tavşanlı Orman Yangını',
     region: 'Tavşanlı, Kütahya · Türkiye',
+    districts: ['Tavşanlı'],
     province: 'Kütahya',
     type: 'Wildfire',
     status: 'Active',
@@ -104,6 +108,7 @@ export const disasters: Disaster[] = [
     legacySlugs: ['kastamonu-sel-taskini-2026-07-25'],
     name: 'Kastamonu Sel ve Taşkını',
     region: 'Bozkurt ve İnebolu, Kastamonu · Türkiye',
+    districts: ['Bozkurt', 'İnebolu'],
     province: 'Kastamonu',
     type: 'Flood',
     status: 'Active',
@@ -122,6 +127,7 @@ export const disasters: Disaster[] = [
     legacySlugs: ['balikesir-orman-yangini-2026-07-05'],
     name: 'Balıkesir Orman Yangını',
     region: 'Kepsut, Balıkesir · Türkiye',
+    districts: ['Kepsut'],
     province: 'Balıkesir',
     type: 'Wildfire',
     status: 'Resolved',
@@ -150,54 +156,72 @@ export const locations: Location[] = [
     hours: 'Her gün 08:00 – 22:00', accepts: 'Tıbbi, hijyen, giyim, enerji', contact: 'Elif Kaya',
     phone: '+90 555 210 44 18', status: 'Teslim alıyor', statusTone: 'green', coords: '36.6321° K, 29.3187° D',
     lat: 36.6321, lng: 29.3187,
+    // Doluluk hiç ölçülmedi: örnek kayıt gerçek bir ölçüm taklit etmez.
+    capacityPct: null, capacityNote: '', capacityUpdated: '',
   },
   {
     id: 'loc2', disasterId: 'd1', name: 'Çamlıyayla Okul Spor Salonu', address: 'Çamlıyayla Mah. Okul Sk. 3, Seydikemer',
     hours: 'Her gün 09:00 – 19:00', accepts: 'Ekipman, giyim, pil', contact: 'Hakan Öz',
     phone: '+90 555 884 02 31', status: "20:00'de açılıyor", statusTone: 'yellow', coords: '36.6688° K, 29.2740° D',
     lat: 36.6688, lng: 29.2740,
+    // Doluluk hiç ölçülmedi: örnek kayıt gerçek bir ölçüm taklit etmez.
+    capacityPct: null, capacityNote: '', capacityUpdated: '',
   },
   {
     id: 'loc3', disasterId: 'd2', name: 'Kaş Kültür Merkezi', address: 'Andifli Mah., Kaş / Antalya',
     hours: 'Her gün 08:00 – 21:00', accepts: 'Tıbbi, su, ekipman', contact: 'Deniz Aksoy',
     phone: '+90 555 431 09 77', status: 'Teslim alıyor', statusTone: 'green', coords: '36.2020° K, 29.6414° D',
     lat: 36.2020, lng: 29.6414,
+    // Doluluk hiç ölçülmedi: örnek kayıt gerçek bir ölçüm taklit etmez.
+    capacityPct: null, capacityNote: '', capacityUpdated: '',
   },
   {
     id: 'loc4', disasterId: 'd2', name: 'Ova Mahallesi Muhtarlık Deposu', address: 'Ova Mah. Muhtarlık binası, Kaş',
     hours: 'Her gün 10:00 – 18:00', accepts: 'Giyim, battaniye', contact: 'Seda Yalçın',
     phone: '+90 555 662 71 40', status: "18:00'de kapanıyor", statusTone: 'yellow', coords: '36.2472° K, 29.5901° D',
     lat: 36.2472, lng: 29.5901,
+    // Doluluk hiç ölçülmedi: örnek kayıt gerçek bir ölçüm taklit etmez.
+    capacityPct: null, capacityNote: '', capacityUpdated: '',
   },
   {
     id: 'loc5', disasterId: 'd3', name: 'Ayvacık İlçe Spor Salonu', address: 'Cumhuriyet Cd. 8, Ayvacık / Çanakkale',
     hours: 'Her gün 09:00 – 20:00', accepts: 'Tıbbi, hijyen, ekipman', contact: 'Burak Şen',
     phone: '+90 555 118 26 03', status: 'Teslim alıyor', statusTone: 'green', coords: '39.6006° K, 26.4048° D',
     lat: 39.6006, lng: 26.4048,
+    // Doluluk hiç ölçülmedi: örnek kayıt gerçek bir ölçüm taklit etmez.
+    capacityPct: null, capacityNote: '', capacityUpdated: '',
   },
   {
     id: 'loc6', disasterId: 'd4', name: 'Tavşanlı Kapalı Spor Salonu', address: 'Yeni Mah. Stadyum Cd., Tavşanlı / Kütahya',
     hours: 'Her gün 10:00 – 20:00', accepts: 'Tıbbi, su, enerji', contact: 'Gökhan Er',
     phone: '+90 555 907 55 12', status: "Bu akşam 20:00'de açılıyor", statusTone: 'yellow', coords: '39.5450° K, 29.4930° D',
     lat: 39.5450, lng: 29.4930,
+    // Doluluk hiç ölçülmedi: örnek kayıt gerçek bir ölçüm taklit etmez.
+    capacityPct: null, capacityNote: '', capacityUpdated: '',
   },
   {
     id: 'loc7', disasterId: 'd5', name: 'Bozkurt Toplama Merkezi', address: 'Cumhuriyet Mah. Belediye yanı, Bozkurt / Kastamonu',
     hours: 'Her gün 07:00 – 22:00', accepts: 'Gıda, su, temizlik, giyim', contact: 'Aylin Doğan',
     phone: '+90 555 340 18 92', status: 'Teslim alıyor', statusTone: 'green', coords: '41.9563° K, 34.0125° D',
     lat: 41.9563, lng: 34.0125,
+    // Doluluk hiç ölçülmedi: örnek kayıt gerçek bir ölçüm taklit etmez.
+    capacityPct: null, capacityNote: '', capacityUpdated: '',
   },
   {
     id: 'loc8', disasterId: 'd5', name: 'İnebolu Halk Eğitim Merkezi', address: 'Sarayköy Mah., İnebolu / Kastamonu',
     hours: 'Her gün 08:00 – 20:00', accepts: 'Gıda, su, yatak', contact: 'Murat Kılıç',
     phone: '+90 555 209 63 84', status: 'Teslim alıyor', statusTone: 'green', coords: '41.9769° K, 33.7625° D',
     lat: 41.9769, lng: 33.7625,
+    // Doluluk hiç ölçülmedi: örnek kayıt gerçek bir ölçüm taklit etmez.
+    capacityPct: null, capacityNote: '', capacityUpdated: '',
   },
   {
     id: 'loc9', disasterId: 'd6', name: 'Kepsut Belediyesi Deposu', address: 'Merkez, Kepsut / Balıkesir',
     hours: 'Kapalı', accepts: '—', contact: 'Nihal Aydın',
     phone: '+90 555 771 30 26', status: 'Operasyon kapandı', statusTone: 'yellow', coords: '39.6867° K, 28.1531° D',
     lat: 39.6867, lng: 28.1531,
+    // Doluluk hiç ölçülmedi: örnek kayıt gerçek bir ölçüm taklit etmez.
+    capacityPct: null, capacityNote: '', capacityUpdated: '',
   },
 ];
 

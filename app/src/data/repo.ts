@@ -59,6 +59,84 @@ export interface Overview {
   demo: boolean;        // any visible record is sample content
 }
 
+// ---------------------------------------------------------------------------
+// Coordinator dashboard (tüm afetler görünümü)
+//
+// Ayrı bir şekil, çünkü `Overview` HERKESE açık verinin projeksiyonu: ana sayfa
+// onu okur. Aşağıdakiler koordinatöre özel sayılar (SLA aşımı, bekleyen gönüllü,
+// doluluk) ve `coordinator_overview()` RPC'sinden gelir — is_coordinator() ile
+// korunur (rules/05 §Public and Private Views).
+//
+// Aciliyet skoru BİLEREK sunucudan geliyor ve bileşenleri de yanında taşınıyor:
+// tarayıcıda hesaplanan bir skor iki ekranda iki farklı sıralama üretir, ve
+// bileşenleri görünmeyen bir skora koordinatör güvenmez.
+// ---------------------------------------------------------------------------
+export interface CoordDisasterRow {
+  id: string;
+  slug: string;
+  name: string;
+  province: string;
+  region: string;
+  type: string;
+  status: Disaster['status'];
+  openedAt: string;          // ISO date, '' when unknown
+  demo: boolean;
+  // Harita pini. null = ne afetin kendi koordinatı ne de bir teslim noktası var;
+  // bu afet haritada gösterilmez, listede durur.
+  lat: number | null;
+  lng: number | null;
+  criticalNeeds: number;
+  urgentNeeds: number;
+  openNeeds: number;
+  completedNeeds: number;
+  requiredTotal: number;
+  verifiedTotal: number;
+  pendingSubs: number;
+  pendingUnits: number;
+  slaBreached: number;       // bekleyen ve SLA saatini aşmış teslimat sayısı
+  decidedToday: number;      // bugün doğrulanan/kısmen doğrulanan
+  deliveryPoints: number;
+  pointsAtCapacity: number;
+  pointsCapacityUnknown: number;
+  volunteers: number;
+  onShift: number;
+  pendingVolunteers: number;
+  openNeedRequests: number;
+  lastActivityAt: string | null;  // ISO
+  urgency: number;                // 0-100, afethub_urgency_score()
+}
+
+export interface CoordOverview {
+  disasters: CoordDisasterRow[];   // aciliyet sırasına göre, sunucudan
+  slaHours: number;                // eşiği ekran da yazabilsin diye
+}
+
+// Birleşik iş kuyruğunun bir satırı. Bağışçının e-postası ve telefonu burada YOK:
+// kuyruk satırı karar vermek için okunur, iletişim kurmak için değil.
+export interface CoordQueueItem {
+  id: string;
+  code: string;
+  disasterId: string;
+  disasterSlug: string;
+  disasterName: string;
+  needId: string;
+  needName: string;
+  needPriority: PriorityKey;
+  contributor: string;
+  qty: number;
+  unit: string;
+  loc: string;
+  note: string;
+  hasPhoto: boolean;
+  submittedAt: string;       // ISO
+  waitingHours: number;
+  slaBreached: boolean;
+}
+
+// Bekleyen bir teslimat kaç saat sonra gecikmiş sayılır. afethub_sla_hours() ile
+// aynı sayı olmalı; yerel (Supabase'siz) mod bu sabiti kullanır.
+export const SLA_HOURS = 24;
+
 export interface CreateDeliveryResult {
   snapshot: Snapshot;
   code: string;
@@ -69,6 +147,14 @@ export interface Repo {
   getSnapshot(slug?: string): Promise<Snapshot>;
   // National dashboard data (home page).
   getOverview(): Promise<Overview>;
+  // Koordinatör paneli: tüm afetler tek çağrıda. Yedi operasyon için yedi ayrı
+  // snapshot çağrısı panelin açılışını yavaşlatırdı (rules/05 §Performance).
+  getCoordOverview(): Promise<CoordOverview>;
+  // Bütün afetlerden bekleyen teslimatlar, en eski önce.
+  getCoordQueue(limit: number): Promise<CoordQueueItem[]>;
+  // Teslim noktası doluluğu. null = "bilinmiyor"a geri döndürür; ölçüm geri
+  // alınabilir olmalı, yoksa yanlış girilen bir %90 orada kalır.
+  setLocationCapacity(locationId: string, pct: number | null, note: string): Promise<Snapshot>;
   // Organizations directory. Entries are public as soon as they are submitted and
   // carry "Doğrulama bekliyor" until a coordinator verifies them.
   listSlides(): Promise<BannerSlide[]>;
@@ -175,6 +261,35 @@ export interface Repo {
   grantStaffRole(email: string, role: StaffRole, note: string, orgId: string | null): Promise<'granted' | 'invited'>;
   revokeStaffRole(userId: string): Promise<void>;
   cancelRoleInvite(email: string): Promise<void>;
+}
+
+// Aciliyet skoru — afethub_urgency_score() (migration 0025) ile AYNI formül.
+// Yetkili hesap veritabanında; bu kopya yalnızca Supabase'siz yerel mod içindir ve
+// ikisi birlikte değiştirilmelidir. Ağırlıklar migration dosyasında gerekçeleriyle
+// yazılı; burada tekrar edilmiyor ki iki açıklama birbirinden ayrı düşmesin.
+export function urgencyScore(x: {
+  status: Disaster['status'];
+  critical: number; urgent: number; pending: number; slaBreached: number;
+  deliveryPoints: number; required: number; verified: number;
+}): number {
+  const raw = x.critical * 12
+    + x.urgent * 4
+    + x.pending * 2
+    + x.slaBreached * 6
+    + (x.status === 'Active' && x.deliveryPoints === 0 ? 15 : 0)
+    + (x.required > 0 ? Math.round((1 - Math.min(1, x.verified / x.required)) * 25) : 0);
+  const capped = x.status === 'Active' ? raw : Math.min(raw, 20);
+  return Math.max(0, Math.min(100, capped));
+}
+
+// Tek bir metin alanından ilçe listesi. Koordinatör "Bozkurt ve İnebolu" ya da
+// "Bozkurt, İnebolu" yazabiliyor; migration 0026'daki geriye doldurma da aynı kuralı
+// uyguluyor — ikisi birlikte değişmeli, yoksa aynı metin iki farklı listeye çevrilir.
+export function splitDistricts(value: string): string[] {
+  return (value ?? '')
+    .split(/\s+ve\s+|,/)
+    .map((x) => x.trim())
+    .filter(Boolean);
 }
 
 // Shared, pure domain helpers — the invariant lives here and in schema.sql.

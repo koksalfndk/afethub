@@ -35,6 +35,7 @@ import { LiveTicker } from './components/LiveTicker';
 import { DisasterReportModal } from './components/DisasterReportModal';
 import { Footer } from './components/Footer';
 import { CoordHome } from './screens/CoordHome';
+import { CoordDisaster } from './screens/CoordDisaster';
 import { CoordQueue } from './screens/CoordQueue';
 import { CoordNeeds } from './screens/CoordNeeds';
 import { CoordLog } from './screens/CoordLog';
@@ -50,7 +51,7 @@ export function App() {
 
   const screens: Record<string, () => ReactElement | null> = {
     home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About, howItWorks: HowItWorks, account: Account, volunteer: Volunteer,
-    coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider, coordDisasters: CoordDisasters, coordOrgEdits: CoordOrgEdits, coordOrgs: CoordOrgs, coordStaff: CoordStaff, coordOps: CoordOps, coordReports: CoordReports,
+    coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider, coordDisasters: CoordDisasters, coordOrgEdits: CoordOrgEdits, coordOrgs: CoordOrgs, coordStaff: CoordStaff, coordOps: CoordOps, coordReports: CoordReports, coordDisaster: CoordDisaster,
     components: Components, system: System,
   };
   const isReport = a.route === 'report';

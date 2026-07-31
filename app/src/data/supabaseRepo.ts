@@ -10,9 +10,12 @@ import type {
   AnnouncementInput, LocationInput,
   StaffMember, StaffRole, RoleInvite,
 } from '../types';
-import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
+import type {
+  Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed,
+  CoordOverview, CoordDisasterRow, CoordQueueItem,
+} from './repo';
 import type { NeedPayload } from '../needForm';
-import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW, isLocalSlideImage, disasterSlug, isPublicAuditAction } from './repo';
+import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW, isLocalSlideImage, disasterSlug, isPublicAuditAction, SLA_HOURS, splitDistricts } from './repo';
 import { PRI } from '../theme';
 
 // Turkish relative-time formatter for DB timestamps.
@@ -52,6 +55,7 @@ export class SupabaseRepo implements Repo {
     const mapDisaster = (r: Record<string, unknown>): Disaster => ({
       id: String(r.id), slug: String(r.slug ?? ''),
       legacySlugs: Array.isArray(r.legacy_slugs) ? (r.legacy_slugs as string[]) : [],
+      districts: Array.isArray(r.districts) ? (r.districts as string[]) : [],
       name: String(r.name), region: String(r.region ?? ''), province: String(r.province ?? ''),
       type: (r.type as DisasterType) ?? 'Other',
       status: (r.status as Disaster['status']) ?? 'Active', situation: String(r.situation ?? ''),
@@ -79,6 +83,9 @@ export class SupabaseRepo implements Repo {
       status: String(r.status), statusTone: String(r.status).match(/00/) ? 'yellow' : 'green',
       coords: r.lat != null && r.lng != null ? `${r.lat}° K, ${r.lng}° D` : '',
       lat: Number(r.lat ?? 0), lng: Number(r.lng ?? 0),
+      capacityPct: r.capacity_pct == null ? null : Number(r.capacity_pct),
+      capacityNote: String(r.capacity_note ?? ''),
+      capacityUpdated: r.capacity_updated_at ? rel(String(r.capacity_updated_at)) : '',
     }));
 
     const needs: Need[] = (ne.data ?? []).filter((r: Record<string, unknown>) => String(r.disaster_id) === disaster.id).map((r: Record<string, unknown>) => ({
@@ -137,6 +144,7 @@ export class SupabaseRepo implements Repo {
     const mapDisaster = (r: Record<string, unknown>): Disaster => ({
       id: String(r.id), slug: String(r.slug ?? ''),
       legacySlugs: Array.isArray(r.legacy_slugs) ? (r.legacy_slugs as string[]) : [],
+      districts: Array.isArray(r.districts) ? (r.districts as string[]) : [],
       name: String(r.name), region: String(r.region ?? ''), province: String(r.province ?? ''),
       type: (r.type as DisasterType) ?? 'Other',
       status: (r.status as Disaster['status']) ?? 'Active', situation: String(r.situation ?? ''),
@@ -214,6 +222,98 @@ export class SupabaseRepo implements Repo {
       reports: (rep.data ?? []).map(this.mapReport).sort((x, y) => y.reportCount - x.reportCount),
       demo: cards.some((c) => c.disaster.demo === true),
     };
+  }
+
+  // ---- Coordinator dashboard ----------------------------------------------
+  // Both calls are RPCs guarded by is_coordinator() inside the database
+  // (migration 0025). A visitor's call is refused there, not by this screen being
+  // hard to reach (rules/03 §Server-Side Authorization).
+  //
+  // Numbers are NOT recomputed here. Whatever SQL returned is what the panel shows,
+  // so the dashboard and the operation page can never disagree about a count
+  // (CLAUDE.md §Source of Truth).
+  async getCoordOverview(): Promise<CoordOverview> {
+    const { data, error } = await this.db.rpc('coordinator_overview');
+    if (error) throw error;
+    const num = (v: unknown): number => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const coord = (v: unknown): number | null => {
+      if (v === null || v === undefined || v === '') return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+    const disasters: CoordDisasterRow[] = (data ?? []).map((r: Record<string, unknown>) => ({
+      id: String(r.disaster_id),
+      slug: String(r.slug ?? ''),
+      name: String(r.name ?? ''),
+      province: String(r.province ?? ''),
+      region: String(r.region ?? ''),
+      type: String(r.type ?? 'Other'),
+      status: (r.status as CoordDisasterRow['status']) ?? 'Active',
+      openedAt: r.opened_at ? String(r.opened_at) : '',
+      demo: r.is_demo === true,
+      lat: coord(r.lat),
+      lng: coord(r.lng),
+      criticalNeeds: num(r.critical_needs),
+      urgentNeeds: num(r.urgent_needs),
+      openNeeds: num(r.open_needs),
+      completedNeeds: num(r.completed_needs),
+      requiredTotal: num(r.required_total),
+      verifiedTotal: num(r.verified_total),
+      pendingSubs: num(r.pending_subs),
+      pendingUnits: num(r.pending_units),
+      slaBreached: num(r.sla_breached),
+      decidedToday: num(r.decided_today),
+      deliveryPoints: num(r.delivery_points),
+      pointsAtCapacity: num(r.points_at_capacity),
+      pointsCapacityUnknown: num(r.points_capacity_unknown),
+      volunteers: num(r.volunteers),
+      onShift: num(r.on_shift),
+      pendingVolunteers: num(r.pending_volunteers),
+      openNeedRequests: num(r.open_need_requests),
+      lastActivityAt: r.last_activity_at ? String(r.last_activity_at) : null,
+      urgency: num(r.urgency),
+    }));
+    return { disasters, slaHours: SLA_HOURS };
+  }
+
+  async getCoordQueue(limit: number): Promise<CoordQueueItem[]> {
+    const { data, error } = await this.db.rpc('coordinator_pending_queue', { p_limit: limit });
+    if (error) throw error;
+    return (data ?? []).map((r: Record<string, unknown>) => ({
+      id: String(r.submission_id),
+      code: String(r.code ?? ''),
+      disasterId: String(r.disaster_id ?? ''),
+      disasterSlug: String(r.disaster_slug ?? ''),
+      disasterName: String(r.disaster_name ?? ''),
+      needId: String(r.need_id ?? ''),
+      needName: String(r.need_name ?? ''),
+      needPriority: (r.need_priority as CoordQueueItem['needPriority']) ?? 'Normal',
+      contributor: String(r.contributor ?? ''),
+      qty: Number(r.qty ?? 0),
+      unit: String(r.unit ?? ''),
+      loc: String(r.location_name ?? ''),
+      note: String(r.note ?? ''),
+      hasPhoto: r.has_photo === true,
+      submittedAt: String(r.submitted_at ?? ''),
+      waitingHours: Number(r.waiting_hours ?? 0),
+      slaBreached: r.sla_breached === true,
+    }));
+  }
+
+  async setLocationCapacity(locationId: string, pct: number | null, note: string): Promise<Snapshot> {
+    const { error } = await this.db.rpc('set_location_capacity', {
+      p_location: locationId, p_pct: pct, p_note: note,
+    });
+    if (error) throw error;
+    // Re-read the operation this point belongs to, not the default one: the
+    // coordinator is standing on that disaster's page and would otherwise watch the
+    // screen jump to another operation's snapshot.
+    const { data } = await this.db.from('locations').select('disaster_id').eq('id', locationId).maybeSingle();
+    const disasterId = data ? String((data as Record<string, unknown>).disaster_id) : '';
+    return disasterId ? this.snapOf(disasterId) : this.getSnapshot();
   }
 
   // ---- Banner slides -------------------------------------------------------
@@ -763,6 +863,9 @@ export class SupabaseRepo implements Repo {
       name: input.name.trim(), type: input.type, province: input.province, region,
       status: input.status, situation: input.situation.trim(),
       opened_by_org_id: input.openedByOrgId,
+      // Form tek bir alan topluyor ama koordinatör "Bozkurt ve İnebolu" yazabiliyor;
+      // aynı ayırma kuralı migration 0026'daki geriye doldurmada da var.
+      districts: splitDistricts(input.district),
     };
     if (id) {
       const { error } = await this.db.from('disasters').update(row).eq('id', id);

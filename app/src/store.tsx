@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { repo, fallbackToLocal, type Snapshot, type Overview } from './data';
+import { repo, fallbackToLocal, type Snapshot, type Overview, type CoordOverview, type CoordQueueItem } from './data';
 import type {
   Submission, VerifyKind, Organization, OrganizationInput, DisasterReport, DisasterReportInput,
   ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
@@ -16,7 +16,7 @@ import { sendStaffInvite, sendVolunteerReceipt, sendVolunteerApproved } from './
 
 export type Route =
   | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
-  | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog' | 'coordSlider' | 'coordDisasters'
+  | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog' | 'coordSlider' | 'coordDisasters' | 'coordDisaster'
   | 'coordOrgEdits' | 'coordOrgs' | 'coordStaff' | 'volunteer' | 'coordOps' | 'coordReports'
   | 'components' | 'system';
 export type Tab = 'overview' | 'needs' | 'locations' | 'announcements' | 'activity';
@@ -49,6 +49,10 @@ function toPath(route: Route, tab: Tab, slug: string): string {
     case 'coordLog': return '/koordinasyon/kayit';
     case 'coordSlider': return '/koordinasyon/slider';
     case 'coordDisasters': return '/koordinasyon/afetler';
+    // Tek bir operasyonun koordinasyon sayfası. Herkese açık /afet/<slug> ile aynı
+    // slug'ı kullanır: koordinatör adres çubuğundaki tek bir ön ekle iki görünüm
+    // arasında geçebilmeli.
+    case 'coordDisaster': return `/koordinasyon/afet/${slug}`;
     case 'coordOrgEdits': return '/koordinasyon/kurum-duzeltmeleri';
     case 'coordOrgs': return '/koordinasyon/kurumlar';
     case 'coordReports': return '/koordinasyon/bildirimler';
@@ -83,6 +87,7 @@ function fromPath(pathname: string): ParsedPath {
     case 'kayit': return { route: 'home' };
     case 'koordinasyon': {
       const s = parts[1];
+      if (s === 'afet' && parts[2]) return { route: 'coordDisaster', slug: parts[2], role: 'coordinator' };
       const r: Route = s === 'kuyruk' ? 'coordQueue' : s === 'ihtiyaclar' ? 'coordNeeds'
         : s === 'kayit' ? 'coordLog' : s === 'slider' ? 'coordSlider'
         : s === 'afetler' ? 'coordDisasters'
@@ -118,6 +123,18 @@ export interface AppApi {
   loadError: string;          // set when even the local fallback failed
   retryLoad: () => void;
   overview: Overview | null;      // national dashboard (home)
+  // Koordinatör panosunun verisi: koordinatöre özel sayılar taşıdığı için ASLA
+  // spekülatif yüklenmez — yalnızca oturumda koordinatör/yönetici rolü varken
+  // okunur. Sunucu da aynı şeyi is_coordinator() ile ayrıca uygular; bu koşul
+  // yetkilendirme değil, gereksiz reddedilen çağrıyı önleme (rules/03).
+  coordOverview: CoordOverview | null;
+  coordOverviewLoading: boolean;
+  coordOverviewError: string;
+  coordQueue: CoordQueueItem[];
+  coordQueueLoading: boolean;
+  reloadCoordDashboard: () => void;
+  // Teslim noktası doluluğu. null gönderildiğinde ölçüm "bilinmiyor"a döner.
+  setLocationCapacity: (locationId: string, pct: number | null, note: string) => Promise<boolean>;
   orgs: Organization[];           // organizations directory
   slides: BannerSlide[];          // home banner slides (panel-managed)
   backend: 'local' | 'supabase';
@@ -182,6 +199,9 @@ export interface AppApi {
 
   go: (r: Route, extra?: Partial<{ tab: Tab }>) => void;
   openDisaster: (slug: string, tab?: Tab) => void;
+  // Koordinatörün operasyon sayfası. Ziyaretçi görünümünden ayrı bir rota, çünkü
+  // aynı slug iki farklı ekranı besliyor.
+  openCoordDisaster: (slug: string) => void;
   setDevice: (d: Device) => void; setRole: (r: Role) => void; setTab: (t: Tab) => void;
   setQuery: (q: string) => void; setFilter: (f: Filter) => void; setSubFilter: (f: SubFilter) => void;
   setCatFilter: (c: string) => void; setLocFilter: (l: string) => void;
@@ -241,6 +261,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const initial = fromPath(typeof window !== 'undefined' ? window.location.pathname : '/');
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
+  const [coordOverview, setCoordOverview] = useState<CoordOverview | null>(null);
+  const [coordOverviewLoading, setCoordOverviewLoading] = useState(false);
+  const [coordOverviewError, setCoordOverviewError] = useState('');
+  const [coordQueue, setCoordQueue] = useState<CoordQueueItem[]>([]);
+  const [coordQueueLoading, setCoordQueueLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [slides, setSlides] = useState<BannerSlide[]>([]);
@@ -363,6 +388,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .then(setOrgEditsPending)
       .catch(() => undefined);
   }, []);
+
+  // Koordinatör panosu. Ulusal panodan ayrı bir efekt, çünkü:
+  //  - koordinatöre özel sayılar taşır ve rol gelmeden istenmemelidir,
+  //  - oturum açıldığında/kapandığında yeniden çalışmalıdır,
+  //  - yavaş bir panel sorgusu ana sayfayı bekletmemelidir.
+  // Yerel geri düşüş yok: burada boş bir pano, YANLIŞ bir panodan iyidir. Supabase
+  // yanıt vermiyorsa ekran hatayı ve "yeniden dene"yi gösterir (rules/04 §Error States).
+  // Supabase yapılandırılmadığında oturum diye bir şey yok ve `profile` hep null olur.
+  // O modda panel zaten bellek içi örnek veriyle çalışıyor; rol koşulunu orada da
+  // aramak paneli geliştirme ortamında tamamen erişilemez yapardı. Gerçek yetki
+  // kontrolü zaten sunucuda (is_coordinator) — bu koşul sadece boşuna reddedilecek
+  // çağrıyı önlemek için.
+  const isCoord = !auth.enabled || auth.profile?.role === 'coordinator' || auth.profile?.role === 'admin';
+  const loadCoordDashboard = () => {
+    if (!isCoord) { setCoordOverview(null); setCoordQueue([]); setCoordOverviewError(''); return; }
+    setCoordOverviewLoading(true);
+    setCoordQueueLoading(true);
+    withTimeout(repo.getCoordOverview())
+      .then((o) => { setCoordOverview(o); setCoordOverviewError(''); })
+      .catch(() => setCoordOverviewError(tr.common.loadFailed))
+      .finally(() => setCoordOverviewLoading(false));
+    withTimeout(repo.getCoordQueue(50))
+      .then(setCoordQueue)
+      .catch(() => setCoordQueue([]))
+      .finally(() => setCoordQueueLoading(false));
+  };
+
+  useEffect(() => { loadCoordDashboard(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCoord]);
 
   // Own submissions are loaded when a session exists and cleared when it goes away, so
   // one account's list can never be left on screen for the next.
@@ -546,6 +600,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const api: AppApi = useMemo(() => ({
     snap, loadError, retryLoad, overview, orgs, slides, backend: repo.kind,
+    coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading,
     route, tab, device, role, currentSlug, frame, showToolbar: IS_DEV, query, filter, subFilter,
     catFilter, locFilter, onlyCritical, updatedToday,
     form, track, reportStage, lastCode, formError, copied,
@@ -561,6 +616,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     go: (r, extra) => { setRoute(r); if (extra?.tab) setTab(extra.tab); },
     openDisaster: (slug, t) => { setCurrentSlug(slug); setRoute('disaster'); setTab(t ?? 'needs'); if (slug !== currentSlug) loadSnapshot(slug); },
+    openCoordDisaster: (slug) => { setCurrentSlug(slug); setRoute('coordDisaster'); if (slug !== currentSlug) loadSnapshot(slug); },
+    reloadCoordDashboard: () => loadCoordDashboard(),
+    setLocationCapacity: async (locationId, pct, note) => {
+      if (unverified) { showToast(tr.auth.verifyFirst); return false; }
+      try {
+        setSnap(await withTimeout(repo.setLocationCapacity(locationId, pct, note)));
+        // Doluluk panonun "kapasitede nokta" sayacını besliyor, o yüzden pano da tazelenir.
+        loadCoordDashboard();
+        showToast(pct == null ? tr.coordOps.capacityCleared : tr.coordOps.capacitySaved(pct));
+        return true;
+      } catch { showToast(tr.coordOps.saveFailed); return false; }
+    },
     setDevice,
     setRole: (r) => { setProtoRole(r); setRoute(r === 'coordinator' ? 'coordHome' : 'home'); },
     setTab, setQuery, setFilter, setSubFilter,
@@ -954,7 +1021,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Every piece of state exposed on `api` must be listed here, or consumers keep the
   // previous value: `deliveryOpen` and `slides` were missing, so the delivery overlay
   // never appeared and the slide list could go stale after a save.
-  }), [snap, loadError, overview, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
+  }), [snap, loadError, overview, coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

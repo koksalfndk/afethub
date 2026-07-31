@@ -6,8 +6,11 @@ import type {
   VolunteerInput, VolunteerApplication, VolunteerStatus, StaffMember, StaffRole, RoleInvite,
   Announcement, AnnouncementInput, Location, LocationInput,
 } from '../types';
-import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
-import { genCode, genNrq, remaining, isSameEvent, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS, COMMUNITY_THRESHOLD, isPublicAuditAction } from './repo';
+import type {
+  Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed,
+  CoordOverview, CoordDisasterRow, CoordQueueItem,
+} from './repo';
+import { genCode, genNrq, remaining, isSameEvent, SLA_HOURS, urgencyScore, splitDistricts, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS, COMMUNITY_THRESHOLD, isPublicAuditAction } from './repo';
 import { disasterTypeLabel } from '../i18n/strings';
 import { agoMinutes } from '../util';
 import { PRI } from '../theme';
@@ -79,7 +82,7 @@ function openFromReport(r: DisasterReport, community: boolean): string {
   const created: Disaster = {
     id: nextId('d'), slug, legacySlugs: [],
     name, region: [r.district, r.province].filter(Boolean).join(', ') + ' · Türkiye',
-    province: r.province, type: r.type, status: 'Active',
+    province: r.province, districts: splitDistricts(r.district), type: r.type, status: 'Active',
     situation: community
       ? `Bu operasyon, aynı olayı bildiren en az ${COMMUNITY_THRESHOLD} kişinin doğrulamasıyla otomatik açıldı. Koordinatör doğrulaması bekleniyor.${r.description ? `\n\n${r.description}` : ''}`
       : r.description,
@@ -209,6 +212,98 @@ export class LocalRepo implements Repo {
         .slice(0, 6),
       demo: cards.some((c) => c.disaster.demo === true),
     };
+  }
+
+  // ---- Coordinator dashboard ----------------------------------------------
+  // The in-memory twin of `coordinator_overview()`. It exists so the panel is
+  // usable without Supabase, and it deliberately uses the SAME score helper as the
+  // migration mirrors — two formulas would mean two different orderings depending
+  // on which backend was running.
+  //
+  // What it cannot mirror: authorization. Local mode has no session, so there is
+  // nothing to check. That is a property of running without a database, not a
+  // relaxed rule — every read here is guarded by is_coordinator() in production.
+  async getCoordOverview(): Promise<CoordOverview> {
+    const rows: CoordDisasterRow[] = seed.disasters.map((d) => {
+      const mine = needs.filter((n) => n.disasterId === d.id);
+      const mySubs = subs.filter((s) => disasterOfNeed(s.needId) === d.id);
+      const pend = mySubs.filter((s) => s.status === 'Pending verification');
+      const points = locations.filter((l) => l.disasterId === d.id);
+      const critical = mine.filter((n) => n.priority === 'Critical' && remaining(n) > 0).length;
+      const urgent = mine.filter((n) => n.priority === 'Urgent' && remaining(n) > 0).length;
+      const requiredTotal = mine.reduce((x, n) => x + n.required, 0);
+      const verifiedTotal = mine.reduce((x, n) => x + n.verified, 0);
+      // Waiting time comes from the relative label the local records carry; a
+      // submission whose age cannot be read is NOT counted as breached — guessing
+      // would put a red "SLA aşıldı" badge on a row nobody can verify.
+      const slaBreached = pend.filter((s) => agoMinutes(s.submitted) >= SLA_HOURS * 60).length;
+      return {
+        id: d.id, slug: d.slug, name: d.name, province: d.province, region: d.region,
+        type: d.type, status: d.status,
+        // Local records carry a display string ("21 Temmuz"), not a date. Passing it
+        // through as if it were ISO would make "3. gün" a lie, so it stays empty.
+        openedAt: '', demo: d.demo === true,
+        lat: points.length ? points.reduce((x, l) => x + l.lat, 0) / points.length : null,
+        lng: points.length ? points.reduce((x, l) => x + l.lng, 0) / points.length : null,
+        criticalNeeds: critical,
+        urgentNeeds: urgent,
+        openNeeds: mine.filter((n) => remaining(n) > 0).length,
+        completedNeeds: mine.filter((n) => remaining(n) === 0).length,
+        requiredTotal,
+        verifiedTotal,
+        pendingSubs: pend.length,
+        pendingUnits: pend.reduce((x, s) => x + s.qty, 0),
+        slaBreached,
+        // No decision timestamps in memory, so "bugün doğrulanan" stays 0 rather
+        // than counting every verified row and calling it today's work.
+        decidedToday: 0,
+        deliveryPoints: points.length,
+        pointsAtCapacity: points.filter((l) => l.capacityPct != null && l.capacityPct >= 85).length,
+        pointsCapacityUnknown: points.filter((l) => l.capacityPct == null).length,
+        volunteers: d.volunteers,
+        onShift: d.onShift,
+        pendingVolunteers: volunteerApps.filter((v) => v.disasterId === d.id && v.status === 'Pending review').length,
+        openNeedRequests: 0,
+        lastActivityAt: null,
+        urgency: urgencyScore({
+          status: d.status, critical, urgent, pending: pend.length,
+          slaBreached, deliveryPoints: points.length, required: requiredTotal, verified: verifiedTotal,
+        }),
+      };
+    }).sort((x, y) => y.urgency - x.urgency || x.name.localeCompare(y.name, 'tr'));
+    return { disasters: rows, slaHours: SLA_HOURS };
+  }
+
+  async getCoordQueue(limit: number): Promise<CoordQueueItem[]> {
+    const byId = new Map(seed.disasters.map((d) => [d.id, d] as const));
+    return subs
+      .filter((s) => s.status === 'Pending verification')
+      .map((s) => {
+        const need = needs.find((n) => n.id === s.needId);
+        const d = need ? byId.get(need.disasterId) : undefined;
+        const mins = agoMinutes(s.submitted);
+        return {
+          id: s.id, code: s.code,
+          disasterId: d?.id ?? '', disasterSlug: d?.slug ?? '', disasterName: d?.name ?? '',
+          needId: s.needId, needName: need?.name ?? '', needPriority: need?.priority ?? 'Normal',
+          contributor: s.contributor, qty: s.qty, unit: s.unit, loc: s.loc, note: s.note,
+          hasPhoto: !!s.photoUrl,
+          submittedAt: '', waitingHours: Number.isFinite(mins) ? Math.round(mins / 60) : 0,
+          slaBreached: Number.isFinite(mins) && mins >= SLA_HOURS * 60,
+        };
+      })
+      .sort((x, y) => y.waitingHours - x.waitingHours)
+      .slice(0, Math.max(1, limit));
+  }
+
+  async setLocationCapacity(locationId: string, pct: number | null, note: string): Promise<Snapshot> {
+    const l = locations.find((x) => x.id === locationId);
+    if (l) {
+      l.capacityPct = pct;
+      l.capacityNote = note;
+      l.capacityUpdated = 'az önce';
+    }
+    return this.getSnapshot();
   }
 
   // ---- Banner slides -------------------------------------------------------
@@ -402,7 +497,10 @@ export class LocalRepo implements Repo {
         id: nextId('loc'), disasterId: input.disasterId,
         name: input.name.trim(), address: input.address.trim(), hours: input.hours.trim(),
         accepts: input.accepts.trim(), contact: input.contact.trim(), phone: input.phone.trim(),
-        status: input.status.trim(), ...derived,
+        status: input.status.trim(),
+        // A new point has never been measured. Not 0 — unknown (migration 0025).
+        capacityPct: null, capacityNote: '', capacityUpdated: '',
+        ...derived,
       }];
       addLog(d.id, {
         user: 'Koordinatör', action: 'Teslim noktası eklendi',
@@ -872,6 +970,7 @@ export class LocalRepo implements Repo {
       if (!before) throw new Error(`unknown disaster: ${id}`);
       const next: Disaster = {
         ...before, name: input.name.trim(), type: input.type, province: input.province,
+        districts: splitDistricts(input.district),
         region, status: input.status, situation: input.situation.trim(),
         openedByOrgId: input.openedByOrgId, updatedLabel: NOW,
       };
@@ -886,6 +985,7 @@ export class LocalRepo implements Repo {
     const created: Disaster = {
       id: nextId('d'), slug: disasterSlug(input.name, new Date()), legacySlugs: [],
       name: input.name.trim(), region, province: input.province, type: input.type,
+      districts: splitDistricts(input.district),
       status: input.status, situation: input.situation.trim(),
       openedAt: new Date().toISOString().slice(0, 10), updatedLabel: NOW,
       // Counted from approved volunteer applications, never typed (migration 0017).

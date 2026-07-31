@@ -60,6 +60,9 @@ const ROUTE_META: Record<Route, RouteMeta> = {
   account: { title: 'Hesabım', index: false },
   coordSlider: { title: 'Slider yönetimi', index: false },
   coordDisasters: { title: 'Afet yönetimi', index: false },
+  // Operasyonun koordinasyon görünümü. Herkese açık /afet/<slug> indekslenir,
+  // bu ekran indekslenmez: aynı olayın iki sürümü arama sonucunda yarışmamalı.
+  coordDisaster: { title: 'Operasyon koordinasyonu', index: false },
   coordOrgEdits: { title: 'Kurum düzeltme talepleri', index: false },
   coordOrgs: { title: 'Kurum yönetimi', index: false },
   coordReports: { title: 'Topluluk bildirimleri', index: false },

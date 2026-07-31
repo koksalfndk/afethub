@@ -15,6 +15,10 @@ export interface Disaster {
   name: string;
   region: string;         // "Seydikemer, Muğla · Türkiye"
   province: string;       // "Muğla" — used by the national dashboard
+  // Operasyonun kapsadığı ilçeler. Boş = kaydedilmemiş; asla tahmin edilmez.
+  // Dizi çünkü gerçek kayıtlarda birden çok ilçe var ("Bozkurt ve İnebolu").
+  // Afet sayfasındaki ilçe haritası bunu boyar (migration 0026).
+  districts: string[];
   type: DisasterType;
   status: 'Active' | 'Resolved' | 'Archived';
   situation: string;
@@ -55,6 +59,12 @@ export interface Location {
   coords: string;        // display string, e.g. "36.6321° K, 29.3187° D"
   lat: number;
   lng: number;
+  // Doluluk: koordinatörün elle girdiği ölçüm, 0-100. null = BİLİNMİYOR ve ekranda
+  // öyle yazılır. Bilinmeyeni 0 diye göstermek "yer var" olarak okunur ve sevkiyat
+  // dolu bir noktaya yönlendirilir (migration 0025, rules/04 §Empty States).
+  capacityPct: number | null;
+  capacityNote: string;
+  capacityUpdated: string;   // display string, '' when never set
 }
 
 export interface Need {
