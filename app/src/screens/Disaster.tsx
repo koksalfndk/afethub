@@ -169,7 +169,9 @@ export function Disaster() {
               {a.snap.disaster.province} · {tr.common.updated(a.snap.disaster.updatedLabel)}
             </div>
             <button onClick={a.openDelivery} className="hv-emergency" style={{ ...opBtn(true), width: '100%', marginTop: 10 }}>{tr.home.reportAid}</button>
-            <button onClick={() => a.openWizard(auth.isCoordinator ? 'coord' : 'public')} className="hv-navy" style={{ ...opBtn(false), width: '100%', marginTop: 7 }}>{tr.header.reportNeed}</button>
+            {/* 'coordScoped': bu sayfa ZATEN bir operasyonun sayfası, sihirbaz afet
+                adımını sormaz. Ziyaretçi akışı da aynı sebeple kapsamlı. */}
+            <button onClick={() => a.openWizard(auth.isCoordinator ? 'coordScoped' : 'public')} className="hv-navy" style={{ ...opBtn(false), width: '100%', marginTop: 7 }}>{tr.header.reportNeed}</button>
           </div>
           {SECTION_GROUPS.map(([group, keys]) => (
             <div key={group}>
@@ -259,7 +261,7 @@ export function Disaster() {
             <i style={{ position: 'absolute', inset: '0 0 auto 0', height: 3, background: G.heroRibbon }} />
             <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
               <button onClick={a.openDelivery} className="hv-emergency" style={{ ...opBtn(true), flex: '1 1 150px' }}>{tr.home.reportAid}</button>
-              <button onClick={() => a.openWizard(auth.isCoordinator ? 'coord' : 'public')} className="hv-navy" style={{ ...opBtn(false), flex: '1 1 130px' }}>{tr.header.reportNeed}</button>
+              <button onClick={() => a.openWizard(auth.isCoordinator ? 'coordScoped' : 'public')} className="hv-navy" style={{ ...opBtn(false), flex: '1 1 130px' }}>{tr.header.reportNeed}</button>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
