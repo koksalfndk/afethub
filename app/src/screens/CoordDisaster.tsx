@@ -22,9 +22,10 @@ const nf = new Intl.NumberFormat('tr-TR');
 
 const CAPACITY_STEPS = [0, 25, 50, 75, 90, 100];
 
-// Kahraman şeridi bir özet; 65 yerleşimin tamamını buraya dökmek başlığı boğar.
-// Tamamı afet kaydında duruyor ve oradan düzenleniyor.
-const SETTLEMENT_PREVIEW = 8;
+// Liste kaydırmalı: 65 yerleşimin tamamı burada duruyor ama kart yalnızca bu kadar
+// uzuyor. Kesilmiş bir önizleme ("+57 daha") koordinatörü listeyi görmek için başka
+// bir ekrana göndermeden, yükseklik sınırı sayfanın dengesini koruyor.
+const SETTLEMENT_LIST_H = 176;
 
 export function CoordDisaster() {
   const a = useApp();
@@ -139,14 +140,27 @@ export function CoordDisaster() {
               çözüm rengi değiştirmek değil, yüzey vermek oldu. Kart panodaki il
               haritasıyla aynı paleti kullanır — bakımda ikinci bir renk kipi yok. */}
           <div style={{
-            flex: mob ? '1 1 100%' : '0 0 430px', width: mob ? '100%' : 430, minWidth: 0,
+            flex: mob ? '1 1 100%' : '0 0 468px', width: mob ? '100%' : 468, minWidth: 0,
             background: '#F7F9FB', border: '1px solid #DCE4EC', borderRadius: 12,
             padding: '11px 12px 12px',
           }}>
+            {/* Kartın tek başlığı ve en üstte: "ETKİLENEN İLÇELER" kaldırıldı, çünkü
+                operasyon zaten ilçe bazında açılıyor — ilçe adı başlıkta, kırıntı
+                yolunda ve alt satırda üç kez tekrarlanıyordu. Sayaç yalnızca kayıt
+                varken çıkar; "0" yazmak "hiçbiri etkilenmedi" diye okunurdu. */}
             <div style={{
+              display: 'flex', alignItems: 'center', gap: 7,
               fontSize: 10.5, fontWeight: 700, letterSpacing: '.09em',
-              color: C.muted2, marginBottom: 8,
-            }}>{tr.coordOperation.districtTitle.toLocaleUpperCase('tr')}</div>
+              color: C.muted2, marginBottom: 9,
+            }}>
+              {tr.coordOperation.settlementsTitle.toLocaleUpperCase('tr')}
+              {d.settlements.length > 0 && (
+                <span className="tnum" style={{
+                  background: C.chipNavyBg, color: C.text, borderRadius: 20,
+                  padding: '1px 8px', fontSize: 10.5,
+                }}>{d.settlements.length}</span>
+              )}
+            </div>
 
             {d.districts.length === 0 ? (
               // Bekleyen bir iş olduğunu söyler ve doğrudan oraya götürür; boş bir
@@ -168,30 +182,15 @@ export function CoordDisaster() {
             ) : plate == null ? (
               <div style={cardNote}>{tr.coordOperation.districtUnknownShort}</div>
             ) : (
-              // Solda harita, sağda liste: harita kareye yakın, tek sütunda kartın
-              // yarısı boş kalıyordu. Liste haritanın açıklaması değil, tamamlayıcısı —
-              // ilçe haritada, yerleşim yazıyla.
+              // Solda harita, sağda liste. Harita sütunu 168 → 196 px genişledi ve
+              // haritanın kendisi sütunun tepesine yaslandı: kart listeyle birlikte
+              // uzarken harita ortada yüzen küçük bir şekil olarak kalıyordu.
               <div style={{
-                display: 'grid', gap: 12, alignItems: 'start',
-                gridTemplateColumns: mob ? '1fr' : 'minmax(0,168px) minmax(0,1fr)',
+                display: 'grid', gap: 13, alignItems: 'start',
+                gridTemplateColumns: mob ? '1fr' : 'minmax(0,196px) minmax(0,1fr)',
               }}>
                 <DistrictMap plate={plate} affected={d.districts} accent={accent} />
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {d.districts.map((x) => (
-                      <span key={x} style={{
-                        fontSize: 11.5, fontWeight: 600, color: C.navy, background: C.surface,
-                        border: `1px solid ${C.border}`, borderLeft: `3px solid ${accent}`,
-                        borderRadius: 7, padding: '3px 9px',
-                      }}>{x}</span>
-                    ))}
-                  </div>
-
-                  <div style={{
-                    fontSize: 10.5, fontWeight: 700, letterSpacing: '.08em',
-                    color: C.muted2, margin: '12px 0 6px',
-                  }}>{tr.coordOperation.settlementsTitle.toLocaleUpperCase('tr')}</div>
-
                   {d.settlements.length === 0 ? (
                     // Yerleşim girilmemiş olması ilçenin tamamının etkilendiği
                     // anlamına GELMEZ; boş liste yerine ne olduğu yazılır.
@@ -199,21 +198,20 @@ export function CoordDisaster() {
                       {tr.coordOperation.settlementsWaiting}
                     </p>
                   ) : (
-                    <>
-                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                        {d.settlements.slice(0, SETTLEMENT_PREVIEW).map((x) => (
-                          <span key={x} style={{
-                            fontSize: 11.5, color: C.text, background: C.surface,
-                            border: `1px solid ${C.border}`, borderRadius: 20, padding: '3px 9px',
-                          }}>{x}</span>
-                        ))}
-                      </div>
-                      {d.settlements.length > SETTLEMENT_PREVIEW && (
-                        <p style={{ margin: '6px 0 0', fontSize: 11.5, color: C.muted2 }}>
-                          {tr.coordOperation.settlementsMore(d.settlements.length - SETTLEMENT_PREVIEW)}
-                        </p>
-                      )}
-                    </>
+                    // Tek sütun, kaydırmalı: çip ızgarası satır başına 2–3 ad alıyordu
+                    // ve uzun adlarda sıra bozuluyordu. Düz liste alfabetik sırayı
+                    // koruyor; "+N daha" yerine listenin tamamı burada, kaydırarak.
+                    <ul style={{
+                      listStyle: 'none', margin: 0, padding: 0,
+                      maxHeight: SETTLEMENT_LIST_H, overflowY: 'auto',
+                    }}>
+                      {d.settlements.map((x, i) => (
+                        <li key={x} style={{
+                          fontSize: 12.5, color: C.text, padding: '4px 2px',
+                          borderBottom: i === d.settlements.length - 1 ? 0 : `1px solid ${C.borderFaint}`,
+                        }}>{x}</li>
+                      ))}
+                    </ul>
                   )}
                 </div>
               </div>
@@ -223,11 +221,14 @@ export function CoordDisaster() {
 
         {/* Sayaçlar. row null ise (pano henüz yüklenmediyse) hiçbir sayı uydurulmaz:
             şerit gizlenir ve sayfanın kalanı normal çalışır. */}
+        {/* Sütunlar satırın tamamına yayılmıyor: `1fr` ile her sayaç 180 px'e
+            geriliyor, sayı solda tek başına kalıyor ve altındaki hint metni okunmadan
+            geçiliyordu. `max-content` ile şerit içeriği kadar yer kaplar. */}
         {row && (
           <div style={{
-            display: 'grid', gap: 1, background: D.rowBd, border: `1px solid ${D.rowBd}`,
-            borderRadius: 11, overflow: 'hidden', marginTop: 14,
-            gridTemplateColumns: mob ? 'repeat(2, minmax(0,1fr))' : 'repeat(6, minmax(0,1fr))',
+            display: mob ? 'grid' : 'inline-grid', gap: 1, background: D.rowBd, border: `1px solid ${D.rowBd}`,
+            borderRadius: 11, overflow: 'hidden', marginTop: 14, maxWidth: '100%',
+            gridTemplateColumns: mob ? 'repeat(2, minmax(0,1fr))' : 'repeat(6, minmax(0,max-content))',
           }}>
             <Kpi color="#FF6B72" label={tr.coordDash.cardCritical} value={row.criticalNeeds} hint={tr.coordOperation.kpiCriticalHint} />
             <Kpi color="#FFC94A" label={tr.coordDash.cardPending} value={row.pendingSubs}
@@ -472,13 +473,15 @@ export function CoordDisaster() {
 // ---------------------------------------------------------------------------
 function Kpi({ color, label, value, hint }: { color: string; label: string; value: string | number; hint: string }) {
   return (
-    <div style={{ background: '#0F2C46', padding: '12px 13px' }}>
-      <div style={{ fontSize: 11.5, color: D.fg2, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <i style={{ width: 6, height: 6, borderRadius: '50%', background: color, display: 'inline-block' }} />
+    // `nowrap`: sütun artık içeriğine göre daraldığı için etiket kendi başına
+    // sarmalanırsa şerit satırları farklı yükseklikte kalır.
+    <div style={{ background: '#0F2C46', padding: '11px 15px', minWidth: 0 }}>
+      <div style={{ fontSize: 11.5, color: D.fg2, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+        <i style={{ width: 6, height: 6, borderRadius: '50%', background: color, display: 'inline-block', flex: '0 0 auto' }} />
         {label}
       </div>
-      <div className="tnum" style={{ fontSize: 23, fontWeight: 700, color: '#fff', letterSpacing: '-.02em', lineHeight: 1.15, marginTop: 4 }}>{value}</div>
-      <div style={{ fontSize: 11, color: D.muted, marginTop: 2 }}>{hint}</div>
+      <div className="tnum" style={{ fontSize: 22, fontWeight: 700, color: '#fff', letterSpacing: '-.02em', lineHeight: 1.15, marginTop: 3 }}>{value}</div>
+      <div style={{ fontSize: 11, color: D.muted, marginTop: 2, whiteSpace: 'nowrap' }}>{hint}</div>
     </div>
   );
 }

@@ -1364,9 +1364,9 @@ export const tr = {
     manageVolunteers: 'Gönüllüleri yönet',
 
     // İlçe haritası (components/DistrictMap.tsx, migration 0026)
-    districtTitle: 'Etkilenen ilçeler',
-    districtHint: (n: number) => (n === 1 ? '1 ilçe kayıtlı' : `${n} ilçe kayıtlı`),
-    districtNone: 'Bu operasyonda etkilenen ilçe kaydedilmemiş. Afet kaydını düzenleyip ilçeyi yazarsanız burada haritada görünür.',
+    // Kartın ayrı bir "Etkilenen ilçeler" başlığı YOK: operasyon zaten ilçe bazında
+    // açılıyor, ilçe adı kırıntı yolunda ve başlığın altında yazılı. Kartın tek
+    // başlığı yerleşim listesinin başlığı.
     // Bekleme durumu. "Kaydedilmemiş" kuru bir olumsuzlama; koordinatörün görmesi
     // gereken şey bunun BEKLEYEN BİR İŞ olduğu. Boş bir harita ya da boş bir liste
     // "hiçbir yer etkilenmedi" diye okunur, o yüzden ikisi de çizilmez.
@@ -1376,9 +1376,8 @@ export const tr = {
     districtEdit: 'Afet kaydını düzenle',
     settlementsTitle: 'Mahalle ve köyler',
     settlementsWaiting: 'Yerleşim girilmemiş. Bu, ilçenin tamamının etkilendiği anlamına gelmez — kayda girildiğinde burada listelenir.',
-    settlementsMore: (n: number) => `+${n} yerleşim daha`,
     districtUnknownProvince: (province: string) => `"${province}" tanınan bir il adı değil, ilçe haritası açılamadı. Afet kaydındaki il adını kontrol edin.`,
-    districtFailed: 'İlçe haritası yüklenemedi. Etkilenen ilçeler yanda yazılı.',
+    districtFailed: 'İlçe haritası yüklenemedi. Etkilenen ilçe, operasyon başlığının altında yazılı.',
     districtAria: (names: string) => `İl haritası, etkilenen ilçeler: ${names}`,
     districtAffected: (name: string) => `${name} — etkilenen ilçe`,
     districtUnmatched: (names: string) => `Haritada eşleşmeyen ilçe adı: ${names}. Yazımı kontrol edin.`,
