@@ -17,6 +17,7 @@ import type {
 import type { NeedPayload } from '../needForm';
 import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW, isLocalSlideImage, disasterSlug, isPublicAuditAction, SLA_HOURS, splitDistricts } from './repo';
 import { PRI } from '../theme';
+import { RefreshFailedError } from '../util';
 
 // Turkish relative-time formatter for DB timestamps.
 function rel(iso: string): string {
@@ -863,13 +864,20 @@ export class SupabaseRepo implements Repo {
       p_submission: subId, p_kind: kind, p_qty: qty, p_reason: reason || null,
     });
     if (error) throw error;
-    // Karar verilen kaydın AİT OLDUĞU operasyon yeniden okunur. `getSnapshot()`
-    // argümansız çağrıldığında "ilk aktif afet"e düşüyor: koordinatör Kastamonu
-    // sayfasında onay verdiğinde ekran sessizce başka bir operasyonun verisine
-    // geçiyor ve karar verilen satır geri gelmiş gibi görünüyordu.
-    const { data } = await this.db.from('submissions').select('disaster_id').eq('id', subId).maybeSingle();
-    const disasterId = data ? String((data as Record<string, unknown>).disaster_id) : '';
-    return disasterId ? this.snapOf(disasterId) : this.getSnapshot();
+    // Buradan SONRASI yalnızca ekranı tazelemek. Karar veritabanına yazıldı; bu
+    // okumalar başarısız olursa "kayıt değişmedi" demek yalan olur ve koordinatör
+    // aynı teslimatı ikinci kez işler. Ayrı bir hata tipiyle ayrılıyor.
+    try {
+      // Karar verilen kaydın AİT OLDUĞU operasyon yeniden okunur. `getSnapshot()`
+      // argümansız çağrıldığında "ilk aktif afet"e düşüyor: koordinatör Kastamonu
+      // sayfasında onay verdiğinde ekran sessizce başka bir operasyonun verisine
+      // geçiyor ve karar verilen satır geri gelmiş gibi görünüyordu.
+      const { data } = await this.db.from('submissions').select('disaster_id').eq('id', subId).maybeSingle();
+      const disasterId = data ? String((data as Record<string, unknown>).disaster_id) : '';
+      return disasterId ? await this.snapOf(disasterId) : await this.getSnapshot();
+    } catch (e) {
+      throw new RefreshFailedError(e);
+    }
   }
 
   // Insert/update goes straight to `disasters`; RLS decides whether the caller may.

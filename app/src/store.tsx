@@ -10,7 +10,22 @@ import type {
 } from './types';
 import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
-import { withTimeout } from './util';
+import { withTimeout, WRITE_TIMEOUT_MS, RefreshFailedError } from './util';
+
+// Sunucudan gelen sebebi tek satıra indirir. Supabase hataları `{ message, code,
+// details, hint }` taşır; `Error` ise `message`. Hiçbiri yoksa boş döner — uydurma
+// bir açıklama yazmaktansa hiç yazmamak doğru.
+function reasonOf(e: unknown): string {
+  if (!e) return '';
+  if (typeof e === 'object') {
+    const o = e as { message?: unknown; code?: unknown; hint?: unknown };
+    const msg = typeof o.message === 'string' ? o.message : '';
+    const code = typeof o.code === 'string' ? o.code : '';
+    const hint = typeof o.hint === 'string' ? o.hint : '';
+    return [code && `[${code}]`, msg, hint].filter(Boolean).join(' ').trim();
+  }
+  return String(e);
+}
 import { useAuth } from './auth';
 import { sendStaffInvite, sendVolunteerReceipt, sendVolunteerApproved } from './data/sendEmail';
 
@@ -27,7 +42,7 @@ export type SubFilter = 'Pending' | 'Verified' | 'Partially' | 'Rejected' | 'All
 
 // `error`: karar yazılamadığında pencere AÇIK kalır ve sebep burada durur. Kaybolan
 // bir toast, koordinatörün "bastım, oldu sandım" demesine yol açıyordu.
-export interface ModalState { subId: string; kind: VerifyKind; qty: string; reason: string; error?: string; }
+export interface ModalState { subId: string; kind: VerifyKind; qty: string; reason: string; error?: string; detail?: string; }
 
 // ---- Clean URL routing (History API): every screen is a real, shareable path ----
 // A Vercel SPA rewrite (vercel.json) serves index.html for these paths.
@@ -738,10 +753,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // reddedildiğinde ya da ağ düştüğünde promise sessizce reddediliyor, pencere açık
       // kalıyor ve koordinatör hiçbir şey olmadığını yalnızca tahmin edebiliyordu.
       // Bu mağazadaki diğer bütün yazma işlemleri try/catch + withTimeout kullanıyor.
-      setModal((m) => (m ? { ...m, error: undefined } : m));
+      setModal((m) => (m ? { ...m, error: undefined, detail: undefined } : m));
       void (async () => {
         try {
-          setSnap(await withTimeout(repo.verifySubmission(modal.subId, kind, qty, modal.reason)));
+          // Yazma bütçesi okuma bütçesinden ayrı: bu çağrı RPC + iki tekil sorgu +
+          // altı tablonun yeniden okunmasını kapsıyor, 6 sn'ye sığmayabiliyor.
+          setSnap(await withTimeout(repo.verifySubmission(modal.subId, kind, qty, modal.reason), WRITE_TIMEOUT_MS));
           setModal(null);
           if (kind === 'reject') showToast(tr.toasts.rejected(code));
           else if (kind === 'info') showToast(tr.toasts.infoRequested(contributor));
@@ -753,11 +770,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // kaydedilmemiş gibi görünüyor.
           loadCoordDashboard();
         } catch (e) {
-          // Teknik sebep konsola: koordinatöre Postgres hatası göstermek işe yaramaz
-          // ama sorunu ayıklayan kişinin görmesi gerekiyor. Ekranda ise pencere açık
-          // kalır ve karar verilmediği AÇIKÇA yazar.
           console.error('verify_submission failed', e);
-          setModal((m) => (m ? { ...m, error: tr.modal.failed } : m));
+          if (e instanceof RefreshFailedError) {
+            // Karar YAZILDI, yalnızca ekran tazelenemedi. "Kayıt değişmedi" demek
+            // koordinatöre aynı teslimatı ikinci kez işletirdi.
+            setModal(null);
+            showToast(tr.modal.savedNotRefreshed);
+            return;
+          }
+          // Sebep ekranda da yazar: bu ekranı yalnızca koordinatör görüyor ve
+          // "bağlantınızı kontrol edin" ile geçiştirmek, sorunu bildirebilmesi için
+          // konsolu açmayı bilmesini gerektiriyordu.
+          setModal((m) => (m ? { ...m, error: tr.modal.failed, detail: reasonOf(e) } : m));
         }
       })();
     },

@@ -74,6 +74,24 @@ export class TimeoutError extends Error {
   }
 }
 
+// Yazma işlemleri için ayrı bütçe. 6 sn bir OKUMA bütçesi; doğrulama kararı gibi bir
+// yazma, ardından operasyonun anlık görüntüsünün yeniden okunmasını da tetikliyor
+// (RPC + iki tekil sorgu + altı tablo). Aynı bütçeyi paylaşmaları, işini yapmış bir
+// yazmayı "başarısız" diye göstermeye yetiyordu.
+export const WRITE_TIMEOUT_MS = 15000;
+
+// Yazma BAŞARILI oldu, ama sonraki tazeleme okuması başarısız. Ayrı bir tip, çünkü bu
+// ikisine aynı mesajı vermek yalan olur: "kayıt değişmedi" demek, değişmiş bir kaydı
+// koordinatöre ikinci kez işlettirir.
+export class RefreshFailedError extends Error {
+  readonly cause?: unknown;
+  constructor(cause?: unknown) {
+    super('kayıt yazıldı, ekran tazelenemedi');
+    this.name = 'RefreshFailedError';
+    this.cause = cause;
+  }
+}
+
 export function withTimeout<T>(p: Promise<T>, ms: number = LOAD_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new TimeoutError(ms)), ms);

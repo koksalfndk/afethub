@@ -789,6 +789,9 @@ export const tr = {
   modal: {
     // Yazma başarısız olduğunda pencere kapanmaz; bu satır pencerenin içinde durur.
     failed: 'Karar kaydedilemedi. Kayıt değişmedi — bağlantınızı kontrol edip tekrar deneyin.',
+    // Yazma başarılı, tazeleme başarısız. Ayrı mesaj: "kaydedilemedi" demek burada
+    // yalan olur ve aynı teslimatın ikinci kez işlenmesine yol açar.
+    savedNotRefreshed: 'Karar kaydedildi, ancak ekran tazelenemedi. Sayfayı yenileyin.',
     reported: 'Bildirilen', remainingNow: 'Şu anki kalan', afterApproval: 'Onay sonrası',
     verifiedQty: 'Doğrulanan miktar',
     reasonReject: 'Reddetme gerekçesi',

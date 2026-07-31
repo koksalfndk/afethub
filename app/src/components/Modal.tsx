@@ -67,7 +67,17 @@ export function Modal() {
             <div role="alert" style={{
               background: C.errorSurface, border: `1px solid ${C.errorBorder}`, borderRadius: 9,
               padding: 11, fontSize: 13, color: C.errorText, fontWeight: 600,
-            }}>{m.error}</div>
+            }}>
+              {m.error}
+              {/* Sunucunun kendi sebebi. Koordinatöre teknik ama BİLGİ: ekran
+                  görüntüsüyle bildirebilmesi için konsolu açmak gerekmesin. */}
+              {m.detail && (
+                <span style={{
+                  display: 'block', marginTop: 6, fontWeight: 500, fontSize: 11.5,
+                  color: C.muted, wordBreak: 'break-word',
+                }}>{m.detail}</span>
+              )}
+            </div>
           )}
         </div>
         <div style={{ padding: '14px 20px', borderTop: `1px solid ${C.border}`, display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
