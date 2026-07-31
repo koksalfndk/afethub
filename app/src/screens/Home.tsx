@@ -6,6 +6,7 @@ import { C, G, PRI, D, type PriorityKey } from '../theme';
 import { LiveDot, Ico, DISASTER_ICON, PriorityBadge, MetricCell, ProgressBar, eyebrow, srOnly } from '../ui';
 import { agoMinutes, clockLabel, formatDate } from '../util';
 import { HeroBanner } from '../components/HeroBanner';
+import { HomeOperationsMap } from '../components/HomeOperationsMap';
 import { ReportConfirmModal } from '../components/ReportConfirmModal';
 import { COMMUNITY_THRESHOLD } from '../data/repo';
 import type { DisasterType, DisasterReport } from '../types';
@@ -97,7 +98,17 @@ export function Home() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <HeroBanner />
+      {/* Slider yarı genişliğe indi, yanına operasyon haritası girdi. Harita
+          dekoratif değil: bir ile tıklamak o ildeki operasyonların kartını açıyor ve
+          oradan afet sayfasına gidiliyor. Mobilde alt alta — 390 px'te iki sütun,
+          ikisini de okunmaz yapardı. */}
+      <div style={{
+        display: 'grid', gap: 14, alignItems: 'stretch',
+        gridTemplateColumns: mob ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)',
+      }}>
+        <HeroBanner />
+        <HomeOperationsMap />
+      </div>
 
       {/* Sample content must be labelled so it can never pass as verified live data. */}
       {ov.demo && (

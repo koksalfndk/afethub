@@ -161,6 +161,24 @@ export const tr = {
   },
 
   home: {
+    // Ana sayfadaki operasyon haritası. Renk aciliyet SKORUNA göre değil — o skor
+    // koordinatöre özel. Ziyaretçinin zaten gördüğü iki şeye göre: açık mı, kritik
+    // ihtiyacı var mı.
+    mapTitle: 'Operasyon haritası',
+    mapCount: (n: number) => (n === 1 ? '1 ilde operasyon' : `${n} ilde operasyon`),
+    mapHint: 'Bir ile tıklayın: o ildeki operasyonlar açılır.',
+    mapAria: (n: number) => `Türkiye haritası, ${n} ilde açık operasyon var`,
+    mapProvinceAria: (n: number, il: string) =>
+      n === 1 ? `${il}: 1 operasyon, açmak için tıklayın` : `${il}: ${n} operasyon, açmak için tıklayın`,
+    mapCardAria: (il: string) => `${il} ilindeki operasyonlar`,
+    mapChipHint: (kapali: boolean, acikIhtiyac: number) =>
+      kapali ? 'Kapandı' : acikIhtiyac === 0 ? 'Açık operasyon' : `Açık · ${acikIhtiyac} ihtiyaç`,
+    mapLegendCritical: 'Kritik ihtiyacı var',
+    mapLegendActive: 'Açık operasyon',
+    mapLegendClosed: 'Kapandı',
+    mapFailed: 'Harita yüklenemedi. Operasyonlar aşağıdaki listede yer alıyor.',
+    mapUnplaced: (n: number) =>
+      n === 1 ? '1 operasyonun ili tanınmadı, haritada gösterilemiyor.' : `${n} operasyonun ili tanınmadı, haritada gösterilemiyor.`,
     activeBadge: '1 aktif afet',
     heroTitle1: 'İhtiyacı gör.',
     heroTitle2: 'Yardımı ulaştır.',
