@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { C } from '../theme';
+import { C, D } from '../theme';
 import { tr } from '../i18n/strings';
 import { foldTr } from '../trProvinces';
 
@@ -17,11 +17,13 @@ const src = (plate: number): string => `/maps/districts/${plate}.svg`;
 
 interface DistrictPath { name: string; d: string }
 
-export function DistrictMap({ plate, affected, accent }: {
+export function DistrictMap({ plate, affected, accent, onDark }: {
   plate: number;
   /** Kayıttaki ilçe adları. Boş dizi ile çağrılmamalı — çağıran taraf paneli hiç göstermez. */
   affected: string[];
   accent: string;
+  /** Koyu komuta şeridinin içinde çiziliyor: nötr iller ve etiketler ters renklenir. */
+  onDark?: boolean;
 }) {
   const [paths, setPaths] = useState<DistrictPath[] | null>(null);
   const [viewBox, setViewBox] = useState('0 0 100 100');
@@ -107,6 +109,14 @@ export function DistrictMap({ plate, affected, accent }: {
     setLabels(next);
   }, [paths, wanted]);
 
+  // Koyu zeminde açık gri il dolgusu ve lacivert yazı okunmaz. Nötr renkler ve
+  // etiketin kontur halesi zemine göre ters çevrilir; VURGU rengi (accent) aynı
+  // kalır — aynı operasyon panoda ve burada aynı renkte görünmeli.
+  const neutralFill = onDark ? 'rgba(255,255,255,.10)' : C.chipNavyBg;
+  const neutralStroke = onDark ? 'rgba(255,255,255,.24)' : C.muted3;
+  const labelFill = onDark ? '#FFFFFF' : C.navy;
+  const labelHalo = onDark ? 'rgba(9,26,42,.92)' : '#fff';
+
   // Çizgi ve yazı kalınlıkları SVG biriminde; il başına viewBox ölçeği değiştiği için
   // sabit bir değer bir ilde tüy gibi, ötekinde haritayı kaplayacak kadar kalın olur.
   const unit = fit ? Math.max(fit.w, fit.h) : 100;
@@ -114,10 +124,15 @@ export function DistrictMap({ plate, affected, accent }: {
   const strokeUnit = unit / 400;
 
   if (failed) {
-    return <p style={note}>{tr.coordOperation.districtFailed}</p>;
+    return <p style={onDark ? darkNote : note}>{tr.coordOperation.districtFailed}</p>;
   }
   if (!paths) {
-    return <div aria-busy="true" style={{ height: 160, borderRadius: 10, background: C.borderFaint }} />;
+    return (
+      <div aria-busy="true" style={{
+        height: onDark ? 130 : 160, borderRadius: 10,
+        background: onDark ? 'rgba(255,255,255,.07)' : C.borderFaint,
+      }} />
+    );
   }
 
   return (
@@ -126,7 +141,7 @@ export function DistrictMap({ plate, affected, accent }: {
         viewBox={fit ? `${fit.x} ${fit.y} ${fit.w} ${fit.h}` : viewBox}
         role="img"
         aria-label={tr.coordOperation.districtAria(affected.join(', '))}
-        style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 340 }}
+        style={{ width: '100%', height: 'auto', display: 'block', maxHeight: onDark ? 190 : 340 }}
       >
         <g ref={groupRef}>
           {paths.map((p) => {
@@ -136,9 +151,9 @@ export function DistrictMap({ plate, affected, accent }: {
                 key={p.name}
                 data-district={p.name}
                 d={p.d}
-                fill={on ? accent : C.chipNavyBg}
-                fillOpacity={on ? 0.92 : 1}
-                stroke={on ? '#FFFFFF' : C.muted3}
+                fill={on ? accent : neutralFill}
+                fillOpacity={on ? 0.95 : 1}
+                stroke={on ? '#FFFFFF' : neutralStroke}
                 strokeWidth={on ? strokeUnit * 1.6 : strokeUnit}
                 strokeLinejoin="round"
               >
@@ -156,8 +171,8 @@ export function DistrictMap({ plate, affected, accent }: {
               textAnchor="middle"
               dominantBaseline="middle"
               style={{
-                fontSize: labelSize, fontWeight: 700, fill: C.navy,
-                paintOrder: 'stroke', stroke: '#fff', strokeWidth: labelSize * 0.3,
+                fontSize: labelSize, fontWeight: 700, fill: labelFill,
+                paintOrder: 'stroke', stroke: labelHalo, strokeWidth: labelSize * 0.3,
                 strokeLinejoin: 'round',
               }}
             >{l.name}</text>
@@ -165,10 +180,11 @@ export function DistrictMap({ plate, affected, accent }: {
         </g>
       </svg>
       {unmatched.length > 0 && (
-        <p style={note}>{tr.coordOperation.districtUnmatched(unmatched.join(', '))}</p>
+        <p style={onDark ? darkNote : note}>{tr.coordOperation.districtUnmatched(unmatched.join(', '))}</p>
       )}
     </>
   );
 }
 
 const note = { margin: '8px 6px 0', fontSize: 11.5, color: C.muted2 } as const;
+const darkNote = { margin: '6px 2px 0', fontSize: 11.5, color: D.muted } as const;

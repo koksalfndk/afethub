@@ -108,8 +108,8 @@ export function CoordDisaster() {
           )}
         </nav>
 
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, flexWrap: 'wrap', marginTop: 12 }}>
-          <div style={{ minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap', marginTop: 12 }}>
+          <div style={{ flex: '1 1 320px', minWidth: 0 }}>
             <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.1em', color: '#F9A26C', display: 'flex', alignItems: 'center', gap: 7 }}>
               <i style={{ width: 7, height: 7, borderRadius: '50%', background: C.orange, display: 'inline-block' }} />
               {tr.coordOperation.eyebrow(d.status === 'Active', row?.urgency ?? null)}
@@ -119,11 +119,41 @@ export function CoordDisaster() {
               {[d.region || d.province, tr.coordOperation.points(snap.locations.length), tr.coordOperation.updated(d.updatedLabel)]
                 .filter(Boolean).join(' · ')}
             </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+              <button onClick={() => a.openDisaster(d.slug)} style={darkBtn(false)}>{tr.coordOps.openPublic}</button>
+              <button onClick={() => a.go('coordOps')} style={darkBtn(false)}>{tr.nav.ops}</button>
+              <button onClick={() => a.go('coordNeeds')} style={darkBtn(true)}>{tr.coord.newNeed}</button>
+            </div>
           </div>
-          <div style={{ marginLeft: mob ? 0 : 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button onClick={() => a.openDisaster(d.slug)} style={darkBtn(false)}>{tr.coordOps.openPublic}</button>
-            <button onClick={() => a.go('coordOps')} style={darkBtn(false)}>{tr.nav.ops}</button>
-            <button onClick={() => a.go('coordNeeds')} style={darkBtn(true)}>{tr.coord.newNeed}</button>
+
+          {/* Etkilenen ilçeler artık kahramanın içinde: "bu operasyon nerede" sorusu
+              başlıkla birlikte okunmalı, sayfanın ortasında ayrı bir bölüm olarak
+              değil. Koyu şeride yalnızca kısa etiketler ve şekil giriyor; açıklayıcı
+              cümleler burada YOK (rules/04: gradyan zeminde gövde metni olmaz). */}
+          <div style={{ flex: mob ? '1 1 100%' : '0 0 268px', width: mob ? '100%' : 268, minWidth: 0 }}>
+            <div style={{
+              fontSize: 10.5, fontWeight: 700, letterSpacing: '.09em',
+              color: D.muted, marginBottom: 6,
+            }}>{tr.coordOperation.districtTitle.toLocaleUpperCase('tr')}</div>
+
+            {d.districts.length === 0 ? (
+              <div style={heroNote}>{tr.coordOperation.districtNoneShort}</div>
+            ) : plate == null ? (
+              <div style={heroNote}>{tr.coordOperation.districtUnknownShort}</div>
+            ) : (
+              <>
+                <DistrictMap plate={plate} affected={d.districts} accent={accent} onDark />
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                  {d.districts.map((x) => (
+                    <span key={x} style={{
+                      fontSize: 11.5, fontWeight: 600, color: '#fff',
+                      background: 'rgba(255,255,255,.10)', border: `1px solid ${D.rowBd}`,
+                      borderLeft: `3px solid ${accent}`, borderRadius: 7, padding: '3px 9px',
+                    }}>{x}</span>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -284,49 +314,6 @@ export function CoordDisaster() {
         {visibleNeeds.length === 0 && <p style={emptyText}>{tr.coordOperation.matrixEmpty}</p>}
       </section>
 
-      {/* ---- Etkilenen ilçeler ------------------------------------------- */}
-      <section style={panel}>
-        <Head
-          title={tr.coordOperation.districtTitle}
-          badge={d.districts.length || undefined}
-          hint={d.districts.length ? tr.coordOperation.districtHint(d.districts.length) : undefined}
-        />
-        <div style={{ padding: '4px 14px 14px' }}>
-          {d.districts.length === 0 ? (
-            // Boş bir il haritası "hiçbir yer etkilenmedi" gibi okunur; onun yerine
-            // durumu söyleyip ne yapılacağını yazıyoruz (rules/04 §Empty States).
-            <p style={{ margin: 0, fontSize: 13, color: C.muted }}>{tr.coordOperation.districtNone}</p>
-          ) : plate == null ? (
-            <p style={{ margin: 0, fontSize: 13, color: C.muted }}>
-              {tr.coordOperation.districtUnknownProvince(d.province)}
-            </p>
-          ) : (
-            // Harita kare-ye yakın, panel geniş: tek sütunda ortalanıp iki yanında
-            // boşluk bırakıyordu. Solda harita, sağda ilçe listesi ve bağlam.
-            <div style={{
-              display: 'grid', gap: 16, alignItems: 'start',
-              gridTemplateColumns: mob ? '1fr' : 'minmax(0, 360px) minmax(0, 1fr)',
-            }}>
-              <DistrictMap plate={plate} affected={d.districts} accent={accent} />
-              <div>
-                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-                  {d.districts.map((x) => (
-                    <span key={x} style={{
-                      fontSize: 12.5, fontWeight: 600, color: C.navy, background: C.canvas,
-                      border: `1px solid ${C.border}`, borderLeft: `3px solid ${accent}`,
-                      borderRadius: 8, padding: '5px 11px',
-                    }}>{x}</span>
-                  ))}
-                </div>
-                <p style={{ margin: '10px 0 0', fontSize: 12.5, color: C.muted }}>
-                  {tr.coordOperation.districtNote(d.province)}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
       {/* ---- Saha durumu + operasyon kaydı --------------------------------- */}
       <div style={{ display: 'grid', gap: 14, gridTemplateColumns: mob ? '1fr' : 'minmax(0,1.2fr) minmax(0,1fr)', alignItems: 'start' }}>
         <section style={panel}>
@@ -443,6 +430,11 @@ function Head({ title, hint, badge }: { title: string; hint?: string; badge?: nu
     </div>
   );
 }
+
+const heroNote = {
+  fontSize: 12, color: D.fg2, background: 'rgba(255,255,255,.07)',
+  border: `1px solid ${D.rowBd}`, borderRadius: 9, padding: '10px 11px',
+} as const;
 
 const panel = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' } as const;
 const th = {

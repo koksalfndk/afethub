@@ -1352,9 +1352,11 @@ export const tr = {
     districtTitle: 'Etkilenen ilçeler',
     districtHint: (n: number) => (n === 1 ? '1 ilçe kayıtlı' : `${n} ilçe kayıtlı`),
     districtNone: 'Bu operasyonda etkilenen ilçe kaydedilmemiş. Afet kaydını düzenleyip ilçeyi yazarsanız burada haritada görünür.',
+    // Koyu komuta şeridi yalnızca kısa etiket taşır; uzun açıklama oraya girmez.
+    districtNoneShort: 'Kaydedilmemiş — afet kaydını düzenleyip ilçe yazın.',
+    districtUnknownShort: 'İl adı tanınmadı, harita açılamadı.',
     districtUnknownProvince: (province: string) => `"${province}" tanınan bir il adı değil, ilçe haritası açılamadı. Afet kaydındaki il adını kontrol edin.`,
     districtFailed: 'İlçe haritası yüklenemedi. Etkilenen ilçeler yanda yazılı.',
-    districtNote: (province: string) => `Boyalı alanlar ${province} içinde bu operasyonun kapsadığı ilçeler. Liste afet kaydından gelir; değiştirmek için kaydı düzenleyin.`,
     districtAria: (names: string) => `İl haritası, etkilenen ilçeler: ${names}`,
     districtAffected: (name: string) => `${name} — etkilenen ilçe`,
     districtUnmatched: (names: string) => `Haritada eşleşmeyen ilçe adı: ${names}. Yazımı kontrol edin.`,
