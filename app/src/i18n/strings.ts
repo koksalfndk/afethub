@@ -787,6 +787,8 @@ export const tr = {
   },
 
   modal: {
+    // Yazma başarısız olduğunda pencere kapanmaz; bu satır pencerenin içinde durur.
+    failed: 'Karar kaydedilemedi. Kayıt değişmedi — bağlantınızı kontrol edip tekrar deneyin.',
     reported: 'Bildirilen', remainingNow: 'Şu anki kalan', afterApproval: 'Onay sonrası',
     verifiedQty: 'Doğrulanan miktar',
     reasonReject: 'Reddetme gerekçesi',

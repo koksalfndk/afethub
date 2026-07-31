@@ -854,8 +854,22 @@ export class SupabaseRepo implements Repo {
   }
 
   async verifySubmission(subId: string, kind: VerifyKind, qty: number, reason: string): Promise<Snapshot> {
-    await this.db.rpc('verify_submission', { p_submission: subId, p_kind: kind, p_qty: qty, p_reason: reason || null });
-    return this.getSnapshot();
+    // `rpc()` HATA FIRLATMAZ; `{ data, error }` döndürür. Bu satırda `error`
+    // okunmuyordu: RLS reddettiğinde ya da fonksiyon hata verdiğinde çağrı sessizce
+    // geçiyor, ardından snapshot yeniden okunuyor ve arayüz "Onaylandı ✓" diyordu.
+    // Dosyadaki diğer bütün RPC çağrıları `if (error) throw error` yapıyor; bu
+    // atlanmıştı ve tek başına "aksiyon veritabanına düşmüyor" tablosunu üretiyordu.
+    const { error } = await this.db.rpc('verify_submission', {
+      p_submission: subId, p_kind: kind, p_qty: qty, p_reason: reason || null,
+    });
+    if (error) throw error;
+    // Karar verilen kaydın AİT OLDUĞU operasyon yeniden okunur. `getSnapshot()`
+    // argümansız çağrıldığında "ilk aktif afet"e düşüyor: koordinatör Kastamonu
+    // sayfasında onay verdiğinde ekran sessizce başka bir operasyonun verisine
+    // geçiyor ve karar verilen satır geri gelmiş gibi görünüyordu.
+    const { data } = await this.db.from('submissions').select('disaster_id').eq('id', subId).maybeSingle();
+    const disasterId = data ? String((data as Record<string, unknown>).disaster_id) : '';
+    return disasterId ? this.snapOf(disasterId) : this.getSnapshot();
   }
 
   // Insert/update goes straight to `disasters`; RLS decides whether the caller may.

@@ -25,7 +25,9 @@ export type Role = 'visitor' | 'coordinator';
 export type Filter = 'All' | 'Critical' | 'Urgent' | 'Normal' | 'Completed';
 export type SubFilter = 'Pending' | 'Verified' | 'Partially' | 'Rejected' | 'All';
 
-export interface ModalState { subId: string; kind: VerifyKind; qty: string; reason: string; }
+// `error`: karar yazılamadığında pencere AÇIK kalır ve sebep burada durur. Kaybolan
+// bir toast, koordinatörün "bastım, oldu sandım" demesine yol açıyordu.
+export interface ModalState { subId: string; kind: VerifyKind; qty: string; reason: string; error?: string; }
 
 // ---- Clean URL routing (History API): every screen is a real, shareable path ----
 // A Vercel SPA rewrite (vercel.json) serves index.html for these paths.
@@ -732,12 +734,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const needName = need?.name ?? '';
       const unit = sub?.unit ?? '';
       const remAfter = need ? Math.max(0, need.required - Math.min(need.required, need.verified + qty)) : 0;
-      repo.verifySubmission(modal.subId, kind, qty, modal.reason).then((s) => {
-        setSnap(s); setModal(null);
-        if (kind === 'reject') showToast(tr.toasts.rejected(code));
-        else if (kind === 'info') showToast(tr.toasts.infoRequested(contributor));
-        else showToast(tr.toasts.approved(qty, unit, needName, remAfter));
-      });
+      // Tek `.then` vardı: `.catch` yoktu ve `withTimeout` kullanılmıyordu. RPC
+      // reddedildiğinde ya da ağ düştüğünde promise sessizce reddediliyor, pencere açık
+      // kalıyor ve koordinatör hiçbir şey olmadığını yalnızca tahmin edebiliyordu.
+      // Bu mağazadaki diğer bütün yazma işlemleri try/catch + withTimeout kullanıyor.
+      setModal((m) => (m ? { ...m, error: undefined } : m));
+      void (async () => {
+        try {
+          setSnap(await withTimeout(repo.verifySubmission(modal.subId, kind, qty, modal.reason)));
+          setModal(null);
+          if (kind === 'reject') showToast(tr.toasts.rejected(code));
+          else if (kind === 'info') showToast(tr.toasts.infoRequested(contributor));
+          else showToast(tr.toasts.approved(qty, unit, needName, remAfter));
+          // Karar; bekleyen doğrulama, bugün karara bağlanan, karşılama oranı, SLA ve
+          // aciliyet sayaçlarının hepsini değiştiriyor. Bunlar snapshot'tan değil
+          // panodan (coordinator_overview) okunuyor, o yüzden pano da tazelenir —
+          // yoksa satır listeden düşüyor ama üstteki sayaçlar eski kalıyor ve karar
+          // kaydedilmemiş gibi görünüyor.
+          loadCoordDashboard();
+        } catch (e) {
+          // Teknik sebep konsola: koordinatöre Postgres hatası göstermek işe yaramaz
+          // ama sorunu ayıklayan kişinin görmesi gerekiyor. Ekranda ise pencere açık
+          // kalır ve karar verilmediği AÇIKÇA yazar.
+          console.error('verify_submission failed', e);
+          setModal((m) => (m ? { ...m, error: tr.modal.failed } : m));
+        }
+      })();
     },
 
     reloadMySubs: () => { void loadMySubs(); },

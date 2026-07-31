@@ -61,6 +61,14 @@ export function Modal() {
             <textarea value={m.reason} onChange={(e) => a.setModalReason(e.target.value)} rows={2} placeholder={tr.modal.reasonPh} style={{ ...inputStyle, minHeight: undefined, resize: 'vertical' }} />
           </label>
           {warn && <div style={{ background: '#FFF8E5', border: '1px solid #F2DFA8', borderRadius: 9, padding: 11, fontSize: 13, color: C.warningText }}>{warn}</div>}
+          {/* Yazma başarısız olduğunda pencere kapanmaz ve sebep BURADA durur.
+              Kaybolan bir toast, "bastım, kaydedildi sandım" ile sonuçlanıyordu. */}
+          {m.error && (
+            <div role="alert" style={{
+              background: C.errorSurface, border: `1px solid ${C.errorBorder}`, borderRadius: 9,
+              padding: 11, fontSize: 13, color: C.errorText, fontWeight: 600,
+            }}>{m.error}</div>
+          )}
         </div>
         <div style={{ padding: '14px 20px', borderTop: `1px solid ${C.border}`, display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <button onClick={a.closeModal} style={{ background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.heading2, borderRadius: 9, padding: '11px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>{tr.common.cancel ?? 'Vazgeç'}</button>
