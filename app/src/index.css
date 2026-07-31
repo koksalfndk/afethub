@@ -22,6 +22,9 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 /* style-hover ports */
 .hv-emergency:hover { background: #C22B33 !important; }
 .hv-navy:hover { border-color: #102A43 !important; }
+/* Düğme ama bağlantı gibi davranır: listede kaydın adı. Altı yalnızca hover'da
+   çizilir; sürekli çizili olsaydı tabloda her satır bir bağlantı gürültüsü olurdu. */
+.lnk:hover { text-decoration: underline; }
 .anim-in { animation: afetIn .22s ease-out; }
 
 /* Aligned digits for operational figures (timestamps, quantities). */

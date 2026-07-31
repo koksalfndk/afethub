@@ -104,7 +104,10 @@ function WizardInner({ mode }: { mode: WizardMode }) {
 
   return (
     <div onClick={close} style={overlay}>
-      <div onClick={(e) => e.stopPropagation()} className="anim-in" style={sheet}>
+      {/* Rol ve etiket: sihirbaz bir pencere, ekran okuyucuya da öyle bildirilmeli
+          (rules/04 §Accessibility). Eksikti. */}
+      <div onClick={(e) => e.stopPropagation()} className="anim-in"
+        role="dialog" aria-modal="true" aria-label={title} style={sheet}>
         {/* header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '20px 24px 0' }}>
           <div>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useApp } from '../store';
 import { C, G } from '../theme';
 import { tr, disasterTypeLabel } from '../i18n/strings';
 import { Ico } from '../ui';
@@ -16,18 +17,35 @@ import type { Disaster } from '../types';
 const publicUrl = (slug: string): string =>
   `${typeof window === 'undefined' ? '' : window.location.origin}/afet/${slug}`;
 
+const nf = new Intl.NumberFormat('tr-TR');
+
 export function ShareDisasterModal({ disaster, onClose }: { disaster: Disaster; onClose: () => void }) {
+  const a = useApp();
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
   const url = publicUrl(disaster.slug);
+  // Sayılar panonun kendi satırından (coordinator_overview) okunur, burada yeniden
+  // hesaplanmaz. Satır yoksa (pano henüz yüklenmediyse) sayı satırları mesaja hiç
+  // girmez — uydurulmuş ya da eski bir rakam paylaşmaktansa hiç yazmamak doğru.
+  const row = (a.coordOverview?.disasters ?? []).find((r) => r.slug === disaster.slug) ?? null;
   const message = tr.shareDisaster.message({
     name: disaster.name,
     typeLabel: disasterTypeLabel[disaster.type],
+    typeEmoji: tr.shareDisaster.typeEmoji[disaster.type] ?? '⚠️',
+    statusEmoji: tr.shareDisaster.statusEmoji[disaster.status] ?? '',
     region: disaster.region,
     statusLabel: tr.coordDisasters.statusLabels[disaster.status],
     situation: disaster.situation.trim(),
+    settlements: disaster.settlements.length,
+    critical: row ? row.criticalNeeds : null,
+    fulfilment: row && row.requiredTotal > 0
+      ? `%${Math.round((row.verifiedTotal / row.requiredTotal) * 100)} (${nf.format(row.verifiedTotal)} / ${nf.format(row.requiredTotal)} birim)`
+      : null,
+    deliveryPoints: row ? row.deliveryPoints : null,
+    volunteers: row ? row.volunteers : null,
+    onShift: row ? row.onShift : null,
     url,
   });
 

@@ -1081,16 +1081,44 @@ export const tr = {
     openPublic: 'Sayfayı aç',
     close: 'Kapat',
     previewLabel: 'Gönderilecek mesaj',
-    // WhatsApp mesajı. Bağlantı SON satırda: WhatsApp önizlemeyi son bağlantıdan
-    // üretir ve mesajın kuyruğunda duran bir link, uzun metinde kaybolmaz.
-    message: (o: { name: string; typeLabel: string; region: string; statusLabel: string; situation: string; url: string }) => [
-      `AfetHUB — ${o.name}`,
-      `Durum: ${o.statusLabel} · ${o.typeLabel}`,
-      `Bölge: ${o.region}`,
-      o.situation ? `\n${o.situation}` : '',
-      `\nGüncel ihtiyaç listesi ve teslim noktaları:`,
+    // WhatsApp mesajı.
+    //
+    // Bağlantı SON satırda: WhatsApp önizlemeyi son bağlantıdan üretir ve mesajın
+    // kuyruğunda duran bir link uzun metinde kaybolmaz.
+    //
+    // Emoji satır BAŞINDA, tek başına bilgi taşımadan: telefonda gri metin bloğu
+    // içinde satırları ayırt etmeyi kolaylaştırıyor, ama her satırın anlamı yazıyla
+    // da tam olarak yazılı. Emojisi görünmeyen bir cihazda mesaj hiçbir şey
+    // kaybetmez (rules/04 §Accessibility).
+    typeEmoji: {
+      Wildfire: '🔥', Flood: '🌊', Earthquake: '🏚️', Storm: '🌪️', Evacuation: '🚨', Other: '⚠️',
+    } as Record<string, string>,
+    statusEmoji: { Active: '🔴', Resolved: '🟢', Archived: '⚪' } as Record<string, string>,
+    // Sayı satırları YALNIZCA veri varken yazılır. Panodan sayılar gelmediyse satır
+    // hiç görünmez — "0 kritik ihtiyaç" yazmak, henüz okunmamış bir veriyi
+    // "hiç yok" diye paylaşmak olurdu (CLAUDE.md §Source of Truth).
+    message: (o: {
+      name: string; typeLabel: string; typeEmoji: string; statusEmoji: string;
+      region: string; statusLabel: string; situation: string; url: string;
+      settlements: number;
+      critical: number | null;
+      fulfilment: string | null;
+      deliveryPoints: number | null;
+      volunteers: number | null;
+      onShift: number | null;
+    }) => [
+      `${o.statusEmoji} AfetHUB — ${o.name}`,
+      `${o.typeEmoji} ${o.typeLabel} · Durum: ${o.statusLabel}`,
+      `📍 ${o.region}`,
+      o.settlements > 0 ? `🏘️ Etkilenen yerleşim: ${o.settlements}` : '',
+      o.situation ? `\n📝 ${o.situation}` : '',
+      o.critical !== null && o.critical > 0 ? `\n⚠️ Karşılanmamış kritik ihtiyaç: ${o.critical}` : '',
+      o.fulfilment ? `📦 Genel karşılama: ${o.fulfilment}` : '',
+      o.deliveryPoints !== null ? `🚚 Aktif teslim noktası: ${o.deliveryPoints}` : '',
+      o.volunteers !== null && o.onShift !== null ? `🙋 Gönüllü: ${o.volunteers} kayıtlı · ${o.onShift} nöbette` : '',
+      `\n👉 Güncel ihtiyaç listesi ve teslim noktaları:`,
       o.url,
-    ].filter(Boolean).join('\n'),
+    ].filter((x): x is string => Boolean(x)).join('\n'),
   },
 
   coordOrgEdits: {

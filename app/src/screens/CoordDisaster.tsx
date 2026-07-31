@@ -6,6 +6,7 @@ import { cols, enrichSorted } from '../select';
 import { ProgressBar, StatusBadge, PriorityBadge, Ico, DISASTER_ICON } from '../ui';
 import type { CoordDisasterRow } from '../data';
 import { DistrictMap } from '../components/DistrictMap';
+import { DisasterFormDrawer } from '../components/DisasterFormDrawer';
 import { plateOf } from '../trProvinces';
 
 // Tek bir operasyonun koordinasyon sayfası (/koordinasyon/afet/<slug>).
@@ -33,6 +34,7 @@ export function CoordDisaster() {
   const mob = a.device === 'mobile';
   const [needFilter, setNeedFilter] = useState<'all' | 'critical' | 'open' | 'done'>('all');
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const snap = a.snap;
   const row: CoordDisasterRow | null = useMemo(() => {
@@ -128,9 +130,21 @@ export function CoordDisaster() {
                 .filter(Boolean).join(' · ')}
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-              <button onClick={() => a.openDisaster(d.slug)} style={darkBtn(false)}>{tr.coordOps.openPublic}</button>
+              {/* Yeni ihtiyaç artık sayfayı terk etmiyor: sihirbaz bu operasyonun
+                  yüklü snapshot'ı üzerinde modal olarak açılıyor. Eskiden koordinatör
+                  ihtiyaç ekranına gidip afeti yeniden seçmek zorundaydı. */}
+              <button onClick={() => a.openWizard('coord')} style={darkBtn(true)}>
+                <Ico n="plus" size={15} color="#fff" />{tr.coord.newNeed}
+              </button>
+              {/* Düzenle: kayıt alanları (ilçe, yerleşim, durum özeti) buradan da
+                  düzenlenebilsin diye. Aynı çekmece listede de açılıyor. */}
+              <button onClick={() => setEditOpen(true)} style={darkBtn(false)}>
+                <Ico n="pencil" size={15} color="#fff" />{tr.coordDisasters.edit}
+              </button>
+              <button onClick={() => a.openDisaster(d.slug)} style={darkBtn(false)}>
+                <Ico n="eye" size={15} color="#fff" />{tr.coordOps.openPublic}
+              </button>
               <button onClick={() => a.go('coordOps')} style={darkBtn(false)}>{tr.nav.ops}</button>
-              <button onClick={() => a.go('coordNeeds')} style={darkBtn(true)}>{tr.coord.newNeed}</button>
             </div>
           </div>
 
@@ -468,6 +482,10 @@ export function CoordDisaster() {
           {snap.log.length === 0 && <p style={emptyText}>{tr.coordOperation.logEmpty}</p>}
         </section>
       </div>
+
+      {/* Listedeki ile AYNI çekmece: iki ekranda iki ayrı form, birinde eklenen alanın
+          ötekinde eksik kalması demekti. */}
+      {editOpen && <DisasterFormDrawer disaster={d} onClose={() => setEditOpen(false)} />}
     </div>
   );
 }
@@ -520,7 +538,10 @@ const ghostBtn = {
   padding: '9px 13px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', minHeight: 40,
 } as const;
 
+// Şeritteki düğmeler. `display: inline-flex` ikon için: ikon tek başına anlam
+// taşımaz, her zaman yazının yanında durur (rules/04 §Accessibility).
 const darkBtn = (primary: boolean): CSSProperties => ({
+  display: 'inline-flex', alignItems: 'center', gap: 7,
   background: primary ? C.emergency : D.btnBg,
   border: `1px solid ${primary ? C.emergency : D.btnBd}`,
   color: '#fff', borderRadius: 9, padding: '9px 13px', fontSize: 13, fontWeight: 600,
