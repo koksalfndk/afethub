@@ -1,8 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { EmailOtpType, Session, User } from '@supabase/supabase-js';
+import type { Session, User } from '@supabase/supabase-js';
 import { supabase, hasSupabaseEnv } from './data/supabaseClient';
-import type { Profile, ProfileInput, UserRole } from './types';
-import { tr } from './i18n/strings';
+import type { Profile, UserRole } from './types';
 
 export interface AuthApi {
   enabled: boolean;          // true when Supabase is configured
@@ -14,21 +13,18 @@ export interface AuthApi {
   working: boolean;
   error: string;
   modalOpen: boolean;
-  modalMode: 'signIn' | 'signUp';   // which tab the modal opens on
-  // Address to pre-fill on the sign-up tab, set when someone arrives from an invite link.
-  // It is a convenience only: the role is claimed by verifying the address, not by having
-  // the link (see migration 0015).
-  prefillEmail: string;
-  openModal: (mode?: 'signIn' | 'signUp', prefillEmail?: string) => void;
+  recovery: boolean;         // user arrived via a password-reset link
+  openModal: () => void;
   closeModal: () => void;
   signIn: (email: string, password: string) => Promise<boolean>;
   signUp: (email: string, password: string, fullName: string) => Promise<'ok' | 'confirm' | 'error'>;
   signOut: () => Promise<void>;
   resendVerification: () => Promise<boolean>;
+  requestPasswordReset: (email: string) => Promise<boolean>;
+  updatePassword: (newPassword: string) => Promise<boolean>;
+  changePassword: (current: string, next: string) => Promise<'ok' | 'bad-current' | 'error'>;
+  clearRecovery: () => void;
   setAvatar: (url: string) => Promise<void>;
-  // Profile self-service. Role and membership verification are NOT writable here —
-  // RLS rejects them too, so a crafted request cannot self-promote (rules/03).
-  updateProfile: (input: ProfileInput) => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -41,20 +37,9 @@ export const useAuth = () => {
 
 async function loadProfile(userId: string): Promise<Profile | null> {
   if (!supabase) return null;
-  const { data } = await supabase
-    .from('profiles')
-    .select('id, full_name, role, avatar_url, phone, city, district, organization_id, org_title, org_verified')
-    .eq('id', userId).maybeSingle();
+  const { data } = await supabase.from('profiles').select('id, full_name, role, avatar_url').eq('id', userId).maybeSingle();
   if (!data) return null;
-  return {
-    id: String(data.id), fullName: String(data.full_name ?? ''),
-    role: (data.role as UserRole) ?? 'volunteer', avatarUrl: data.avatar_url ?? null,
-    phone: String(data.phone ?? ''), city: String(data.city ?? ''), district: String(data.district ?? ''),
-    orgId: data.organization_id ? String(data.organization_id) : null,
-    orgTitle: String(data.org_title ?? ''),
-    // Membership verification is coordinator-set; the client only reads it.
-    orgVerified: data.org_verified === true,
-  };
+  return { id: String(data.id), fullName: String(data.full_name ?? ''), role: (data.role as UserRole) ?? 'volunteer', avatarUrl: data.avatar_url ?? null };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -65,8 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<'signIn' | 'signUp'>('signIn');
-  const [prefillEmail, setPrefillEmail] = useState('');
+  const [recovery, setRecovery] = useState(false);
 
   useEffect(() => {
     if (!supabase) return;
@@ -79,36 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setReady(true);
     };
     supabase.auth.getSession().then(({ data }) => apply(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => { void apply(session); });
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      // Arriving via the password-reset email establishes a recovery session:
+      // open the modal and let the user set a new password.
+      if (event === 'PASSWORD_RECOVERY') { setRecovery(true); setError(''); setModalOpen(true); }
+      void apply(session);
+    });
     return () => { active = false; sub.subscription.unsubscribe(); };
-  }, []);
-
-  // Own-domain email confirmation. Our Supabase email templates point users to
-  //   https://afethub.com/?token_hash=...&type=signup
-  // instead of the supabase.co verify URL, so the link matches the sending domain
-  // (better deliverability, no cross-domain spam flag). The token arrives here as
-  // query params: exchange it for a session with verifyOtp, then strip it from the
-  // URL so a refresh cannot reuse a spent token. onAuthStateChange (above) applies
-  // the resulting session, so we only handle the failure case here.
-  useEffect(() => {
-    if (!supabase) return;
-    const params = new URLSearchParams(window.location.search);
-    const tokenHash = params.get('token_hash');
-    const type = params.get('type');
-    if (!tokenHash || !type) return;
-
-    void supabase.auth
-      .verifyOtp({ token_hash: tokenHash, type: type as EmailOtpType })
-      .then(({ error: e }) => {
-        if (e) {
-          // e.g. an expired or already-used link — surface it in the sign-in modal.
-          setModalMode('signIn');
-          setModalOpen(true);
-          setError(e.message);
-        }
-        // Remove token_hash/type/etc. from the address bar either way.
-        window.history.replaceState({}, '', window.location.pathname);
-      });
   }, []);
 
   const api: AuthApi = useMemo(() => ({
@@ -116,14 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isCoordinator: profile?.role === 'coordinator' || profile?.role === 'admin',
     emailVerified: !!user?.email_confirmed_at,
     working, error,
-    modalOpen, modalMode,
-    prefillEmail,
-    openModal: (mode, prefill) => {
-      setError(''); setModalMode(mode ?? 'signIn');
-      setPrefillEmail(prefill ?? ''); setModalOpen(true);
-    },
-    closeModal: () => setModalOpen(false),
+    modalOpen, recovery,
+    openModal: () => { setError(''); setModalOpen(true); },
+    closeModal: () => { setModalOpen(false); setRecovery(false); },
     clearError: () => setError(''),
+    clearRecovery: () => setRecovery(false),
     signIn: async (email, password) => {
       if (!supabase) return false;
       setWorking(true); setError('');
@@ -153,34 +111,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error: e } = await supabase.auth.resend({ type: 'signup', email: user.email, options: { emailRedirectTo: redirectTo } });
       return !e;
     },
+    requestPasswordReset: async (email) => {
+      if (!supabase) return false;
+      setWorking(true); setError('');
+      const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+      const { error: e } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+      setWorking(false);
+      // Do not reveal whether the address is registered (anti-enumeration, rule 03).
+      if (e && e.status && e.status >= 500) { setError(e.message); return false; }
+      return true;
+    },
+    updatePassword: async (newPassword) => {
+      if (!supabase) return false;
+      setWorking(true); setError('');
+      const { error: e } = await supabase.auth.updateUser({ password: newPassword });
+      setWorking(false);
+      if (e) { setError(e.message); return false; }
+      setRecovery(false);
+      return true;
+    },
+    changePassword: async (current, next) => {
+      if (!supabase || !user?.email) return 'error';
+      setWorking(true); setError('');
+      // Re-verify the current password so an unlocked, unattended session can't
+      // silently have its password changed (rule 03).
+      const { error: e1 } = await supabase.auth.signInWithPassword({ email: user.email, password: current });
+      if (e1) { setWorking(false); return 'bad-current'; }
+      const { error: e2 } = await supabase.auth.updateUser({ password: next });
+      setWorking(false);
+      if (e2) { setError(e2.message); return 'error'; }
+      return 'ok';
+    },
     setAvatar: async (url) => {
       if (!supabase || !user) return;
       await supabase.from('profiles').update({ avatar_url: url }).eq('id', user.id);
       setProfile((p) => (p ? { ...p, avatarUrl: url } : p));
     },
-    updateProfile: async (input) => {
-      if (!supabase || !user) return false;
-      setWorking(true); setError('');
-      // Only these five columns are sent. `role` and `org_verified` are absent by
-      // design and RLS forbids them regardless of what the client asks for.
-      const { error: e } = await supabase.from('profiles').update({
-        full_name: input.fullName.trim(), phone: input.phone.trim(),
-        city: input.city.trim(), district: input.district.trim(),
-        organization_id: input.orgId, org_title: input.orgTitle.trim(),
-      }).eq('id', user.id);
-      setWorking(false);
-      if (e) { setError(tr.auth.genericError); return false; }
-      // A changed membership drops back to unverified: a coordinator confirmed the
-      // previous organization, not this one.
-      setProfile((p) => (p ? {
-        ...p, fullName: input.fullName.trim(), phone: input.phone.trim(),
-        city: input.city.trim(), district: input.district.trim(),
-        orgId: input.orgId, orgTitle: input.orgTitle.trim(),
-        orgVerified: p.orgId === input.orgId ? p.orgVerified : false,
-      } : p));
-      return true;
-    },
-  }), [enabled, ready, user, profile, working, error, modalOpen, modalMode]);
+  }), [enabled, ready, user, profile, working, error, modalOpen, recovery]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

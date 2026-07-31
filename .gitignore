@@ -4,4 +4,8 @@
 # Geçici teslimat klasörü (silinebilir)
 _to_delete/
 
+# Ham veri setleri (TurkiyeAPI indirmeleri). İşlenmiş hâli
+# app/public/data/settlements/ altında; ham dosyalar 11 MB ve depoda işi yok.
+_veri/
+
 # app/ kendi .gitignore'una sahip: node_modules, dist, .env
