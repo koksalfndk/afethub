@@ -506,6 +506,8 @@ export interface ContactInput {
   province: string;
   district: string;
   website: string;
+  /** Turnstile token. Meaningless in the browser: only the Edge Function can judge it. */
+  captchaToken?: string;
 }
 
 // One stored file. `path` is an object path inside the private bucket, never a URL:

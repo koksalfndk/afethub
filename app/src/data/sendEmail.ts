@@ -117,6 +117,37 @@ export async function sendVolunteerApproved(applicationId: string): Promise<bool
 // Returns false for "not sent" of any kind. The message is already stored by the time
 // this runs, so a false must never be presented to the writer as "your message was not
 // received": it wasn't announced, which is our problem to fix, not theirs.
+// ---------------------------------------------------------------------------
+// Contact form submission (bot check + write)
+// ---------------------------------------------------------------------------
+// The browser no longer writes the message itself. It hands the fields and the Turnstile
+// token to `contact-submit`, which verifies the token where the secret lives and only
+// then calls submit_contact_message. A check that only exists in the page is not a check.
+//
+// `turnstile: 'off'` in the reply means the operator has not configured the secret yet —
+// the message is stored, and the caller can say out loud that no bot check ran.
+export type ContactSubmitResult =
+  | { ok: true; id: string; turnstile: 'on' | 'off' }
+  | { ok: false; error: string };
+
+export async function submitContactViaFunction(payload: Record<string, string>): Promise<ContactSubmitResult> {
+  if (!supabase) return { ok: false, error: 'supabase-not-configured' };
+  try {
+    const { data, error } = await supabase.functions.invoke('contact-submit', { body: payload });
+    if (error) {
+      // A non-2xx reply carries the reason in its body; supabase-js only gives us the
+      // status here, so the reason is read from the response when it is available.
+      const detail = await (error as { context?: { json?: () => Promise<{ error?: string }> } })
+        .context?.json?.().catch(() => null);
+      return { ok: false, error: detail?.error ?? 'submit-failed' };
+    }
+    if (!data?.ok) return { ok: false, error: String(data?.error ?? 'submit-failed') };
+    return { ok: true, id: String(data.id), turnstile: data.turnstile === 'on' ? 'on' : 'off' };
+  } catch {
+    return { ok: false, error: 'submit-failed' };
+  }
+}
+
 export async function sendContactMessage(messageId: string): Promise<boolean> {
   if (!supabase || !messageId) return false;
   try {

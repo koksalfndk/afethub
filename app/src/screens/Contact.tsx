@@ -10,6 +10,7 @@ import {
   prepareFile, prettyBytes, contactFileAccept, ContactFileError,
   MAX_FILES, type PreparedContactFile,
 } from '../contactFiles';
+import { Turnstile, turnstileEnabled } from '../components/Turnstile';
 import type { ContactTopic } from '../types';
 
 const TOPICS: ContactTopic[] = ['Genel', 'Kurum', 'Gönüllü', 'Basın', 'Teknik', 'Diğer'];
@@ -44,6 +45,9 @@ export function Contact() {
   const [district, setDistrict] = useState(auth.profile?.district ?? '');
   const [website, setWebsite] = useState('');
   const [files, setFiles] = useState<PreparedContactFile[]>([]);
+  // Empty until the visitor passes the bot check (and again when the token expires).
+  // Meaningless on its own: the Edge Function is what asks Cloudflare whether it is real.
+  const [captcha, setCaptcha] = useState('');
   const [preparing, setPreparing] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -89,9 +93,13 @@ export function Contact() {
     if (!/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(email.trim())) return setErr(tr.contact.errEmail);
     if (message.trim().length < MIN) return setErr(tr.contact.errMessage);
     if (website.trim() !== '' && !/^https?:\/\/\S{3,}$/i.test(website.trim())) return setErr(tr.contact.errWebsite);
+    // Only enforced when the widget is actually on the page: before the site key is
+    // configured there is nothing to complete, and blocking the form on a control the
+    // visitor cannot see would be a dead end.
+    if (turnstileEnabled && !captcha) return setErr(tr.contact.captchaMissing);
     setErr(''); setBusy(true);
     const ok = await a.submitContact(
-      { name, email, topic, message, phone, province, district, website },
+      { name, email, topic, message, phone, province, district, website, captchaToken: captcha },
       files,
     );
     setBusy(false);
@@ -265,6 +273,8 @@ export function Contact() {
                   )}
                 </div>
               </div>
+
+              <Turnstile onToken={setCaptcha} />
 
               {err && (
                 <p role="alert" style={{

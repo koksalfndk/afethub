@@ -18,6 +18,7 @@ import type {
 import type { NeedPayload } from '../needForm';
 import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW, isLocalSlideImage, disasterSlug, isPublicAuditAction, SLA_HOURS, splitDistricts, auditActionLabel, auditDetailLabel, auditValueLabel, auditActorLabel } from './repo';
 import { PRI } from '../theme';
+import { submitContactViaFunction } from './sendEmail';
 import { RefreshFailedError } from '../util';
 
 // Turkish relative-time formatter for DB timestamps.
@@ -837,15 +838,19 @@ export class SupabaseRepo implements Repo {
   // ---- İletişim ------------------------------------------------------------
   // The RPC does the validating and the rate limiting; this only forwards. The returned
   // id is what the mailer is given — it never learns a recipient from the browser.
+  // Goes through the `contact-submit` Edge Function, not straight to the RPC: the
+  // Turnstile token has to be checked where the secret lives, and the row has to be
+  // written by the request that passed that check (rules/03 §Server-Side Authorization).
   async submitContact(input: ContactInput): Promise<string> {
-    const { data, error } = await this.db.rpc('submit_contact_message', {
-      p_name: input.name.trim(), p_email: input.email.trim(),
-      p_topic: input.topic, p_message: input.message.trim(),
-      p_phone: input.phone.trim(), p_province: input.province.trim(),
-      p_district: input.district.trim(), p_website: input.website.trim(),
+    const res = await submitContactViaFunction({
+      token: input.captchaToken ?? '',
+      name: input.name.trim(), email: input.email.trim(),
+      topic: input.topic, message: input.message.trim(),
+      phone: input.phone.trim(), province: input.province.trim(),
+      district: input.district.trim(), website: input.website.trim(),
     });
-    if (error) throw error;
-    return String(data ?? '');
+    if (!res.ok) throw new Error(res.error);
+    return res.id;
   }
 
   async attachContactFiles(messageId: string, files: ContactAttachment[]): Promise<void> {

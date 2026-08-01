@@ -177,7 +177,11 @@ export function CoordContact() {
             </thead>
             <tbody>
               {rows.map((m) => (
-                <tr key={m.id}>
+                // The whole row opens the message; the Detay button stays because it is
+                // what a keyboard and a screen reader can reach. A <tr> with role=button
+                // would announce a table row as a button, which is worse than having both.
+                <tr key={m.id} onClick={() => setOpenId(m.id)} className="hv-row"
+                  style={{ cursor: 'pointer' }}>
                   <td style={td}>{statusChip(m.status)}</td>
                   <td style={{ ...td, fontWeight: 700, color: C.navy, whiteSpace: 'nowrap' }}>{m.name}</td>
                   <td style={{ ...td, color: C.heading2, whiteSpace: 'nowrap' }}>

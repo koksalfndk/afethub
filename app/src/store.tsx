@@ -1114,8 +1114,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
         return true;
       } catch (e: unknown) {
+        // The Edge Function answers with a short code; each one gets its own sentence so
+        // the person knows whether to wait, to retry, or to fix something.
         const msg = e instanceof Error ? e.message : '';
-        showToast(msg.includes('rate limited') ? tr.contact.rateLimited : tr.contact.sendError);
+        showToast(
+          /rate.?limited/.test(msg) ? tr.contact.rateLimited
+            : msg === 'captcha-missing' ? tr.contact.captchaMissing
+              : msg === 'captcha-failed' || msg === 'captcha-unavailable' ? tr.contact.captchaRejected
+                : tr.contact.sendError,
+        );
         return false;
       }
     },

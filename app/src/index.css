@@ -22,6 +22,8 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 /* style-hover ports */
 .hv-emergency:hover { background: #C22B33 !important; }
 .hv-navy:hover { border-color: #102A43 !important; }
+/* Tıklanabilir tablo satırı: fare üzerindeyken satırın tamamı hedef olduğunu gösterir. */
+.hv-row:hover > td { background: #F7FAFC; }
 /* Düğme ama bağlantı gibi davranır: listede kaydın adı. Altı yalnızca hover'da
    çizilir; sürekli çizili olsaydı tabloda her satır bir bağlantı gürültüsü olurdu. */
 .lnk:hover { text-decoration: underline; }
