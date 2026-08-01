@@ -5,7 +5,7 @@ import { tr } from '../i18n/strings';
 import { PROVINCES, districtsOf } from '../data/trLocations';
 import { C } from '../theme';
 import { enrichSorted, cols } from '../select';
-import { Field, inputStyle, eyebrow, StatusBadge, DateInput } from '../ui';
+import { Field, inputStyle, eyebrow, StatusBadge, DateInput, Ico, DISASTER_ICON } from '../ui';
 import { Picker, toOptions } from '../components/Picker';
 import { DIAL_COUNTRIES, dialLabel } from '../data/dialCodes';
 import { PhotoUploader } from '../components/PhotoUploader';
@@ -20,9 +20,22 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
   const [localErr, setLocalErr] = useState('');
   const [dial, setDial] = useState(() => splitPhone(a.form.phone).dial);
   const [phoneRest, setPhoneRest] = useState(() => splitPhone(a.form.phone).rest);
+  // Afet adımı SORULACAK MI — bir kez karar verilir ve form kapanana kadar sabit kalır.
+  //
+  // Doğrudan `!a.operationChosen`'a bakmak olmaz: kullanıcı seçimini yapar yapmaz o
+  // değer true'ya döner, adım dizisi kısalır ve elde kalan `step` indeksi bir sonraki
+  // adıma kayar — teslimat adımı atlanır. Adım sayısı akışın ortasında değişmemeli.
+  // `null` = anlık görüntü henüz gelmedi, karar verilemiyor.
+  const [askOp, setAskOp] = useState<boolean | null>(null);
 
   // Fresh estimated-arrival default each time the form opens: now + 30 min, rounded up.
   useEffect(() => { a.setForm('eta', defaultEta()); /* eslint-disable-next-line */ }, []);
+
+  useEffect(() => {
+    if (askOp !== null || !a.snap) return;
+    const n = a.snap.disasters.filter((d) => d.status === 'Active').length;
+    setAskOp(!a.operationChosen && n > 1);
+  }, [a.snap, a.operationChosen, askOp]);
 
   if (!a.snap) return null;
   const mob = a.device === 'mobile';
@@ -84,11 +97,29 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
   // Signed in, the contact step is still offered: a coordinator frequently records a
   // delivery someone else brought, and that person's own details are what matter for
   // the audit trail and for the record showing up in THEIR "Gönderilerim".
-  const stepKeys: Array<'delivery' | 'note' | 'contact'> = ['delivery', 'note', 'contact'];
+  //
+  // Sıfırıncı adım: HANGİ AFET?
+  //
+  // Form, açıldığı anda yüklü olan anlık görüntünün ihtiyaçlarını listeliyordu. Ana
+  // sayfadan "Yardım Et" ile gelindiğinde seçilmiş bir operasyon yok; anlık görüntü
+  // yükleyicisi boş slug'ı ilk aktif operasyonla dolduruyor ve form sessizce ona
+  // bağlanıyordu. Ziyaretçi hangi afete bildirim yaptığını hiç görmeden üç adım
+  // ilerliyor, teslimat yanlış operasyona düşüyordu.
+  //
+  // Bu yüzden operasyon SEÇİLMEMİŞSE ve seçilecek birden çok operasyon varsa, form
+  // önce onu soruyor. Tek aktif operasyon varsa soru anlamsız — o zaman adım
+  // atlanır, ama hangi operasyon olduğu aşağıdaki başlıkta yine de yazar.
+  const activeOps = (a.snap.disasters ?? []).filter((d) => d.status === 'Active');
+  const needsOpStep = askOp === true;
+
+  const stepKeys: Array<'operation' | 'delivery' | 'note' | 'contact'> =
+    needsOpStep ? ['operation', 'delivery', 'note', 'contact'] : ['delivery', 'note', 'contact'];
   const stepKey = stepKeys[Math.min(step, stepKeys.length - 1)];
   const lastStep = step >= stepKeys.length - 1;
 
   const stepError = (which: string): string => {
+    // Operasyon adımının kendi doğrulaması yok: bir operasyona tıklamak zaten
+    // seçmektir ve tıklama bir sonraki adıma geçirir.
     if (which === 'delivery') {
       if (!f.needId) return tr.report.errNeed;
       if (!(parseInt(f.qty, 10) > 0)) return tr.report.errQty;
@@ -123,6 +154,37 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
       {!inModal && <p style={{ fontSize: 14.5, color: C.muted, margin: '0 0 18px' }}>{tr.report.intro}</p>}
 
       <div style={{ background: C.surface, border: inModal ? '0' : `1px solid ${C.border}`, borderRadius: 12, padding: inModal ? 0 : 18, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Hangi afet için bildirim yapıldığı, her adımda görünür. Tek aktif operasyon
+            varken de yazar: kullanıcı seçmemiş olsa bile hangi operasyona bildirim
+            yaptığını bilmeli. Birden çok operasyon varsa "Değiştir" ile adım 0'a döner. */}
+        {stepKey !== 'operation' && a.snap.disaster && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+            background: C.canvas, border: `1px solid ${C.borderFaint}`, borderRadius: 11,
+            padding: '10px 12px',
+          }}>
+            <Ico n={DISASTER_ICON[a.snap.disaster.type]} size={16} color={C.emergency} />
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 11.5, color: C.muted2, fontWeight: 600 }}>{tr.report.opCurrent}</span>
+              <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: C.navy }}>{a.snap.disaster.name}</span>
+            </span>
+            {activeOps.length > 1 && (
+              <button type="button" className="lnk" onClick={() => {
+                // Seçim geri alınır ve adım 0'a dönülür. Önceki operasyona ait
+                // ihtiyaç ve teslim noktası formda kalamaz.
+                a.clearOperationChoice();
+                a.setForm('needId', ''); a.setForm('loc', '');
+                setLocalErr('');
+                setAskOp(true);
+                setStep(0);
+              }} style={{
+                background: 'none', border: 0, padding: '6px 2px', font: 'inherit',
+                fontSize: 13, fontWeight: 700, color: C.info, cursor: 'pointer', minHeight: 40,
+              }}>{tr.report.opChange}</button>
+            )}
+          </div>
+        )}
+
         {/* stepper */}
         <div>
           <div style={{ display: 'flex', gap: 5 }}>
@@ -134,6 +196,47 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
             {tr.report.stepOf(step + 1, stepKeys.length)} · {tr.report.stepNames[stepKey]}
           </div>
         </div>
+
+        {stepKey === 'operation' && (
+          <div>
+            <div style={{ fontSize: 15.5, fontWeight: 700, color: C.navy }}>{tr.report.opTitle}</div>
+            <p style={{ fontSize: 13.5, color: C.muted, margin: '5px 0 14px', lineHeight: 1.55 }}>{tr.report.opBody}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+              {activeOps.map((d) => (
+                  <button key={d.id} type="button" className="hv-navy"
+                    onClick={() => {
+                      // Seçim yapılır YAPILMAZ bir sonraki adıma geçilir: ayrıca
+                      // "Devam"a basmak, tıklamayla zaten verilmiş bir kararı ikinci
+                      // kez sormak olurdu.
+                      a.selectOperation(d.slug);
+                      setLocalErr('');
+                      setStep(1);
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
+                      background: C.surface,
+                      // Yalnızca KULLANICI seçtiyse vurgulanır. Yüklü anlık görüntünün
+                      // afeti seçim değildir; çerçevelemek "zaten seçtin" demek olurdu
+                      // ve bu ekranın var oluş sebebi tam olarak o yanlış izlenim.
+                      border: `1px solid ${a.operationChosen && d.slug === a.snap?.disaster.slug ? C.navy : C.borderSoft}`,
+                      borderRadius: 11, padding: '13px 14px', cursor: 'pointer', minHeight: 64,
+                    }}>
+                    <span style={{
+                      width: 36, height: 36, flex: '0 0 36px', borderRadius: 10, background: C.chipNavyBg,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}><Ico n={DISASTER_ICON[d.type]} size={18} color={C.emergency} /></span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: C.navy }}>{d.name}</span>
+                      <span style={{ display: 'block', fontSize: 12.5, color: C.muted2, marginTop: 1 }}>
+                        {d.region || d.province}
+                      </span>
+                    </span>
+                    <Ico n="chev" size={16} color={C.muted3} />
+                  </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {stepKey === 'delivery' && (
           <div style={{ display: 'grid', gap: 12, gridTemplateColumns: L.form }}>
@@ -285,6 +388,10 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
           </div>
         )}
 
+        {/* Operasyon adımında "Devam" YOK: bir operasyona tıklamak zaten seçmektir,
+            ayrıca onaylatmak aynı kararı iki kez sormaktır. Geri düğmesi de yok,
+            çünkü bu adım ilk adım. */}
+        {stepKey !== 'operation' && (
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           {step > 0 && (
             <button onClick={() => { setLocalErr(''); setStep((v) => Math.max(0, v - 1)); }} className="hv-navy" style={{ background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 10, padding: '0 18px', height: 48, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>{tr.wizard.back}</button>
@@ -298,6 +405,7 @@ export function Report({ inModal = false }: { inModal?: boolean }) {
             <button onClick={goNext} className="hv-emergency" style={{ background: C.emergency, border: `1px solid ${C.emergency}`, color: '#fff', borderRadius: 10, padding: '0 20px', height: 48, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>{tr.wizard.next}</button>
           )}
         </div>
+        )}
       </div>
     </div>
   );

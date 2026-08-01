@@ -247,6 +247,16 @@ export interface AppApi {
   // Rotayı DEĞİŞTİRMEDEN geçerli operasyonu değiştirir. Koordinatör ekranlarındaki
   // operasyon seçicisi bunu kullanır: seçim yapmak sayfadan çıkmak değildir.
   selectOperation: (slug: string) => void;
+  // Ziyaretçi bir operasyonu KENDİSİ seçti mi?
+  //
+  // `currentSlug` bu soruyu yanıtlayamıyor: anlık görüntü yüklenirken boşsa
+  // kendiliğinden ilk operasyonun slug'ıyla doluyor (loadSnapshot → applySnap).
+  // Yani "bir operasyon var" ile "kullanıcı bir operasyon seçti" aynı şey değil ve
+  // ikisini karıştırmak teslimat formunun ana sayfadan açıldığında sessizce rastgele
+  // bir operasyona bağlanmasına yol açıyordu.
+  operationChosen: boolean;
+  // Seçimi geri alır — teslimat formundaki "Değiştir" bunu kullanır.
+  clearOperationChoice: () => void;
   setDevice: (d: Device) => void; setRole: (r: Role) => void; setTab: (t: Tab) => void;
   setQuery: (q: string) => void; setFilter: (f: Filter) => void; setSubFilter: (f: SubFilter) => void;
   setCatFilter: (c: string) => void; setLocFilter: (l: string) => void;
@@ -341,6 +351,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Signed in but email not confirmed → privileged (coordinator) actions are blocked.
   const unverified = auth.enabled && !!auth.user && !auth.emailVerified;
   const [currentSlug, setCurrentSlug] = useState<string>(initial.slug ?? '');
+  // Adres çubuğunda bir slug varsa operasyon zaten seçilmiştir: /afet/<slug> ile
+  // gelen ziyaretçi hangi operasyona baktığını biliyor.
+  const [opChosen, setOpChosen] = useState<boolean>(Boolean(initial.slug));
   // Ana sayfadan bir kaleme tıklanınca taşınan niyet. Afet ekranı okur ve siler.
   const [focusNeedId, setFocusNeedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -611,6 +624,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setRoute(p.route);
       if (p.tab) setTab(p.tab);
       if (p.role) setProtoRole(p.role);
+      if (p.slug) setOpChosen(true);
       if (p.slug && p.slug !== currentSlug) { setCurrentSlug(p.slug); loadSnapshot(p.slug); }
     };
     window.addEventListener('popstate', onPop);
@@ -696,7 +710,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     go: (r, extra) => { setRoute(r); if (extra?.tab) setTab(extra.tab); },
     openDisaster: (slug, t, needId) => {
-      setCurrentSlug(slug); setRoute('disaster'); setTab(t ?? 'needs');
+      setCurrentSlug(slug); setOpChosen(true); setRoute('disaster'); setTab(t ?? 'needs');
+      // Operasyon değişiyorsa yarım kalmış teslimat formu temizlenir: `needId` ve
+      // teslim noktası ÖNCEKİ operasyona ait ve yeni operasyonda karşılığı yok.
+      // Taşınan bir ihtiyaç kimliği, kullanıcının seçmediği bir kaleme bildirim
+      // yapılmasına yol açardı.
+      if (slug !== currentSlug) { setFormState((v) => ({ ...v, needId: '', loc: '' })); }
       setFocusNeedId(needId ?? null);
       // Belirli bir kaleme gidiliyorsa önceki ziyaretten kalan süzgeçler temizlenir.
       // "Yalnızca kritik" açık kalmışken Normal öncelikli bir kaleme gelmek,
@@ -709,8 +728,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     focusNeedId,
     clearFocusNeed: () => setFocusNeedId(null),
-    openCoordDisaster: (slug) => { setCurrentSlug(slug); setRoute('coordDisaster'); if (slug !== currentSlug) loadSnapshot(slug); },
-    selectOperation: (slug) => { setCurrentSlug(slug); if (slug !== currentSlug) loadSnapshot(slug); },
+    openCoordDisaster: (slug) => { setCurrentSlug(slug); setOpChosen(true); setRoute('coordDisaster'); if (slug !== currentSlug) loadSnapshot(slug); },
+    selectOperation: (slug) => {
+      setCurrentSlug(slug); setOpChosen(true);
+      if (slug !== currentSlug) { setFormState((v) => ({ ...v, needId: '', loc: '' })); loadSnapshot(slug); }
+    },
+    operationChosen: opChosen,
+    clearOperationChoice: () => setOpChosen(false),
     reloadCoordDashboard: () => loadCoordDashboard(),
     setLocationCapacity: async (locationId, pct, note) => {
       if (unverified) { showToast(tr.auth.verifyFirst); return false; }
@@ -1215,7 +1239,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Every piece of state exposed on `api` must be listed here, or consumers keep the
   // previous value: `deliveryOpen` and `slides` were missing, so the delivery overlay
   // never appeared and the slide list could go stale after a save.
-  }), [snap, loadError, overview, coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, contactMessages, contactLoading, contactError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError, logDisasterId, focusNeedId]);
+  }), [snap, loadError, overview, coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, contactMessages, contactLoading, contactError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError, logDisasterId, focusNeedId, opChosen]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

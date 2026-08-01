@@ -806,7 +806,16 @@ export const tr = {
     onBehalfOther: 'Başka biri adına kaydet',
     // Step-by-step delivery report.
     stepOf: (n: number, total: number) => `Adım ${n} / ${total}`,
-    stepNames: { delivery: 'Teslimat', note: 'Not ve fotoğraf', contact: 'İletişim' },
+    stepNames: { operation: 'Afet', delivery: 'Teslimat', note: 'Not ve fotoğraf', contact: 'İletişim' },
+    // Sıfırıncı adım — hangi afet için bildirim yapılıyor.
+    opTitle: 'Hangi afet için teslimat yapıyorsunuz?',
+    opBody: 'Bildiriminiz seçtiğiniz afetin ihtiyaçlarına işlenir. Yanlış seçim, teslimatın başka bir bölgenin sayısına yazılması demektir.',
+    opNeeds: (n: number) => (n === 1 ? '1 açık ihtiyaç' : `${n} açık ihtiyaç`),
+    opNoNeeds: 'Şu an açık ihtiyaç kaydı yok',
+    // Seçim yapıldıktan sonra formun üstünde duran satır. Ziyaretçi hangi afete
+    // bildirim yaptığını her adımda görebilmeli.
+    opCurrent: 'Teslimat bildirilen afet',
+    opChange: 'Değiştir',
     pickNeed: 'İhtiyaç seçin',
     pickLoc: 'Teslim noktası seçin',
     errNeed: 'Lütfen hangi ihtiyaç için teslimat yaptığınızı seçin.',
