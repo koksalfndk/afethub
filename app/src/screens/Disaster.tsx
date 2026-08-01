@@ -3,15 +3,16 @@ import { useApp } from '../store';
 import { useAuth } from '../auth';
 import { tr, disasterTypeLabel } from '../i18n/strings';
 import { C, G, wash, MOBILE_HEADER_H, DESKTOP_HEADER_H } from '../theme';
-import { enrichSorted, cols } from '../select';
+import { enrichSorted, cols, type EnrichedNeed } from '../select';
 import { PriorityBadge, ProgressBar, Chip, StatCard, LiveDot, Ico, DISASTER_ICON, eyebrow, filterPickerStyle, washCard, type IcoName } from '../ui';
 import { Picker, toOptions } from '../components/Picker';
 import { detailPairs, categoryIcon } from '../needForm';
-import { LocationMap } from '../components/LocationMap';
+import { LocationsMap } from '../components/LocationsMap';
 import { NeedFilterSheet, activeFilterCount } from '../components/NeedFilterSheet';
 import { NeedQuickView } from '../components/NeedQuickView';
 import { isToday, formatDate } from '../util';
 import type { Filter, Tab } from '../store';
+import type { Location } from '../types';
 
 const FILTERS: Filter[] = ['All', 'Critical', 'Urgent', 'Normal', 'Completed'];
 
@@ -506,34 +507,11 @@ export function Disaster() {
       )}
 
       {a.tab === 'locations' && (
-        <div style={{ display: 'grid', gap: 14, gridTemplateColumns: L.two }}>
-          {a.snap.locations.map((l) => (
-            <div key={l.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
-              <div style={{ height: 132, position: 'relative', borderBottom: `1px solid ${C.border}` }}>
-                <LocationMap lat={l.lat} lng={l.lng} tone={l.statusTone} label={l.name} />
-                <span style={{ position: 'absolute', bottom: 8, left: 10, zIndex: 500, background: 'rgba(255,255,255,.92)', border: `1px solid ${C.borderSoft}`, borderRadius: 6, padding: '4px 8px', fontSize: 11.5, fontWeight: 600, color: C.heading2 }}>{l.coords}</span>
-              </div>
-              <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                  <div>
-                    <div style={{ fontSize: 16, fontWeight: 700 }}>{l.name}</div>
-                    <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{l.address}</div>
-                  </div>
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color: l.statusTone === 'green' ? C.successText : C.warningText, background: l.statusTone === 'green' ? '#EAF7EF' : '#FFF8E5', border: `1px solid ${l.statusTone === 'green' ? '#C9E9D6' : '#F2DFA8'}`, borderRadius: 20, padding: '4px 9px', whiteSpace: 'nowrap' }}>{l.status}</span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '104px 1fr', gap: '6px 10px', fontSize: 13 }}>
-                  <span style={{ color: C.muted2, fontWeight: 600 }}>{tr.disaster.loc.hours}</span><span style={{ color: C.heading2 }}>{l.hours}</span>
-                  <span style={{ color: C.muted2, fontWeight: 600 }}>{tr.disaster.loc.accepts}</span><span style={{ color: C.heading2 }}>{l.accepts}</span>
-                  <span style={{ color: C.muted2, fontWeight: 600 }}>{tr.disaster.loc.contact}</span><span style={{ color: C.heading2 }}>{l.contact} · {l.phone}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button style={{ background: C.navy, border: `1px solid ${C.navy}`, color: '#fff', borderRadius: 9, padding: '11px 14px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>{tr.common.openMap}</button>
-                  <button onClick={() => a.go('disaster', { tab: 'needs' })} style={{ background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 9, padding: '11px 14px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>{tr.common.viewNeeds}</button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <DeliveryPoints
+          points={a.snap.locations} needs={needs} mob={mob}
+          onNeedsAt={(name) => { a.clearFilters(); a.setLocFilter(name); a.go('disaster', { tab: 'needs' }); }}
+          onReportAt={(name) => { a.prefillReport('', '', name); }}
+        />
       )}
 
       {a.tab === 'announcements' && (
@@ -592,6 +570,259 @@ export function Disaster() {
     {/* Kalem silinmiş ya da süzgeç dışına düşmüş olabilir; kimlik listede yoksa
         pencere hiç açılmaz — boş bir pencere göstermektense kapalı kalır. */}
     {quickNeed && <NeedQuickView need={quickNeed} onClose={() => setQuickId(null)} />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Teslim noktaları — liste + tek harita.
+//
+// Neden kart ızgarası değil: her kartın kendi 132 piksellik haritası, noktaların
+// BİRBİRİNE GÖRE nerede olduğunu göstermiyordu. Elinde malzemeyle yola çıkan kişinin
+// sorusu "bana en yakını hangisi" ve bu soru dört ayrı karede cevapsız kalıyordu.
+//
+// Kartta hiç görünmeyen ve buraya giren asıl bilgi DOLULUK. Migration 0025 bu sütunu
+// tam olarak "dolu bir noktaya sevkiyat yönlendirme" diye eklemişti; şimdiye kadar
+// hiçbir ekranda okunmuyordu.
+// ---------------------------------------------------------------------------
+
+// %85 eşiği veri katmanıyla aynı (localRepo `pointsAtCapacity`): iki yerde iki farklı
+// eşik, panoda "2 nokta doluyor" derken listede üç dolu nokta göstermek demek olurdu.
+const CAP_FULL = 85;
+const CAP_TIGHT = 70;
+
+function capTone(pct: number): { color: string; word: string } {
+  if (pct >= CAP_FULL) return { color: C.errorText, word: tr.disaster.loc.capFull };
+  if (pct >= CAP_TIGHT) return { color: C.warningText, word: tr.disaster.loc.capTight };
+  return { color: C.successText, word: tr.disaster.loc.capRoom };
+}
+function capBar(pct: number): string {
+  if (pct >= CAP_FULL) return C.emergency;
+  if (pct >= CAP_TIGHT) return C.warning;
+  return C.success;
+}
+
+// Doluluk satırı. Üç ayrı durum, üçü de FARKLI cümle kuruyor:
+//   kapalı        → çubuk yok; kapalı bir yerin doluluğu kararı değiştirmiyor
+//   ölçüm yok     → çubuk yok; %0 çizmek "bomboş" diye okunur
+//   ölçüm var     → çubuk + yüzde + kelime (renk tek başına anlatmaz)
+function CapacityRow({ l, compact }: { l: Location; compact?: boolean }) {
+  // Ölçüm yoksa çubuk YOK. Durumdan bağımsız: kapalı bir noktanın da ölçümü olmayabilir
+  // ve o zaman söylenecek şey "kapalı olduğu için gizliyoruz" değil, ölçüm olmadığıdır.
+  if (l.capacityPct == null) {
+    return <div style={{ fontSize: 12.5, color: C.muted }}>{tr.disaster.loc.capUnknown}</div>;
+  }
+  const pct = Math.max(0, Math.min(100, l.capacityPct));
+  const open = l.statusTone === 'green';
+  const tone = capTone(pct);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+      <span style={{ flex: '1 1 70px', minWidth: 60 }}>
+        {/* Nokta şu an teslim almıyorsa çubuk GRİ ve "yer var" denmiyor: sayı gerçek
+            ama şu anda oraya gidilmez, renk de öyle demeli. */}
+        <ProgressBar pct={pct} color={open ? capBar(pct) : C.muted3} height={8} flat />
+      </span>
+      <span className="tnum" style={{ fontSize: 12.5, fontWeight: 700, color: open ? tone.color : C.muted, whiteSpace: 'nowrap' }}>
+        %{pct}{compact || !open ? '' : ` · ${tone.word}`}
+      </span>
+      {!compact && l.capacityUpdated && (
+        <span style={{ fontSize: 11.5, color: C.muted3, whiteSpace: 'nowrap' }}>{tr.disaster.loc.capUpdated(l.capacityUpdated)}</span>
+      )}
+    </div>
+  );
+}
+
+// Kullanıcının KENDİ harita uygulamasında açılan yol tarifi bağlantısı. Bir API
+// anahtarı, bir betik ya da bir faturalandırma hesabı gerektirmiyor; kayıtlı
+// koordinat yeterli. (Eski "Haritada Aç" düğmesinin hiç `onClick`'i yoktu.)
+const directionsUrl = (l: Location): string =>
+  `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}`;
+
+type PointFilter = 'all' | 'open' | 'room';
+
+function DeliveryPoints({ points, needs, mob, onNeedsAt, onReportAt }: {
+  points: Location[];
+  needs: EnrichedNeed[];
+  mob: boolean;
+  onNeedsAt: (name: string) => void;
+  onReportAt: (name: string) => void;
+}) {
+  const [filter, setFilter] = useState<PointFilter>('all');
+  const [selId, setSelId] = useState('');
+
+  // Noktada açık kalem sayısı: ihtiyaçlar zaten teslim noktası adını taşıyor.
+  const openAt = (name: string) => needs.filter((n) => n.loc === name && n.remaining > 0).length;
+
+  const isOpen = (l: Location) => l.statusTone === 'green';
+  const hasRoom = (l: Location) => isOpen(l) && l.capacityPct != null && l.capacityPct < CAP_FULL;
+  const shown = points.filter((l) => (filter === 'open' ? isOpen(l) : filter === 'room' ? hasRoom(l) : true));
+
+  // Seçim türetiliyor: süzgeç değişince seçili nokta listeden düşmüş olabilir ve
+  // haritada olmayan bir noktanın kartını göstermek yanlış olurdu.
+  const sel = shown.find((l) => l.id === selId) ?? shown[0] ?? null;
+
+  if (points.length === 0) {
+    return (
+      <div style={{ background: C.surface, border: `1px dashed ${C.borderSoft}`, borderRadius: 12, padding: '40px 20px', textAlign: 'center' }}>
+        <div style={{ fontSize: 14, color: C.muted }}>{tr.disaster.loc.none}</div>
+      </div>
+    );
+  }
+
+  const chip = (k: PointFilter, label: string) => (
+    <button key={k} onClick={() => setFilter(k)} aria-pressed={filter === k} style={{
+      background: filter === k ? C.navy : C.surface,
+      border: `1px solid ${filter === k ? C.navy : C.borderSoft}`,
+      color: filter === k ? '#fff' : C.heading2,
+      borderRadius: 20, padding: '8px 12px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', minHeight: 40,
+    }}>{label}</button>
+  );
+
+  const statusPill = (l: Location) => (
+    <span style={{
+      fontSize: 11.5, fontWeight: 700, borderRadius: 20, padding: '4px 9px', whiteSpace: 'nowrap',
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      color: isOpen(l) ? C.successText : C.warningText,
+      background: isOpen(l) ? '#EAF7EF' : '#FFF8E5',
+      border: `1px solid ${isOpen(l) ? '#C9E9D6' : '#F2DFA8'}`,
+    }}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', flex: '0 0 7px', background: isOpen(l) ? C.success : C.warning }} />
+      {l.status}
+    </span>
+  );
+
+  const list = (
+    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div style={{ display: 'flex', gap: 6, padding: '12px 14px', borderBottom: `1px solid ${C.borderFaint}`, flexWrap: 'wrap' }}>
+        {chip('all', tr.disaster.loc.fAll(points.length))}
+        {chip('open', tr.disaster.loc.fOpen(points.filter(isOpen).length))}
+        {chip('room', tr.disaster.loc.fRoom(points.filter(hasRoom).length))}
+      </div>
+      {shown.length === 0 ? (
+        <div style={{ padding: '28px 16px', textAlign: 'center' }}>
+          <div style={{ fontSize: 13.5, color: C.muted }}>{tr.disaster.loc.emptyFilter}</div>
+          <button onClick={() => setFilter('all')} style={{
+            marginTop: 10, background: C.navy, border: 0, color: '#fff', borderRadius: 9,
+            padding: '10px 15px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', minHeight: 44,
+          }}>{tr.disaster.loc.clearFilter}</button>
+        </div>
+      ) : shown.map((l, idx) => {
+        const on = sel?.id === l.id;
+        return (
+          <button key={l.id} onClick={() => setSelId(l.id)} aria-current={on ? 'true' : undefined} style={{
+            display: 'flex', gap: 11, alignItems: 'flex-start', textAlign: 'left', width: '100%',
+            padding: '13px 14px', border: 0, borderBottom: `1px solid ${C.borderFaint}`,
+            background: on ? '#F7FBFF' : C.surface, cursor: 'pointer',
+            boxShadow: on ? `inset 3px 0 0 ${C.navy}` : undefined, font: 'inherit',
+          }}>
+            {/* Numara haritadaki işaretçiyle AYNI — eşleşme renkten bağımsız kuruluyor. */}
+            <span style={{
+              width: 24, height: 24, flex: '0 0 24px', borderRadius: 7, marginTop: 2,
+              background: isOpen(l) ? C.navy : C.warning, color: isOpen(l) ? '#fff' : '#3D2D00',
+              fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>{idx + 1}</span>
+            {/* Durum rozeti adın SAĞINDA değil altında: 380 piksellik sütunda ikisi
+                genişlik için yarışınca her nokta adı iki satıra kırılıyordu. */}
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: C.navy, lineHeight: 1.3 }}>{l.name}</span>
+              <span style={{ display: 'block', fontSize: 12, color: C.muted, marginTop: 2 }}>{l.address} · {l.hours}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 8, flexWrap: 'wrap' }}>
+                {statusPill(l)}
+                <span style={{ flex: '1 1 90px', minWidth: 80 }}><CapacityRow l={l} compact /></span>
+              </span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const detail = sel && (
+    <div style={{
+      background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
+      padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 11,
+      boxShadow: mob ? undefined : '0 14px 38px rgba(11,30,48,.18)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.navy }}>
+            {shown.indexOf(sel) + 1} · {sel.name}
+          </div>
+          <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>{sel.address} · {sel.coords}</div>
+        </div>
+        {statusPill(sel)}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '104px 1fr', gap: '6px 10px', fontSize: 13 }}>
+        <span style={{ color: C.muted2, fontWeight: 600 }}>{tr.disaster.loc.hours}</span>
+        <span style={{ color: C.heading2 }}>{sel.hours}</span>
+        <span style={{ color: C.muted2, fontWeight: 600 }}>{tr.disaster.loc.accepts}</span>
+        <span style={{ color: C.heading2 }}>{sel.accepts}</span>
+        <span style={{ color: C.muted2, fontWeight: 600 }}>{tr.disaster.loc.contact}</span>
+        <span style={{ color: C.heading2 }}>
+          {sel.contact} · <a href={`tel:${sel.phone.replace(/\s/g, '')}`} style={{ color: C.info, fontWeight: 600, textDecoration: 'none' }}>{sel.phone}</a>
+        </span>
+        <span style={{ color: C.muted2, fontWeight: 600 }}>{tr.disaster.loc.capacity}</span>
+        <span><CapacityRow l={sel} /></span>
+      </div>
+      {sel.capacityNote && (
+        <div style={{ fontSize: 12.5, color: C.muted, background: C.canvas, border: `1px solid ${C.borderFaint}`, borderRadius: 9, padding: '9px 11px' }}>{sel.capacityNote}</div>
+      )}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {/* Yeni sekme + `noreferrer`: ziyaretçi okuduğu operasyonu kaybetmiyor. */}
+        <a href={directionsUrl(sel)} target="_blank" rel="noreferrer"
+          aria-label={tr.disaster.loc.directionsAria(sel.name)} style={{
+            background: C.navy, border: `1px solid ${C.navy}`, color: '#fff', borderRadius: 9,
+            padding: '11px 15px', fontSize: 13.5, fontWeight: 600, minHeight: 44,
+            display: 'inline-flex', alignItems: 'center', gap: 7, textDecoration: 'none',
+          }}><Ico n="pin" size={15} color="#fff" />{tr.disaster.loc.directions}</a>
+        <button
+          onClick={() => onNeedsAt(sel.name)}
+          disabled={openAt(sel.name) === 0}
+          title={openAt(sel.name) === 0 ? tr.disaster.loc.noNeedsAt : undefined}
+          style={{
+            background: C.surface, border: `1px solid ${C.borderSoft}`,
+            color: openAt(sel.name) === 0 ? C.muted3 : C.navy, borderRadius: 9,
+            padding: '11px 15px', fontSize: 13.5, fontWeight: 600,
+            cursor: openAt(sel.name) === 0 ? 'not-allowed' : 'pointer', minHeight: 44,
+          }}>{tr.disaster.loc.viewNeedsAt(openAt(sel.name))}</button>
+        <button onClick={() => onReportAt(sel.name)} style={{
+          background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 9,
+          padding: '11px 15px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', minHeight: 44,
+        }}>{tr.disaster.loc.reportHere}</button>
+      </div>
+    </div>
+  );
+
+  // Telefonda üst üste: süzgeç + liste, sonra harita, sonra seçili noktanın kartı.
+  // Haritanın üstüne binen bir kart 390 pikselde haritadan geriye bir şerit bırakıyor.
+  if (mob) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>{list}</div>
+        {shown.length > 0 && (
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
+            <LocationsMap items={shown} selectedId={sel?.id ?? ''} onSelect={setSelId} height={300} />
+          </div>
+        )}
+        {detail}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', display: 'grid', gridTemplateColumns: '380px 1fr' }}>
+      <div style={{ borderRight: `1px solid ${C.border}` }}>{list}</div>
+      <div style={{ position: 'relative', minHeight: 520 }}>
+        {/* `bottomPad`: detay kartı haritanın alt ~240 pikselini kapatıyor. Onsuz
+            güneydeki nokta kartın altında kalıyor ve haritada hiç görünmüyordu. */}
+        {shown.length > 0 && <LocationsMap items={shown} selectedId={sel?.id ?? ''} onSelect={setSelId} height={520} bottomPad={240} />}
+        {/* Kart haritanın ÜSTÜNDE duruyor ama `zIndex` Leaflet'in kendi katmanlarının
+            (400-700) üzerinde olmalı; 500'ün altında kalırsa işaretçiler kartın önüne
+            geçiyor. */}
+        {detail && (
+          <div style={{ position: 'absolute', left: 16, right: 16, bottom: 16, zIndex: 800 }}>{detail}</div>
+        )}
+      </div>
     </div>
   );
 }

@@ -665,7 +665,36 @@ export const tr = {
     clearFilters: 'Filtreleri temizle',
     iDelivered: 'Bunu teslim ettim',
     fullyCovered: 'Tamamen karşılandı',
-    loc: { hours: 'Saatler', accepts: 'Kabul edilen', contact: 'İletişim' },
+    loc: {
+      hours: 'Saatler', accepts: 'Kabul edilen', contact: 'İletişim',
+      // Süzgeçler. Sayılar her zaman yazılıyor: "Yer var" süzgeci 0 sonuç verecekse
+      // bunu tıklamadan önce bilmek gerek.
+      fAll: (n: number) => `Tümü · ${n}`,
+      fOpen: (n: number) => `Şu an açık · ${n}`,
+      fRoom: (n: number) => `Yer var · ${n}`,
+      capacity: 'Doluluk',
+      // Ölçüm YOKSA çubuk çizilmiyor. %0 çizmek "bomboş, buyurun" diye okunur ve
+      // sevkiyatı bilinmeyen bir yere yönlendirir (migration 0025 bu yüzden nullable).
+      capUnknown: 'Ölçüm girilmedi — gitmeden önce arayın',
+      capClosed: 'Kapalıyken doluluk gösterilmiyor',
+      capRoom: 'yer var',
+      capTight: 'azalıyor',
+      capFull: 'dolmak üzere',
+      capUpdated: (t: string) => `${t} ölçüldü`,
+      // Yol tarifi kullanıcının KENDİ harita uygulamasında açılır: bir API anahtarı
+      // ya da üçüncü taraf betiği gerekmez, ve sahadaki kişi zaten kullandığı
+      // uygulamayla devam eder.
+      directions: 'Yol tarifi al',
+      directionsAria: (name: string) => `${name} için yol tarifi al (haritalar uygulamanızda açılır)`,
+      viewNeedsAt: (n: number) => `İhtiyaçları gör (${n})`,
+      noNeedsAt: 'Bu noktada açık ihtiyaç yok',
+      reportHere: 'Bu noktaya teslimat bildir',
+      selectHint: 'Listeden bir nokta seçin.',
+      emptyFilter: 'Bu süzgeçle eşleşen nokta yok.',
+      clearFilter: 'Süzgeci kaldır',
+      none: 'Bu operasyonda kayıtlı teslim noktası yok.',
+      mapFailed: 'Harita yüklenemedi — aynı bilgi listede duruyor.',
+    },
     activityLog: 'Hareket kaydı',
     immutableNote: 'Değiştirilemez · her kayıt eski ve yeni değeri saklar',
     was: (v: string) => `eski ${v}`,
