@@ -161,3 +161,15 @@ export function maskPhone(phone: string): string {
   // enough to dial from a list.
   return `${digits.slice(0, Math.min(4, digits.length - 4)).replace(/\d/g, '*')}*** ${digits.slice(-4)}`;
 }
+
+// ---------------------------------------------------------------------------
+// Hareket tercihi. Yumuşak kaydırma güzel bir ayrıntı ama vestibüler duyarlılığı
+// olan bir kullanıcı için baş dönmesi sebebi; işletim sistemi ayarı zaten bunu
+// söylüyorsa ona uyulur (rules/04 §Accessibility, reduced-motion desteği).
+//
+// `matchMedia` olmayan ortamlarda (SSR, eski tarayıcı) yanıt "hayır": bilinmiyorsa
+// varsayılan davranış korunur, hareket kapatılmaz.
+export function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined'
+    && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+}

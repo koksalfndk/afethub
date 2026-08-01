@@ -186,6 +186,12 @@ export class SupabaseRepo implements Repo {
 
     const rowFor = (id: string) => (rows ?? []).find((r) => String(r.id) === id) as Record<string, unknown> | undefined;
 
+    // Görünüm okunamadığında kullanılan yedek toplam. `allNeeds` zaten indirilmiş
+    // durumda; ikinci bir istek atmıyor.
+    const sumOf = (disasterId: string, col: string) => allNeeds
+      .filter((n) => String(n.disaster_id) === disasterId)
+      .reduce((x, n) => x + Number(n[col] ?? 0), 0);
+
     const cards: DisasterCard[] = disasters.map((d) => {
       const r = rowFor(d.id);
       return {
@@ -197,6 +203,13 @@ export class SupabaseRepo implements Repo {
         verifiedSubs: r ? Number(r.verified_submissions) : 0,
         deliveryPoints: r ? Number(r.delivery_points) : 0,
         topNeeds: topOf(d, 2),
+        // Miktar toplamları görünümden gelir (migration 0035). Görünüm okunamadıysa
+        // `needs` tablosundan türetilir — ama bu bir YEDEK yol, tercih değil: aynı
+        // toplamı iki yerde hesaplamak, ikisinin ayrışması demektir. Yedek çalıştığında
+        // ekranda sayı yerine boşluk kalmasın diye var.
+        requiredTotal: r ? Number(r.required_total ?? 0) : sumOf(d.id, 'required_qty'),
+        verifiedTotal: r ? Number(r.verified_total ?? 0) : sumOf(d.id, 'verified_qty'),
+        remainingTotal: r ? Number(r.remaining_total ?? 0) : sumOf(d.id, 'remaining_qty'),
       };
     }).sort((x, y) => (x.disaster.status === 'Active' ? 0 : 1) - (y.disaster.status === 'Active' ? 0 : 1));
 

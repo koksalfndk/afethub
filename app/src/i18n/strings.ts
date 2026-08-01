@@ -300,6 +300,92 @@ export const tr = {
     feedEmpty: 'Henüz kayıtlı hareket yok.',
     allNeeds: 'Tüm İhtiyaçları Gör',
     disclaimer: 'AfetHUB bir sivil koordinasyon platformudur. Acil ve hayati tehlike durumlarında resmi acil yardım birimleriyle iletişime geçin.',
+
+    // ---- Yeni ana sayfa (birleşim tasarımı) --------------------------------
+    // Üst üçte bir sakin ve eylem odaklı; kaydırıldıkça veri geliyor. Buradaki
+    // metinlerin tamamı ekranda GÖSTERİLEN bir kaydın karşılığı; hiçbiri pazarlama
+    // cümlesi değil (rules/07 §Tone).
+    hero: {
+      // Rozet: kaç afet açık ve veri ne zaman tazelendi. İkisi de gerçek kayıttan
+      // gelir; hiçbiri "canlı" gibi süslenmez (rules/01 §Freshness).
+      badge: (n: number) => (n === 1 ? '1 afet aktif' : `${n} afet aktif`),
+      badgeNone: 'Şu an yayında aktif afet yok',
+      badgeUpdated: (ne: string) => `${ne} güncellendi`,
+      title: 'Türkiye’deki aktif afetleri tek ekrandan takip edin.',
+      body: 'Neye ihtiyaç var, ne doğrulandı ve ne kaldı — hepsi tek yerde, hesap açmadan.',
+      ctaReport: 'Afet Bildir',
+      ctaHelp: 'Yardım Et',
+      ctaSee: 'Aktif Afetleri Gör',
+    },
+
+    // Afet kartındaki miktar bloğu. Sıra hiçbir ekranda değişmez: önce kalan
+    // (tek büyük sayı), sonra çubuk, sonra üç ikincil sayı.
+    amount: {
+      remaining: 'kalan ihtiyaç',
+      remainingUnit: 'kalem',
+      verified: 'onaylandı',
+      pending: 'doğrulama bekliyor',
+      required: 'talep edildi',
+      // Ekran okuyucu için tek cümle: dört sayı ayrı ayrı okunmalı, ama art arda
+      // gelen dört rakam olarak değil.
+      aria: (kalan: number, onay: number, bekleyen: number, talep: number) =>
+        `${kalan} kalem kalan, ${onay} onaylandı, ${bekleyen} doğrulama bekliyor, toplam ${talep} talep edildi`,
+      // Hiç ihtiyaç kaydı olmayan operasyon. Sıfır yazmak "her şey tamam" demek
+      // olurdu; kayıt yokluğu ile karşılanmışlık aynı şey değil (rules/04 §Empty States).
+      none: 'Bu operasyon için henüz ihtiyaç kaydı yayınlanmadı.',
+    },
+
+    activeLead: 'Koordinatör doğrulaması yapılmış, açık durumdaki afetler.',
+    activeEmpty: 'Şu anda yayında aktif afet yok.',
+    activeEmptyBody: 'Bu, bir afet yaşanmadığı anlamına gelmez; yalnızca yayına alınmış bir operasyon olmadığını gösterir.',
+    topNeedsLabel: 'En çok gereken',
+    moreNeeds: (n: number) => `+${n} kalem`,
+    detail: 'Detayları Gör',
+    updatedAgo: (ne: string) => `Son güncelleme: ${ne}`,
+    seeAllCount: (n: number) => (n === 1 ? 'Tüm afetleri gör (1)' : `Tüm afetleri gör (${n})`),
+    showLess: 'Daha az göster',
+    reportCardTitle: 'Burada olmayan bir afet mi var?',
+    reportCardBody: 'Bildiriminiz koordinatör doğrulamasından sonra yayına alınır.',
+
+    helpLead: 'Dördü de hesap açmadan yapılabilir.',
+
+    urgentLead: 'Tüm aktif afetlerde kalan miktarı en yüksek kalemler.',
+    urgentAll: 'Tüm ihtiyaçlar',
+    urgentSend: 'Göndereceğimi bildir',
+    urgentRemaining: (n: string, birim: string) => `${n} ${birim} kalan`,
+    urgentIn: (afet: string) => afet,
+    urgentInMany: (n: number) => (n === 1 ? '1 bölgede aranıyor' : `${n} bölgede aranıyor`),
+
+    flowTitle: 'Bir yardım nasıl ilerliyor?',
+    flowLead: 'Dört adım. Hiçbiri atlanmaz.',
+    flow: [
+      { title: 'Bildirim', body: 'Vatandaş veya kurum durumu iletir.' },
+      { title: 'Doğrulama', body: 'Koordinatör bilgiyi kontrol eder.' },
+      { title: 'İhtiyaç yayını', body: 'Miktar ve birim herkese açılır.' },
+      { title: 'Destek ulaştı', body: 'Teslim alındı ve koordinatör tarafından doğrulandı.' },
+    ],
+    // Canlı akışın ana sayfada kalan TEK izi: en son doğrulanan teslimat. Akan bir
+    // liste değil, tek satırlık bir kanıt. Ad ve soyadın baş harfi veritabanından
+    // maskelenmiş geliyor (migration 0024).
+    lastVerified: 'Son doğrulanan teslimat',
+    lastVerifiedEmpty: 'Henüz doğrulanmış bir teslimat kaydı yok.',
+
+    trustSectionTitle: 'Bu sayfadaki bilgiler nereden geliyor?',
+    trustSectionLead: 'Bir iddia değil, kayıt. Aşağıdakiler platformun nasıl çalıştığının tanımıdır.',
+    trustCards: [
+      {
+        title: 'Doğrulanmadan yayınlanmaz',
+        body: 'Yayındaki her ihtiyaç, bir koordinatör tarafından doğrulandıktan sonra açılır. Doğrulanmamış bildirimler kalan miktarı değiştirmez.',
+      },
+      {
+        title: 'Sayılar birleştirilmez',
+        body: 'Kalan = talep edilen − onaylanan. Doğrulama bekleyen miktar bu hesaba dahil edilmez, ayrı gösterilir.',
+      },
+      {
+        title: 'Kişisel bilgi yayınlanmaz',
+        body: 'Katkı sunanların yalnızca adı ve soyadının baş harfi görünür. AfetHUB resmi bir acil yardım kurumu değildir.',
+      },
+    ],
     
     // "Nasıl çalışır" — one continuous timeline
     steps: [

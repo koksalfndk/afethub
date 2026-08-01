@@ -46,6 +46,15 @@ export interface DisasterCard {
   verifiedSubs: number;
   deliveryPoints: number;
   topNeeds: TopNeed[];      // most urgent open needs of this operation
+  // Miktar toplamları — ADET değil, BİRİM. Ana sayfadaki afet kartı dördünü ayrı
+  // ayrı yazıyor ve hiçbirini diğeriyle toplamıyor (rules/01 §Transparency).
+  //
+  // Kanonik kural (rules/02): remainingTotal = max(requiredTotal - verifiedTotal, 0).
+  // `pendingUnits` bu hesaba GİRMEZ; bilgilendirici bir sayıdır ve kalanı azaltmaz.
+  // Üçü de `disaster_overview` görünümünden gelir, tarayıcıda toplanmaz.
+  requiredTotal: number;
+  verifiedTotal: number;
+  remainingTotal: number;
 }
 
 export interface Overview {
@@ -413,6 +422,19 @@ const PUBLIC_AUDIT_ACTIONS = new Set([
 ]);
 
 export const isPublicAuditAction = (action: string): boolean => PUBLIC_AUDIT_ACTIONS.has(action);
+
+// Ana sayfadaki "son doğrulanan teslimat" satırının hangi kayıtları sayacağı.
+//
+// Renge göre eşleştirmek cazipti (yeşil = doğrulandı) ama renk bir görüntüleme
+// kararı; yarın değişirse satır sessizce boşalırdı. Aksiyon adı ise kaydın kendisi.
+// Kısmi doğrulama da buraya dahil: 30 bildirilip 25'i doğrulandıysa 25 birim
+// gerçekten teslim alınmıştır (rules/02 §Partial Approval).
+//
+// `auditActionLabel` eski İngilizce satırları zaten Türkçeye çeviriyor, bu yüzden
+// burada yalnızca Türkçe adlar aranıyor.
+const VERIFIED_DELIVERY_ACTIONS = new Set(['Teslimat doğrulandı', 'Teslimat kısmen doğrulandı']);
+
+export const isVerifiedDelivery = (action: string): boolean => VERIFIED_DELIVERY_ACTIONS.has(action);
 
 // Eski kayıtlar için İngilizce → Türkçe aksiyon adı.
 //

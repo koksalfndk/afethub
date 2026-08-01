@@ -185,6 +185,11 @@ export class LocalRepo implements Repo {
         verifiedSubs: verifiedTotals[d.id] ?? 0,
         deliveryPoints: locations.filter((l) => l.disasterId === d.id).length,
         topNeeds: topOf(d.id, 2),
+        // Supabase tarafında bu üçü `disaster_overview`'dan gelir. Burada aynı
+        // kayıtlardan türetiliyor, çünkü yerel kopyada başka bir kaynak yok.
+        requiredTotal: mine.reduce((x, n) => x + n.required, 0),
+        verifiedTotal: mine.reduce((x, n) => x + n.verified, 0),
+        remainingTotal: mine.reduce((x, n) => x + remaining(n), 0),
       };
     }).sort((x, y) => {
       // Active operations first, then most recently updated.

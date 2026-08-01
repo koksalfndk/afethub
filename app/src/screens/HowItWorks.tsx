@@ -3,6 +3,7 @@ import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
 import { cols } from '../select';
 import { Ico, eyebrow, type IcoName } from '../ui';
+import { HeroBanner } from '../components/HeroBanner';
 
 // Public explanation of the product. This is content, not a dashboard: one centred
 // reading column, sections in document order, no live figures. The internal
@@ -39,6 +40,14 @@ export function HowItWorks() {
         <h1 style={{ fontSize: L.h2, fontWeight: 700, letterSpacing: '-.02em', margin: '7px 0 0', color: C.navy }}>{t.title}</h1>
         <p style={{ ...body, fontSize: 15.5, marginTop: 10 }}>{t.lead}</p>
       </header>
+
+      {/* Slider buraya TAŞINDI (eskiden ana sayfanın kahramanıydı).
+          Ana sayfada dönen bir kahraman, okumaya başlamış bir ziyaretçinin cümlesini
+          elinden alıyordu ve orada ziyaretçi acele ediyor. Burada acele yok: bu sayfa
+          okunmak için var, slaytlar duyuru ve yönlendirme taşıyor, kendi hızında
+          dönmesinin bir maliyeti yok. Koordinatör slayt yönetimi (/koordinator/slider)
+          olduğu gibi çalışmaya devam ediyor. */}
+      <HeroBanner />
 
       {/* The one rule, then the four states it produces, then a worked example. */}
       <section style={{ ...card, borderTop: `3px solid ${C.navy}` }}>
