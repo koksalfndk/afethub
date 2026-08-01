@@ -110,6 +110,23 @@ export const tr = {
     errPasswordShort: 'Parola en az 6 karakter olmalı.',
     genericError: 'Bir sorun oluştu. Bilgileri kontrol edip tekrar deneyin.',
     volunteerNote: 'Gönüllü olarak giriş yaptın. Koordinatör yetkisi bir yönetici tarafından verilir.',
+
+    // Parolamı unuttum (şifre sıfırlama akışı)
+    forgotLink: 'Parolamı unuttum',
+    forgotTitle: 'Parolanı sıfırla',
+    forgotIntro: 'Hesabının e-posta adresini gir; sana bir sıfırlama bağlantısı gönderelim.',
+    forgotSend: 'Sıfırlama bağlantısı gönder',
+    forgotSent: 'Bu e-posta kayıtlıysa, bir sıfırlama bağlantısı gönderdik. Gelen kutunu ve spam klasörünü kontrol et.',
+    backToSignIn: '← Girişe dön',
+    // E-postadaki bağlantıyla gelince yeni parola belirleme
+    recoveryTitle: 'Yeni parola belirle',
+    recoveryIntro: 'Hesabın için yeni bir parola gir.',
+    newPassword: 'Yeni parola',
+    newPasswordConfirm: 'Yeni parola (tekrar)',
+    updatePasswordBtn: 'Parolayı güncelle',
+    passwordUpdated: 'Parolan güncellendi ✓',
+    errPasswordMismatch: 'Parolalar eşleşmiyor.',
+    closeBtn: 'Kapat',
   },
 
   // Menu labels are Title Case (each word capitalised).
@@ -158,9 +175,94 @@ export const tr = {
     loadSlow: 'Bağlantı yavaş görünüyor. Veri gelmezse yeniden denemeyi seçebilirsiniz.',
     loadFailed: 'Veri yüklenemedi. Bağlantınızı kontrol edip yeniden deneyin — girdiğiniz bilgiler kaybolmadı.',
     retry: 'Yeniden dene',
+    close: 'Kapat',
+  },
+
+  // İhtiyaç kartındaki "Detaylar" düğmesinin açtığı hızlı bakış penceresi.
+  needQuick: {
+    required: 'Gerekli',
+    verified: 'Doğrulanan',
+    pending: 'Bekleyen',
+    dropOff: 'Teslim noktası',
+    hours: (h: string) => `Saatler: ${h}`,
+    // Sıfır olan parça HİÇ yazılmaz. "0 teslimat doğrulandı" satırı, yanında
+    // "30 kutu doğrulandı" yazarken kendisiyle çelişiyordu: doğrulanmış miktarın bir
+    // kısmı bu sayfada kaydı olmayan (operasyon açılmadan önceki) teslimatlardan
+    // geliyor. Satır yalnızca gerçekten var olan bildirim kayıtlarını sayar.
+    deliveredSubs: (v: number) => `${v} teslimat doğrulandı`,
+    pendingSubs: (p: number) => `${p} bildirim incelemede`,
+    // Kayıt yokluğu "ihtiyaç yok" demek değil; boş durum bunu söylüyor (rules/04).
+    noDeliveries: 'Bu kaleme henüz teslimat bildirilmedi.',
   },
 
   home: {
+    // Kahramanın alt kenarını kesen dört sayı. Hepsinin arkasında gerçek bir kayıt
+    // var; hesaplanamayan bir ölçü ("destekçi sayısı") buraya konmuyor.
+    statDisasters: 'Aktif afet',
+    statDisastersUnit: (il: number) => `${il} ilde`,
+    statVolunteers: 'Gönüllü',
+    statVolunteersUnit: 'kayıtlı',
+    statNeeds: 'Açık ihtiyaç',
+    statNeedsUnit: 'kalem',
+    statVerified: 'Doğrulanan teslimat',
+    statVerifiedUnit: 'adet',
+
+    activeTitle: 'Aktif afetler',
+    seeAll: 'Tümünü gör',
+    needWord: 'ihtiyaç',
+    allDisasters: 'Tüm aktif afetler',
+    hideAllDisasters: 'Listeyi kapat',
+    urgentTitle: 'Acil ihtiyaçlar',
+    urgentEmpty: 'Şu an açık bir ihtiyaç kaydı yok.',
+    urgentBox: (bolge: number, kalan: number, birim: string) =>
+      (bolge === 1 ? `1 bölge · ${kalan} ${birim}` : `${bolge} bölge · ${kalan} ${birim}`),
+    // Kart başlığının yanındaki operasyon seçici.
+    urgentAllOps: 'Tüm operasyonlar',
+    urgentOpAria: 'Acil ihtiyaçlarda operasyon seçimi',
+    // "Tümü" seçiliyken bir kaleme tıklanınca açılan operasyon listesi. Kalem birden
+    // çok operasyonda arandığında hepsini gösterir: ziyaretçiyi rastgele birine
+    // göndermek, yanlış ile gitmesine yol açardı.
+    urgentPinsTitle: (kalem: string) => `${kalem} — hangi operasyon?`,
+    urgentPinRemaining: (kalan: number, birim: string) => `${kalan} ${birim} kalan`,
+    urgentPinsClose: 'Kapat',
+    // Seçili operasyonda hiç açık kalem kalmamışsa. Boşluk "ihtiyaç yok" demektir
+    // ve öyle yazılır; bir şey gizlendiği izlenimi bırakmaz.
+    urgentEmptyOp: 'Bu operasyonda şu an açık bir ihtiyaç kaydı yok.',
+    helpTitle: 'Nasıl yardımcı olabilirim?',
+    help: {
+      volunteer: { title: 'Gönüllü ol', body: 'Sahada görev alarak destek olun.' },
+      supply: { title: 'Destek malzemesi gönder', body: 'İhtiyaç listesine göre malzeme gönderin.' },
+      donate: { title: 'Kurumlara ulaş', body: 'Doğrulanmış kurumlar üzerinden destek olun.' },
+      report: { title: 'Afet bildir', body: 'Bulunduğunuz bölgedeki afetleri bildirin.' },
+    },
+    recentTitle: 'Son hareketler',
+    recentEmpty: 'Henüz kayıtlı bir hareket yok.',
+    togetherTitle: 'Koordinasyon bir arada.',
+    togetherBody: 'Kurumlar, gönüllüler ve teslim noktaları tek bir platformda buluşuyor.',
+    togetherOrgs: 'Doğrulanmış kurum',
+    togetherVolunteers: 'Gönüllü',
+    togetherPoints: 'Teslim noktası',
+    togetherCta: 'Kurumlar sayfasını gör',
+    trustTitle: 'Afet anında doğru bilgi, hızlı koordinasyon ve bilinçli destek hayat kurtarır.',
+    trustBody: 'Buradaki kalan miktarlar yalnızca teslim noktasında doğrulanmış teslimatlarla düşer. Resmî kaynakları takip edin, doğrulanmamış bilgilere itibar etmeyin.',
+    // Ana sayfadaki operasyon haritası. Renk aciliyet SKORUNA göre değil — o skor
+    // koordinatöre özel. Ziyaretçinin zaten gördüğü iki şeye göre: açık mı, kritik
+    // ihtiyacı var mı.
+    mapTitle: 'Operasyon haritası',
+    mapCount: (n: number) => (n === 1 ? '1 ilde operasyon' : `${n} ilde operasyon`),
+    mapHint: 'Bir ile tıklayın: o ildeki operasyonlar açılır.',
+    mapAria: (n: number) => `Türkiye haritası, ${n} ilde açık operasyon var`,
+    mapProvinceAria: (n: number, il: string) =>
+      n === 1 ? `${il}: 1 operasyon, açmak için tıklayın` : `${il}: ${n} operasyon, açmak için tıklayın`,
+    mapCardAria: (il: string) => `${il} ilindeki operasyonlar`,
+    mapChipHint: (kapali: boolean, acikIhtiyac: number) =>
+      kapali ? 'Kapandı' : acikIhtiyac === 0 ? 'Açık operasyon' : `Açık · ${acikIhtiyac} ihtiyaç`,
+    mapLegendCritical: 'Kritik ihtiyacı var',
+    mapLegendActive: 'Açık operasyon',
+    mapLegendClosed: 'Kapandı',
+    mapFailed: 'Harita yüklenemedi. Operasyonlar aşağıdaki listede yer alıyor.',
+    mapUnplaced: (n: number) =>
+      n === 1 ? '1 operasyonun ili tanınmadı, haritada gösterilemiyor.' : `${n} operasyonun ili tanınmadı, haritada gösterilemiyor.`,
     activeBadge: '1 aktif afet',
     heroTitle1: 'İhtiyacı gör.',
     heroTitle2: 'Yardımı ulaştır.',
@@ -225,7 +327,7 @@ export const tr = {
     contribute: 'Katkı ver',
     about: 'Hakkımızda',
     copyright: '© 2026 AfetHUB — bağımsız sivil koordinasyon platformu',
-    dataNote: 'Bu sürümdeki afet ve miktar bilgileri demo veridir.',
+    dataNote: 'Bağış toplamaz, yardım dağıtmaz; koordinasyonu görünür kılar.',
   },
 
   about: {
@@ -257,8 +359,6 @@ export const tr = {
   dash: {
     title: 'Türkiye genelinde aktif afetler',
     subtitle: 'Her operasyonun doğrulanmış ihtiyaçlarını, teslim noktalarını ve son hareketlerini tek ekranda izle.',
-    demoTitle: 'Demo veri',
-    demoBody: 'Bu ekrandaki afetler gerçek yerleşimlere dayanır; miktarlar, teslim noktaları ve bildirimler örnek veridir. Doğrulanmış canlı operasyon verisi değildir.',
     totals: {
       disasters: 'Aktif afet', needs: 'Aktif ihtiyaç', verified: 'Doğrulanan teslimat',
       pending: 'Doğrulama bekliyor', volunteers: 'Gönüllü', points: 'Teslim noktası',
@@ -305,7 +405,11 @@ export const tr = {
     modalIntro: 'Aynı yerde ve aynı günlerde bildirilen benzer olaylar tek bildirimde birleştirilir.',
     stepNames: ['Olay türü', 'Konum ve zaman', 'Açıklama ve iletişim'],
     fProvince: 'İl', fDistrict: 'İlçe',
-    fLocation: 'Konum tarifi', fLocationPh: 'Mahalle, sokak veya bilinen bir nokta',
+    fSettlements: 'Etkilenen mahalle / köyler',
+    settlementsNeedDistrict: 'Önce il ve ilçe seçin',
+    // "Konum tarifi" kalıyor: yukarıdaki liste resmî yerleşim adları, bu ise sokak
+    // ya da bilinen bir nokta. İkisi farklı sorular.
+    fLocation: 'Konum tarifi', fLocationPh: 'Sokak veya bilinen bir nokta',
     fDate: 'Gözlem tarihi',
     fDescription: 'Ne görüyorsunuz?', fDescriptionPh: 'Duman yönü, su seviyesi, kapanan yol, tahliye durumu…',
     contactSection: 'İletişim bilgileriniz',
@@ -561,7 +665,36 @@ export const tr = {
     clearFilters: 'Filtreleri temizle',
     iDelivered: 'Bunu teslim ettim',
     fullyCovered: 'Tamamen karşılandı',
-    loc: { hours: 'Saatler', accepts: 'Kabul edilen', contact: 'İletişim' },
+    loc: {
+      hours: 'Saatler', accepts: 'Kabul edilen', contact: 'İletişim',
+      // Süzgeçler. Sayılar her zaman yazılıyor: "Yer var" süzgeci 0 sonuç verecekse
+      // bunu tıklamadan önce bilmek gerek.
+      fAll: (n: number) => `Tümü · ${n}`,
+      fOpen: (n: number) => `Şu an açık · ${n}`,
+      fRoom: (n: number) => `Yer var · ${n}`,
+      capacity: 'Doluluk',
+      // Ölçüm YOKSA çubuk çizilmiyor. %0 çizmek "bomboş, buyurun" diye okunur ve
+      // sevkiyatı bilinmeyen bir yere yönlendirir (migration 0025 bu yüzden nullable).
+      capUnknown: 'Ölçüm girilmedi — gitmeden önce arayın',
+      capClosed: 'Kapalıyken doluluk gösterilmiyor',
+      capRoom: 'yer var',
+      capTight: 'azalıyor',
+      capFull: 'dolmak üzere',
+      capUpdated: (t: string) => `${t} ölçüldü`,
+      // Yol tarifi kullanıcının KENDİ harita uygulamasında açılır: bir API anahtarı
+      // ya da üçüncü taraf betiği gerekmez, ve sahadaki kişi zaten kullandığı
+      // uygulamayla devam eder.
+      directions: 'Yol tarifi al',
+      directionsAria: (name: string) => `${name} için yol tarifi al (haritalar uygulamanızda açılır)`,
+      viewNeedsAt: (n: number) => `İhtiyaçları gör (${n})`,
+      noNeedsAt: 'Bu noktada açık ihtiyaç yok',
+      reportHere: 'Bu noktaya teslimat bildir',
+      selectHint: 'Listeden bir nokta seçin.',
+      emptyFilter: 'Bu süzgeçle eşleşen nokta yok.',
+      clearFilter: 'Süzgeci kaldır',
+      none: 'Bu operasyonda kayıtlı teslim noktası yok.',
+      mapFailed: 'Harita yüklenemedi — aynı bilgi listede duruyor.',
+    },
     activityLog: 'Hareket kaydı',
     immutableNote: 'Değiştirilemez · her kayıt eski ve yeni değeri saklar',
     was: (v: string) => `eski ${v}`,
@@ -569,6 +702,12 @@ export const tr = {
   },
 
   report: {
+    // Miktar alanı. "Tümü" kalanın tamamını doldurur; teslim noktasında en sık
+    // yazılan sayı bu.
+    fillAll: 'Tümü',
+    fillAllAria: (n: number, unit: string) => `Kalan ${n} ${unit} miktarının tamamını yaz`,
+    remainingHint: (n: number, unit: string) => `${n} ${unit} kalan`,
+    unitFromNeed: 'ihtiyaçtan geliyor',
     // A signed-in coordinator often records a delivery on someone else's behalf, so the
     // giver's own contact details are asked separately from the account's.
     onBehalfTitle: 'Yardımı yapan kişi',
@@ -694,6 +833,9 @@ export const tr = {
     chooseCategory: 'Ne tür bir ihtiyaç?',
     // standard supply fields
     fTitle: 'İhtiyaç başlığı', fTitlePh: 'Yanık pansumanı',
+    fTitlePick: 'Kalem seçin',
+    fTitleOther: 'Diğer — listede yok',
+    fTitleOtherLabel: 'Kalem adı',
     fRequired: 'Gerekli miktar', fUnit: 'Birim',
     fPriority: 'Öncelik',
     // transport / logistics
@@ -772,6 +914,7 @@ export const tr = {
 
   // Panel → Sistem Kaydı (admin only).
   coordLog: {
+    allDisasters: 'Tüm operasyonlar',
     title: 'Sistem Kaydı',
     subtitle: 'Platformda yapılan tüm işlemler: koordinatör ve yönetici aksiyonları, kullanıcı yetkileri, kurum kararları, afet ve ihtiyaç değişiklikleri, yardım bildirimleri. Değiştirilemez.',
     adminOnly: 'Bu sayfa yalnızca yöneticilere açıktır. Herkese açık canlı akış bu kaydın yalnızca operasyonel bölümünü gösterir.',
@@ -787,6 +930,23 @@ export const tr = {
   },
 
   modal: {
+    // Yazma başarısız olduğunda pencere kapanmaz; bu satır pencerenin içinde durur.
+    failed: 'Karar kaydedilemedi. Kayıt değişmedi — bağlantınızı kontrol edip tekrar deneyin.',
+    // Yazma başarılı, tazeleme başarısız. Ayrı mesaj: "kaydedilemedi" demek burada
+    // yalan olur ve aynı teslimatın ikinci kez işlenmesine yol açar.
+    savedNotRefreshed: 'Karar kaydedildi, ancak ekran tazelenemedi. Sayfayı yenileyin.',
+    revised: (code: string) => `${code} kaydı düzeltildi ✓`,
+    undone: (code: string) => `${code} kararı geri alındı, kayıt kuyruğa döndü ✓`,
+    reviseTitle: (need: string) => `${need} kaydını düzelt`,
+    reviseIntro: 'Verilen karar değiştirilecek. Eski karar geri alınır, yenisi uygulanır; ikisi de sistem kaydına yazılır.',
+    reviseReason: 'Düzeltme gerekçesi',
+    reviseCta: 'Düzeltmeyi kaydet',
+    undo: 'Kararı geri al',
+    undoAria: (code: string) => `${code} kararını geri al, kayıt kuyruğa dönsün`,
+    revise: 'Düzelt',
+    reviseAria: (code: string) => `${code} kaydının kararını düzelt`,
+    // 0031 öncesinde verilmiş kararlarda "kim verdi" bilinmiyor; tahmin edilmiyor.
+    reviseLocked: 'Bu kararı yalnızca kararı veren koordinatör veya bir yönetici düzeltebilir.',
     reported: 'Bildirilen', remainingNow: 'Şu anki kalan', afterApproval: 'Onay sonrası',
     verifiedQty: 'Doğrulanan miktar',
     reasonReject: 'Reddetme gerekçesi',
@@ -806,7 +966,6 @@ export const tr = {
     rejected: (code: string) => `${code} reddedildi — kalan değişmedi`,
     infoRequested: (name: string) => `${name} kişisinden bilgi istendi`,
     approved: (q: number, u: string, n: string, rem: number) => `${q} ${u} onaylandı · ${n} kalan şimdi ${rem}`,
-    detail: (n: string, v: number, p: number, rem: number) => `${n} · ${v} doğrulandı, ${p} bekliyor, ${rem} kalan`,
   },
 
   componentsScreen: {
@@ -995,7 +1154,7 @@ export const tr = {
 
   coordDisasters: {
     title: 'Afet Yönetimi',
-    subtitle: 'Aktif ve kapanmış operasyonlar. Buradan detayları düzenleyebilir, yeni bir operasyon açabilirsiniz.',
+    subtitle: 'Aktif ve kapanmış operasyonlar. Bir operasyonu inceleyebilir, paylaşabilir, kaydını düzenleyebilir veya yeni bir operasyon açabilirsiniz.',
     add: 'Yeni Afet',
     directNotice: 'Koordinatör olarak açtığınız operasyon incelemeye düşmez, kaydettiğiniz anda herkese açık sayfada yayınlanır.',
     localNote: 'Bu ortamda veritabanı bağlı değil: değişiklikler yalnızca bu oturumda geçerli olur.',
@@ -1009,6 +1168,27 @@ export const tr = {
     fProvince: 'İl',
     fDistrict: 'İlçe',
     fStatus: 'Durum',
+    // Etkilenen yerleşimler (migration 0029). Serbest metin değil, seçici.
+    fSettlements: 'Etkilenen mahalle ve köyler',
+    fSettlementsHint: '· ilçe seçildikten sonra listelenir',
+    settlementPickProvince: 'Önce il seçin.',
+    settlementPickDistrict: 'Önce ilçe seçin; yerleşim listesi ona göre gelir.',
+    settlementUnknownProvince: 'Bu il için yerleşim listesi bulunamadı.',
+    settlementFailed: 'Yerleşim listesi yüklenemedi. İlçe kaydı yine de tutulur.',
+    settlementNoneFound: (names: string) => `${names} için yerleşim kaydı bulunamadı. İlçe adının yazımını kontrol edin.`,
+    settlementUnmatched: (names: string) => `Yerleşim listesinde bulunamayan ilçe: ${names}.`,
+    settlementSearch: 'Mahalle veya köy ara',
+    settlementCount: (picked: number, total: number) => `${picked} / ${total} seçili`,
+    settlementClear: 'Seçimi temizle',
+    settlementNoMatch: 'Aramaya uyan yerleşim yok.',
+    // Kapalı düğmenin yazısı. Seçenek sayısı kapalıyken de görünür: listeyi açmadan
+    // "burada ne kadar var" sorusunun cevabı bilinmeli.
+    settlementEmptyTrigger: (total: number) => `Yerleşim seç · ${total} seçenek`,
+    settlementToggleAria: 'Etkilenen mahalle ve köyleri seç',
+    settlementRemove: (name: string) => `${name} seçimini kaldır`,
+    settlementDone: 'Tamam',
+    settlementNeighbourhood: 'mah.',
+    settlementVillage: 'köy',
     fSituation: 'Durum özeti',
     fSituationPh: 'Sahadaki durumu, tahliye ve yardım girişi bilgisini kısa ve sakin biçimde yazın.',
     fVolunteers: 'Kayıtlı gönüllü',
@@ -1036,6 +1216,74 @@ export const tr = {
     countLabel: (n: number) => `${n} operasyon`,
     // Disaster detail page
     startedBy: 'Operasyonu başlatan',
+    // Tablo. Sütun başlıkları ekranda görünür — sıralanabilir olmayan bir listede bile
+    // hangi hücrenin ne olduğunu söylemek, satırı okumayı öğrenmeye gerek bırakmaz.
+    colDisaster: 'Afet',
+    colRegion: 'Bölge',
+    colStatus: 'Durum',
+    colStarted: 'Başlatan',
+    colUpdated: 'Güncelleme',
+    colActions: 'İşlem',
+    inspect: 'İncele',
+    share: 'Paylaş',
+    inspectAria: (name: string) => `${name} operasyonunu incele`,
+    editAria: (name: string) => `${name} kaydını düzenle`,
+    shareAria: (name: string) => `${name} operasyonunu paylaş`,
+  },
+
+  // Paylaşım penceresi. Koordinatör bağlantıyı elle yazmaz: yanlış yazılmış bir afet
+  // linki, yardım etmek isteyen birini 404'e götürür.
+  shareDisaster: {
+    title: 'Operasyonu paylaş',
+    intro: 'Herkese açık afet sayfasının bağlantısı. Bu sayfada güncel ihtiyaç listesi ve teslim noktaları yer alır.',
+    linkLabel: 'Herkese açık bağlantı',
+    copy: 'Bağlantıyı kopyala',
+    copied: 'Kopyalandı ✓',
+    copyFailed: 'Kopyalanamadı. Bağlantıyı seçip elle kopyalayabilirsiniz.',
+    whatsapp: "WhatsApp'ta paylaş",
+    // Yeni sekmede açılır; kullanıcıya önceden söylenir (rules/04 §Accessibility).
+    whatsappHint: 'WhatsApp yeni bir sekmede açılır, mesaj hazır gelir.',
+    openPublic: 'Sayfayı aç',
+    close: 'Kapat',
+    previewLabel: 'Gönderilecek mesaj',
+    // WhatsApp mesajı.
+    //
+    // Bağlantı SON satırda: WhatsApp önizlemeyi son bağlantıdan üretir ve mesajın
+    // kuyruğunda duran bir link uzun metinde kaybolmaz.
+    //
+    // Emoji satır BAŞINDA, tek başına bilgi taşımadan: telefonda gri metin bloğu
+    // içinde satırları ayırt etmeyi kolaylaştırıyor, ama her satırın anlamı yazıyla
+    // da tam olarak yazılı. Emojisi görünmeyen bir cihazda mesaj hiçbir şey
+    // kaybetmez (rules/04 §Accessibility).
+    typeEmoji: {
+      Wildfire: '🔥', Flood: '🌊', Earthquake: '🏚️', Storm: '🌪️', Evacuation: '🚨', Other: '⚠️',
+    } as Record<string, string>,
+    statusEmoji: { Active: '🔴', Resolved: '🟢', Archived: '⚪' } as Record<string, string>,
+    // Sayı satırları YALNIZCA veri varken yazılır. Panodan sayılar gelmediyse satır
+    // hiç görünmez — "0 kritik ihtiyaç" yazmak, henüz okunmamış bir veriyi
+    // "hiç yok" diye paylaşmak olurdu (CLAUDE.md §Source of Truth).
+    message: (o: {
+      name: string; typeLabel: string; typeEmoji: string; statusEmoji: string;
+      region: string; statusLabel: string; situation: string; url: string;
+      settlements: number;
+      critical: number | null;
+      fulfilment: string | null;
+      deliveryPoints: number | null;
+      volunteers: number | null;
+      onShift: number | null;
+    }) => [
+      `${o.statusEmoji} AfetHUB — ${o.name}`,
+      `${o.typeEmoji} ${o.typeLabel} · Durum: ${o.statusLabel}`,
+      `📍 ${o.region}`,
+      o.settlements > 0 ? `🏘️ Etkilenen yerleşim: ${o.settlements}` : '',
+      o.situation ? `\n📝 ${o.situation}` : '',
+      o.critical !== null && o.critical > 0 ? `\n⚠️ Karşılanmamış kritik ihtiyaç: ${o.critical}` : '',
+      o.fulfilment ? `📦 Genel karşılama: ${o.fulfilment}` : '',
+      o.deliveryPoints !== null ? `🚚 Aktif teslim noktası: ${o.deliveryPoints}` : '',
+      o.volunteers !== null && o.onShift !== null ? `🙋 Gönüllü: ${o.volunteers} kayıtlı · ${o.onShift} nöbette` : '',
+      `\n👉 Güncel ihtiyaç listesi ve teslim noktaları:`,
+      o.url,
+    ].filter((x): x is string => Boolean(x)).join('\n'),
   },
 
   coordOrgEdits: {
@@ -1299,7 +1547,213 @@ export const tr = {
     selfNote: 'Kendi rolünüzü buradan değiştiremezsiniz.',
   },
 
+  // Tek operasyonun koordinasyon sayfası (screens/CoordDisaster.tsx).
+  coordOperation: {
+    breadcrumb: 'Sayfa yolu',
+    switch: 'Afet değiştir',
+    eyebrow: (active: boolean, urgency: number | null) =>
+      [active ? 'AKTİF OPERASYON' : 'OPERASYON', urgency == null ? '' : `ACİLİYET ${urgency}`]
+        .filter(Boolean).join(' · '),
+    points: (n: number) => (n === 0 ? 'teslim noktası yok' : `${n} teslim noktası`),
+    updated: (label: string) => `son güncelleme ${label}`,
+
+    kpiCriticalHint: 'karşılanmamış kritik kalem',
+    kpiPendingHint: 'karar bekliyor',
+    kpiTodayHint: 'bugün karara bağlanan',
+    kpiPointsHint: 'aktif teslim noktası',
+    kpiVolunteersHint: 'kayıtlı / nöbette',
+
+    queueTitle: 'Bugünkü iş kuyruğu',
+    queueHint: 'En eski üstte · karar bu sayfada verilir',
+    queueEmpty: 'Bu operasyonda karar bekleyen teslimat bildirimi yok.',
+    reported: (label: string) => `Bildirildi: ${label}`,
+    remainingAfter: (remaining: number, unit: string) => `kalan ${remaining} ${unit}`,
+
+    matrixTitle: 'İhtiyaç karşılama matrisi',
+    matrixHint: 'Öncelik sırasına göre',
+    matrixCount: (shown: number, total: number) => `${shown} / ${total} kalem`,
+    matrixEmpty: 'Bu süzgece uyan ihtiyaç yok.',
+    filterCritical: 'Kritik',
+    filterOpen: 'Açık',
+    filterDone: 'Tamamlanan',
+    colNeed: 'Kalem',
+    colPriority: 'Öncelik',
+    colProgress: 'Karşılama',
+    colRemaining: 'Kalan',
+    colPending: 'Bekleyen',
+    colPoint: 'Teslim noktası',
+    colUpdated: 'Güncellendi',
+    progressCell: (verified: string, required: string, unit: string, pct: number) =>
+      `${verified} / ${required} ${unit} doğrulandı · %${pct}`,
+    noPoint: 'Nokta atanmadı',
+
+    fieldTitle: 'Saha durumu',
+    fieldHint: 'teslim noktası doluluğu',
+    noPoints: 'Bu operasyonda teslim noktası yok. Herkese açık sayfada yönlendirilecek bir adres görünmüyor.',
+    noContact: 'Sorumlu atanmadı',
+    setCapacity: 'Doluluğu güncelle',
+    capacityUnknownOption: 'Bilinmiyor',
+    managePoints: 'Teslim noktalarını yönet',
+    manageVolunteers: 'Gönüllüleri yönet',
+
+    // İlçe haritası (components/DistrictMap.tsx, migration 0026)
+    // Kartın ayrı bir "Etkilenen ilçeler" başlığı YOK: operasyon zaten ilçe bazında
+    // açılıyor, ilçe adı kırıntı yolunda ve başlığın altında yazılı. Kartın tek
+    // başlığı yerleşim listesinin başlığı.
+    // Bekleme durumu. "Kaydedilmemiş" kuru bir olumsuzlama; koordinatörün görmesi
+    // gereken şey bunun BEKLEYEN BİR İŞ olduğu. Boş bir harita ya da boş bir liste
+    // "hiçbir yer etkilenmedi" diye okunur, o yüzden ikisi de çizilmez.
+    districtWaitingTitle: 'Etkilenen bölge bilgisi bekleniyor',
+    districtWaitingBody: 'Afet kaydında ilçe ve yerleşim girilmemiş. Girildiğinde harita ve liste burada görünür.',
+    districtUnknownShort: 'İl adı tanınmadı, harita açılamadı.',
+    districtEdit: 'Afet kaydını düzenle',
+    settlementsTitle: 'Mahalle ve köyler',
+    settlementsWaiting: 'Yerleşim girilmemiş. Bu, ilçenin tamamının etkilendiği anlamına gelmez — kayda girildiğinde burada listelenir.',
+    districtUnknownProvince: (province: string) => `"${province}" tanınan bir il adı değil, ilçe haritası açılamadı. Afet kaydındaki il adını kontrol edin.`,
+    districtFailed: 'İlçe haritası yüklenemedi. Etkilenen ilçe, operasyon başlığının altında yazılı.',
+    districtAria: (names: string) => `İl haritası, etkilenen ilçeler: ${names}`,
+    districtAffected: (name: string) => `${name} — etkilenen ilçe`,
+    districtUnmatched: (names: string) => `Haritada eşleşmeyen ilçe adı: ${names}. Yazımı kontrol edin.`,
+
+    logTitle: 'Operasyon kaydı',
+    logAll: 'Tüm kayıtlar',
+    logHint: 'son hareketler',
+    logEmpty: 'Bu operasyonda henüz kayıtlı hareket yok.',
+  },
+
+  // Koordinasyon paneli — tüm afetler görünümü (screens/CoordHome.tsx).
+  coordDash: {
+    subtitle: (total: number, active: number) => `Erişiminiz olan ${total} afet · ${active} aktif`,
+    subtitleAction: (n: number) => `${n}'inde müdahale gerekiyor`,
+    manageOps: 'Afet yönetimi',
+    open: 'Aç',
+    setUp: 'Kurulumu tamamla',
+    review: 'İncele',
+    openOperation: 'Operasyonu aç',
+    clearSelection: 'Seçimi kaldır',
+    selected: 'Haritadan seçildi:',
+    demo: 'ÖRNEK',
+
+    // Durum, renkten bağımsız olarak her yerde yazıyla söylenir.
+    stateAction: 'Müdahale gerek',
+    stateBusy: 'Yoğun',
+    stateSteady: 'Seyrinde',
+    stateSetup: 'Kurulum eksik',
+    stateResolved: 'Kapanıyor',
+    stateArchived: 'Arşivde',
+
+    noActivity: 'Hareket yok',
+    justNow: 'az önce',
+    minsAgo: (n: number) => `${n} dk önce`,
+    hoursAgo: (n: number) => `${n} sa önce`,
+    daysAgo: (n: number) => `${n} gün önce`,
+
+    cardOperations: 'Afet',
+    cardOperationsHint: (active: number, other: number) => `${active} aktif · ${other} diğer`,
+    cardCritical: 'Kritik ihtiyaç',
+    cardCriticalHint: 'karşılanmamış kritik kalem',
+    cardPending: 'Bekleyen doğrulama',
+    cardPendingHint: 'karar bekliyor',
+    cardPendingSla: (n: number, hours: number) => `${n} tanesi ${hours} saati aştı`,
+    cardToday: 'Bugün doğrulanan',
+    cardTodayHint: 'bugün karara bağlanan teslimat',
+    cardFulfilment: 'Genel karşılama',
+    cardFulfilmentHint: (verified: string, required: string) => `${verified} / ${required} birim`,
+    cardVolunteers: 'Gönüllü',
+    cardVolunteersHint: (pending: number) => (pending > 0 ? `${pending} başvuru atama bekliyor` : 'atama bekleyen yok'),
+    cardPoints: 'Teslim noktası',
+    cardPointsFull: (n: number) => `${n} tanesi kapasitede`,
+    cardPointsUnknown: (n: number) => (n > 0 ? `${n} tanesinde doluluk bilinmiyor` : 'doluluk girilmiş'),
+
+    // Karar zamanı migration 0025'ten önce kaydedilmiyordu; sayacın neden 0 olduğunu
+    // söylemek, sayıyı gizlemekten iyidir.
+    todayZeroNote: 'Bugün henüz bir teslimat karara bağlanmadı. Karar zamanı yeni tutulmaya başlandı; daha eski doğrulamalar bu sayaca girmez.',
+
+    bandTitle: (n: number) => `${n} operasyonda müdahale gerekiyor`,
+    bandBody: (threshold: number) => `Aciliyet skoru ${threshold} ve üzeri. Skor kritik ihtiyaç, bekleyen doğrulama, gecikmiş bekleme ve karşılama oranından hesaplanır.`,
+
+    mapTitle: 'Operasyon haritası',
+    mapHint: (n: number) => (n === 1 ? '1 ilde operasyon var' : `${n} ilde operasyon var`),
+    mapAria: (n: number) => `Türkiye haritası üzerinde ${n} operasyon`,
+    mapMulti: (province: string, extra: number) => `${province} +${extra}`,
+    mapFailed: 'Harita yüklenemedi. Aynı bilgi aşağıdaki karşılaştırma tablosunda duruyor.',
+    mapUnplaced: (n: number) => `${n} operasyonun ili tanınmadı, haritada boyanmadı. Afet kaydındaki il adını kontrol edin — tabloda hepsi görünüyor.`,
+    markerDesc: (name: string, state: string, score: number, openNeeds: number) =>
+      `${name} · ${state} · aciliyet ${score} · ${openNeeds} açık ihtiyaç`,
+
+    rankTitle: 'Aciliyet sırası',
+    rankHint: 'ilk 4',
+
+    tableTitle: 'Afet karşılaştırma',
+    tableHint: 'Satırdaki düğme operasyonu açar',
+    tableCount: (shown: number, total: number) => `${shown} / ${total} operasyon`,
+    tableEmpty: 'Bu süzgece uyan operasyon yok.',
+    filterAll: 'Tümü',
+    filterActive: 'Aktif',
+    filterOther: 'Kapanan ve arşiv',
+
+    colUrgency: 'Aciliyet',
+    colOperation: 'Afet',
+    colState: 'Durum',
+    colCritical: 'Kritik',
+    colPending: 'Bekleyen',
+    colFulfilment: 'Karşılama',
+    colVolunteers: 'Gönüllü',
+    colPoints: 'Nokta',
+    colLast: 'Son hareket',
+    fulfilmentCell: (verified: string, required: string, pct: number) => `${verified} / ${required} · %${pct}`,
+    noNeeds: 'İhtiyaç tanımlanmadı',
+    slaOut: (n: number) => `${n} tanesi gecikmiş`,
+    pointsFull: (n: number) => `${n} kapasitede`,
+
+    queueTitle: 'Birleşik iş kuyruğu',
+    queueAll: (hours: number) => `Tüm afetler · ${hours} saati aşan kayıt gecikmiş sayılır`,
+    queueScoped: 'Seçili operasyon',
+    queueEmpty: 'Bekleyen teslimat yok.',
+    queueEmptyScoped: 'Seçili operasyonda bekleyen teslimat yok.',
+    queueLine: (need: string, qty: string, unit: string) => `${need} · ${qty} ${unit}`,
+    queueMore: (n: number) => `${n} kayıt daha — inceleme kuyruğunu aç`,
+    unknownNeed: 'İhtiyaç kaydı bulunamadı',
+    waiting: (hours: number) => (hours < 1 ? 'Bekleme: 1 saatten az' : `Bekleme: ${hours} sa`),
+    withPhoto: 'fotoğraflı',
+    noPhoto: 'fotoğrafsız',
+    slaChip: 'Gecikmiş',
+
+    alertsTitle: 'Afetler arası uyarılar',
+    alertsHint: 'sunucudan gelen sayılardan türetilir',
+    alertsEmpty: 'Şu an dikkat isteyen bir durum görünmüyor.',
+    alertMore: (n: number, kind: string) => `${n} operasyonda daha aynı durum var: ${kind}.`,
+    alertSetup: 'Kurulum eksik',
+    alertSetupBody: (name: string) => `${name} aktif ama hiç teslim noktası yok. Herkese açık sayfasında yönlendirilecek bir adres görünmüyor.`,
+    alertCapacity: 'Nokta doluyor',
+    alertCapacityBody: (name: string, n: number) => `${name}: ${n} teslim noktası kapasitesine yaklaştı. Yeni sevkiyatı başka noktaya yönlendirin.`,
+    alertSla: 'Gecikmiş doğrulama',
+    alertSlaBody: (name: string, n: number) => `${name}: ${n} teslimat bildirimi karar süresini aştı. Bekleyen miktar kalan miktarı düşürmez, yani halka açık sayfa hâlâ eksik gösteriyor.`,
+    alertVolunteers: 'Gönüllü bekliyor',
+    alertVolunteersBody: (name: string, n: number) => `${name}: ${n} gönüllü başvurusu değerlendirilmeyi bekliyor.`,
+    alertClosable: 'Kapanışa hazır olabilir',
+    alertClosableBody: (name: string) => `${name}: açık ihtiyaç ve bekleyen teslimat kalmadı. Operasyonu kapatmak isteyip istemediğinizi gözden geçirin.`,
+    alertUnknown: 'Doluluk bilinmiyor',
+    alertUnknownBody: (name: string, n: number) => `${name}: ${n} teslim noktasının hiçbirinde doluluk ölçülmedi. Sevkiyat yönlendirmesi bu bilgiye dayanıyor.`,
+
+    noAccessTitle: 'Bu panel koordinatörler içindir',
+    noAccessBody: 'Hesabınızda koordinatör yetkisi görünmüyor. Yetki verilmişse çıkış yapıp yeniden giriş yapmayı deneyin.',
+    errorTitle: 'Panel verisi yüklenemedi',
+    errorBody: 'Operasyon sayıları alınamadı. Eksik bir panel yanlış bir panelden iyidir, o yüzden hiçbir sayı tahmin edilmedi.',
+    emptyTitle: 'Henüz operasyon yok',
+    emptyBody: 'Erişebildiğiniz kayıtlı bir afet bulunmuyor. Afet yönetiminden yeni bir operasyon açabilirsiniz.',
+  },
+
   coordOps: {
+    // Teslim noktası doluluğu (migration 0025). Bilinmeyen doluluk %0 değildir:
+    // ekranda ayrı bir cümleyle söylenir, yoksa "yer var" diye okunur.
+    capacityLabel: 'Doluluk',
+    capacityUnknown: 'Doluluk bilinmiyor',
+    capacityUnknownHint: 'Bu noktada doluluk hiç ölçülmedi.',
+    capacityFull: 'Dolmak üzere',
+    capacitySaved: (pct: number) => `Doluluk %${pct} olarak kaydedildi.`,
+    capacityCleared: 'Doluluk ölçümü kaldırıldı, "bilinmiyor" olarak görünecek.',
+    capacityMeasured: (whenLabel: string) => `${whenLabel} ölçüldü`,
     title: 'Duyuru ve Teslim Noktaları',
     subtitle: 'Seçtiğiniz operasyonun herkese açık sayfasında görünen duyurular ve teslim noktaları.',
     localNote: 'Bu ortamda veritabanı bağlı değil: değişiklikler yalnızca bu oturumda geçerli olur.',
@@ -1460,64 +1914,18 @@ export const tr = {
     panelMembership: 'Kurum bilgisi',
     panelNoOrg: 'Kayıtlı kurum bilgisi yok.',
     panelAddOrg: 'Hesabımdan ekle',
-  },
-
-  // ---- İletişim ------------------------------------------------------------
-  contact: {
-    navLabel: 'İletişim',
-    title: 'İletişim',
-    lead: 'Sorunuz, düzeltmeniz veya iş birliği öneriniz için yazın. Mesajınız koordinasyon ekibine ulaşır.',
-    emergency: 'AfetHUB bir sivil koordinasyon platformudur. Acil ve hayati tehlike durumlarında bu formu beklemeyin, 112’yi arayın.',
-    mailTitle: 'E-posta',
-    mailAddress: 'info@afethub.com',
-    mailNote: 'Doğrudan yazmayı tercih ederseniz bu adresi kullanabilirsiniz. Formu doldurmanız gerekmez.',
-    // Deliberately no promised response time: an operation-driven team cannot honour one.
-    speedNote: 'Yanıt süresi konuya ve o anki operasyon yoğunluğuna göre değişir; bir süre veremiyoruz.',
-    notHere: 'Buradan yapılmayanlar',
-    notHereBody: 'Yardım bildirimi, ihtiyaç talebi, gönüllü başvurusu ve gönderi takibi kendi sayfalarından ilerler; iletişim formu bunların yerine geçmez ve daha hızlı sonuç vermez.',
-    formTitle: 'Mesaj gönderin',
-    fName: 'Ad Soyad',
-    fEmail: 'E-posta',
-    fEmailNote: 'Yalnızca size dönebilmek için kullanılır. Herkese açık hiçbir sayfada görünmez.',
-    fTopic: 'Konu',
-    fMessage: 'Mesajınız',
-    fMessagePh: 'Ne hakkında yazdığınızı kısaca anlatın.',
-    counter: (n: number) => `${n} / 4000 karakter`,
-    minNote: 'En az 20 karakter.',
-    send: 'Mesajı Gönder',
-    sending: 'Gönderiliyor…',
-    errName: 'Lütfen ad soyad girin.',
-    errEmail: 'Lütfen geçerli bir e-posta adresi girin.',
-    errMessage: 'Mesajınız en az 20 karakter olmalı.',
-    sendError: 'Mesaj gönderilemedi. Yazdıklarınız kaybolmadı, tekrar deneyin.',
-    rateLimited: 'Kısa süre içinde çok sayıda mesaj gönderildi. Lütfen biraz bekleyip tekrar deneyin.',
-    doneTitle: 'Mesajınız bize ulaştı',
-    doneBody: 'Mesajınız kaydedildi ve koordinasyon ekibine iletildi. Bir kopyası e-posta adresinize de gönderilir.',
-    doneMailNote: 'E-posta birkaç dakika içinde gelmezse spam klasörünü kontrol edin; mesajınız her hâlükârda bize ulaştı.',
-    newMessage: 'Yeni mesaj yaz',
-    backHome: 'Ana sayfaya dön',
-    // Panel
-    panelTitle: 'İletişim Mesajları',
-    panelSubtitle: 'İletişim formundan gelen mesajlar. Yanıtlar e-posta üzerinden verilir; buradaki durum yalnızca ekip içi takip içindir.',
-    panelEmpty: 'Henüz mesaj yok.',
-    panelNew: 'Yeni',
-    panelRead: 'Okundu',
-    panelClosed: 'Kapatıldı',
-    panelReply: 'E-posta ile yanıtla',
-    markRead: 'Okundu işaretle',
-    markClosed: 'Kapat',
-    reopen: 'Yeniden aç',
-    loadFailed: 'Mesajlar yüklenemedi.',
-    actionFailed: 'İşlem tamamlanamadı.',
-    statusToast: 'Durum güncellendi.',
-    topics: {
-      Genel: 'Genel',
-      Kurum: 'Kurum / dernek',
-      'Gönüllü': 'Gönüllülük',
-      'Basın': 'Basın',
-      Teknik: 'Teknik sorun',
-      'Diğer': 'Diğer',
-    },
+    // Parola değiştirme bölümü
+    sectionPassword: 'Parola',
+    pwNote: 'Parolanı değiştirmek için önce mevcut parolanı gir.',
+    pwCurrent: 'Mevcut parola',
+    pwNew: 'Yeni parola',
+    pwConfirm: 'Yeni parola (tekrar)',
+    pwChange: 'Parolayı Değiştir',
+    pwChanged: 'Parolanız güncellendi ✓',
+    pwErrShort: 'Yeni parola en az 6 karakter olmalı.',
+    pwErrMismatch: 'Yeni parolalar eşleşmiyor.',
+    pwErrCurrent: 'Mevcut parola hatalı.',
+    pwErrGeneric: 'Parola değiştirilemedi. Lütfen tekrar deneyin.',
   },
 
   sidebarFooter: { regionSuffix: 'Koordinasyon açık' },

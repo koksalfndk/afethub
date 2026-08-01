@@ -1,14 +1,16 @@
 import type {
-  ContactInput, ContactMessage, ContactStatus,
-  LogEntry, Need, Submission, VerifyKind, DeliveryInput, Organization, OrganizationInput,
+  LogEntry, Need, Submission, VerifyKind, RevisionKind, DeliveryInput, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
   BannerSlide, BannerSlideInput, OrgEditRequestInput,
   OrgEditRequest, Disaster, DisasterInput, OrganizationSave, OrgStatus,
   VolunteerInput, VolunteerApplication, VolunteerStatus, StaffMember, StaffRole, RoleInvite,
   Announcement, AnnouncementInput, Location, LocationInput,
 } from '../types';
-import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
-import { genCode, genNrq, remaining, isSameEvent, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS, COMMUNITY_THRESHOLD, isPublicAuditAction } from './repo';
+import type {
+  Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed,
+  CoordOverview, CoordDisasterRow, CoordQueueItem,
+} from './repo';
+import { genCode, genNrq, remaining, isSameEvent, SLA_HOURS, urgencyScore, splitDistricts, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS, COMMUNITY_THRESHOLD, isPublicAuditAction } from './repo';
 import { disasterTypeLabel } from '../i18n/strings';
 import { agoMinutes } from '../util';
 import { PRI } from '../theme';
@@ -39,8 +41,6 @@ let locations: Location[] = seed.locations.map((x) => ({ ...x }));
 // volunteer" would be a named person who never applied, and a fake coordinator list
 // would misrepresent who can act on the platform (rules/07 §Seed Content).
 let volunteerApps: VolunteerApplication[] = [];
-// İletişim mesajları — bu oturum boyunca bellekte.
-let contactMessages: ContactMessage[] = [];
 let roleInvites: RoleInvite[] = [];
 // Who confirmed which report. The pair is what makes one e-mail count once, exactly
 // as the unique constraint does in migration 0016.
@@ -82,7 +82,8 @@ function openFromReport(r: DisasterReport, community: boolean): string {
   const created: Disaster = {
     id: nextId('d'), slug, legacySlugs: [],
     name, region: [r.district, r.province].filter(Boolean).join(', ') + ' · Türkiye',
-    province: r.province, type: r.type, status: 'Active',
+    province: r.province, districts: splitDistricts(r.district), settlements: [],
+    type: r.type, status: 'Active',
     situation: community
       ? `Bu operasyon, aynı olayı bildiren en az ${COMMUNITY_THRESHOLD} kişinin doğrulamasıyla otomatik açıldı. Koordinatör doğrulaması bekleniyor.${r.description ? `\n\n${r.description}` : ''}`
       : r.description,
@@ -212,6 +213,98 @@ export class LocalRepo implements Repo {
         .slice(0, 6),
       demo: cards.some((c) => c.disaster.demo === true),
     };
+  }
+
+  // ---- Coordinator dashboard ----------------------------------------------
+  // The in-memory twin of `coordinator_overview()`. It exists so the panel is
+  // usable without Supabase, and it deliberately uses the SAME score helper as the
+  // migration mirrors — two formulas would mean two different orderings depending
+  // on which backend was running.
+  //
+  // What it cannot mirror: authorization. Local mode has no session, so there is
+  // nothing to check. That is a property of running without a database, not a
+  // relaxed rule — every read here is guarded by is_coordinator() in production.
+  async getCoordOverview(): Promise<CoordOverview> {
+    const rows: CoordDisasterRow[] = seed.disasters.map((d) => {
+      const mine = needs.filter((n) => n.disasterId === d.id);
+      const mySubs = subs.filter((s) => disasterOfNeed(s.needId) === d.id);
+      const pend = mySubs.filter((s) => s.status === 'Pending verification');
+      const points = locations.filter((l) => l.disasterId === d.id);
+      const critical = mine.filter((n) => n.priority === 'Critical' && remaining(n) > 0).length;
+      const urgent = mine.filter((n) => n.priority === 'Urgent' && remaining(n) > 0).length;
+      const requiredTotal = mine.reduce((x, n) => x + n.required, 0);
+      const verifiedTotal = mine.reduce((x, n) => x + n.verified, 0);
+      // Waiting time comes from the relative label the local records carry; a
+      // submission whose age cannot be read is NOT counted as breached — guessing
+      // would put a red "SLA aşıldı" badge on a row nobody can verify.
+      const slaBreached = pend.filter((s) => agoMinutes(s.submitted) >= SLA_HOURS * 60).length;
+      return {
+        id: d.id, slug: d.slug, name: d.name, province: d.province, region: d.region,
+        type: d.type, status: d.status,
+        // Local records carry a display string ("21 Temmuz"), not a date. Passing it
+        // through as if it were ISO would make "3. gün" a lie, so it stays empty.
+        openedAt: '', demo: d.demo === true,
+        lat: points.length ? points.reduce((x, l) => x + l.lat, 0) / points.length : null,
+        lng: points.length ? points.reduce((x, l) => x + l.lng, 0) / points.length : null,
+        criticalNeeds: critical,
+        urgentNeeds: urgent,
+        openNeeds: mine.filter((n) => remaining(n) > 0).length,
+        completedNeeds: mine.filter((n) => remaining(n) === 0).length,
+        requiredTotal,
+        verifiedTotal,
+        pendingSubs: pend.length,
+        pendingUnits: pend.reduce((x, s) => x + s.qty, 0),
+        slaBreached,
+        // No decision timestamps in memory, so "bugün doğrulanan" stays 0 rather
+        // than counting every verified row and calling it today's work.
+        decidedToday: 0,
+        deliveryPoints: points.length,
+        pointsAtCapacity: points.filter((l) => l.capacityPct != null && l.capacityPct >= 85).length,
+        pointsCapacityUnknown: points.filter((l) => l.capacityPct == null).length,
+        volunteers: d.volunteers,
+        onShift: d.onShift,
+        pendingVolunteers: volunteerApps.filter((v) => v.disasterId === d.id && v.status === 'Pending review').length,
+        openNeedRequests: 0,
+        lastActivityAt: null,
+        urgency: urgencyScore({
+          status: d.status, critical, urgent, pending: pend.length,
+          slaBreached, deliveryPoints: points.length, required: requiredTotal, verified: verifiedTotal,
+        }),
+      };
+    }).sort((x, y) => y.urgency - x.urgency || x.name.localeCompare(y.name, 'tr'));
+    return { disasters: rows, slaHours: SLA_HOURS };
+  }
+
+  async getCoordQueue(limit: number): Promise<CoordQueueItem[]> {
+    const byId = new Map(seed.disasters.map((d) => [d.id, d] as const));
+    return subs
+      .filter((s) => s.status === 'Pending verification')
+      .map((s) => {
+        const need = needs.find((n) => n.id === s.needId);
+        const d = need ? byId.get(need.disasterId) : undefined;
+        const mins = agoMinutes(s.submitted);
+        return {
+          id: s.id, code: s.code,
+          disasterId: d?.id ?? '', disasterSlug: d?.slug ?? '', disasterName: d?.name ?? '',
+          needId: s.needId, needName: need?.name ?? '', needPriority: need?.priority ?? 'Normal',
+          contributor: s.contributor, qty: s.qty, unit: s.unit, loc: s.loc, note: s.note,
+          hasPhoto: !!s.photoUrl,
+          submittedAt: '', waitingHours: Number.isFinite(mins) ? Math.round(mins / 60) : 0,
+          slaBreached: Number.isFinite(mins) && mins >= SLA_HOURS * 60,
+        };
+      })
+      .sort((x, y) => y.waitingHours - x.waitingHours)
+      .slice(0, Math.max(1, limit));
+  }
+
+  async setLocationCapacity(locationId: string, pct: number | null, note: string): Promise<Snapshot> {
+    const l = locations.find((x) => x.id === locationId);
+    if (l) {
+      l.capacityPct = pct;
+      l.capacityNote = note;
+      l.capacityUpdated = 'az önce';
+    }
+    return this.getSnapshot();
   }
 
   // ---- Banner slides -------------------------------------------------------
@@ -405,7 +498,10 @@ export class LocalRepo implements Repo {
         id: nextId('loc'), disasterId: input.disasterId,
         name: input.name.trim(), address: input.address.trim(), hours: input.hours.trim(),
         accepts: input.accepts.trim(), contact: input.contact.trim(), phone: input.phone.trim(),
-        status: input.status.trim(), ...derived,
+        status: input.status.trim(),
+        // A new point has never been measured. Not 0 — unknown (migration 0025).
+        capacityPct: null, capacityNote: '', capacityUpdated: '',
+        ...derived,
       }];
       addLog(d.id, {
         user: 'Koordinatör', action: 'Teslim noktası eklendi',
@@ -591,39 +687,6 @@ export class LocalRepo implements Repo {
     return log.slice().sort(byRecency).slice(0, limit).map((l) => ({ ...l }));
   }
 
-  // ---- İletişim ----------------------------------------------------------
-  // The same validation as the RPC in migration 0025, repeated here so the local
-  // backend refuses exactly what the real one refuses. A demo mode that accepts what
-  // production rejects teaches the wrong thing about the form.
-  async submitContact(input: ContactInput): Promise<string> {
-    const name = input.name.trim();
-    const email = input.email.trim().toLowerCase();
-    const message = input.message.trim();
-    if (name.length < 2) throw new Error('name required');
-    if (!/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(email)) throw new Error('email invalid');
-    if (message.length < 20) throw new Error('message too short');
-    if (message.length > 4000) throw new Error('message too long');
-    const same = contactMessages.find((m) => m.email === email && m.message === message);
-    if (same) return same.id;
-    const row: ContactMessage = {
-      id: nextId('cm'), name, email, topic: input.topic, message,
-      status: 'Yeni', createdAt: new Date().toISOString(), handledAt: '',
-    };
-    contactMessages = [row, ...contactMessages];
-    return row.id;
-  }
-
-  async listContactMessages(): Promise<ContactMessage[]> {
-    return contactMessages.map((m) => ({ ...m }));
-  }
-
-  async setContactStatus(id: string, status: ContactStatus): Promise<ContactMessage[]> {
-    contactMessages = contactMessages.map((m) => (m.id === id
-      ? { ...m, status, handledAt: status === 'Yeni' ? '' : new Date().toISOString() }
-      : m));
-    return this.listContactMessages();
-  }
-
   async reviewVolunteerApplication(id: string, status: VolunteerStatus, note: string): Promise<VolunteerApplication[]> {
     const app = volunteerApps.find((v) => v.id === id);
     if (!app) throw new Error('application not found');
@@ -697,7 +760,14 @@ export class LocalRepo implements Repo {
   async submitDisasterReport(input: DisasterReportInput): Promise<{ report: DisasterReport; merged: boolean }> {
     const existing = reports.find((r) => r.status === 'Pending verification' && isSameEvent(r, input));
     if (existing) {
-      const merged = { ...existing, reportCount: existing.reportCount + 1, lastReportLabel: NOW };
+      // Birleştirmede mahalle listelerinin BİRLEŞİMİ alınır (migration 0034 ile aynı
+      // kural): ikinci bildiren farklı bir köy saymış olabilir.
+      const merged = {
+        ...existing,
+        reportCount: existing.reportCount + 1,
+        lastReportLabel: NOW,
+        settlements: [...new Set([...existing.settlements, ...input.settlements.map((x) => x.trim()).filter(Boolean)])],
+      };
       reports = reports.map((r) => (r.id === existing.id ? merged : r));
       addLog(activeDisasterId(), {
         user: input.name || 'Misafir', action: 'Afet bildirimi birleştirildi',
@@ -711,7 +781,9 @@ export class LocalRepo implements Repo {
     const created: DisasterReport = {
       id: nextId('rep'), type: input.type,
       province: input.province.trim(), district: input.district.trim(),
-      locationNote: input.locationNote.trim(), occurredOn: input.occurredOn,
+      locationNote: input.locationNote.trim(),
+      settlements: [...new Set(input.settlements.map((x) => x.trim()).filter(Boolean))],
+      occurredOn: input.occurredOn,
       description: input.description.trim(),
       reportCount: 1, status: 'Pending verification', disasterSlug: null,
       createdLabel: NOW, lastReportLabel: NOW,
@@ -744,7 +816,11 @@ export class LocalRepo implements Repo {
     const next = { ...r, reportCount: r.reportCount + 1, lastReportLabel: NOW };
     reports = reports.map((x) => (x.id === reportId ? next : x));
     addLog(activeDisasterId(), {
-      user: 'Topluluk', action: 'Afet bildirimi doğrulandı',
+      // Akıştaki "kim" sütunu burada kişi değil SAYI: bildirimi teyit eden vatandaşın
+      // adını herkese açık akışta yayınlamak onu ismiyle teşhir etmek olurdu.
+      // Supabase yolunda aynı dönüşüm eşleme katmanında yapılıyor (auditActorLabel);
+      // yerel mod da aynı şeyi göstermeli, yoksa iki ortam iki farklı ürün olur.
+      user: `${next.reportCount} kişi bildirdi`, action: 'Afet bildirimi doğrulandı',
       detail: `${next.province}${next.district ? ' / ' + next.district : ''} · ${disasterTypeLabel[next.type]}`,
       oldValue: `${r.reportCount} kişi bildirdi`, newValue: `${next.reportCount} kişi bildirdi`,
       color: '#E6A700',
@@ -899,6 +975,74 @@ export class LocalRepo implements Repo {
     return snap();
   }
 
+  // Verilmiş bir kararın düzeltilmesi / geri alınması.
+  //
+  // Sunucudaki `revise_submission` ile AYNI aritmetiği yapar (migration 0032): eski
+  // kararın uyguladığı miktar geri alınır, yeni karar uygulanır. Sıfırdan yeniden
+  // hesap yapılmaz — bellek içi tohum verisinde de `verified` değerleri arkasında
+  // teslimat kaydı olmayan bir başlangıçtan geliyor.
+  //
+  // Yerel modda YETKİ KONTROLÜ YOK: oturum yok, "kararı veren kişi" diye bir şey de
+  // yok. Bu kasıtlı; kuralı burada taklit etmek, gerçek kuralın nerede uygulandığı
+  // konusunda yanlış bir güven verirdi.
+  async reviseSubmission(subId: string, kind: RevisionKind, qtyIn: number, reason: string): Promise<Snapshot> {
+    const sub = subs.find((s) => s.id === subId);
+    if (!sub) return snap();
+    const need = find(sub.needId)!;
+
+    const oldStatus = sub.status;
+    const oldApplied = oldStatus === 'Verified' || oldStatus === 'Partially verified'
+      ? (sub.verifiedQty ?? 0) : 0;
+    const oldPendingEffect = oldStatus === 'Information requested' ? 0 : sub.qty;
+
+    const baseV = Math.max(0, need.verified - oldApplied);
+    let newPending = need.pending + oldPendingEffect;
+    let newV = baseV;
+    let nextStatus: Submission['status'] = 'Pending verification';
+    let nextVerified: number | null = null;
+    let note = reason;
+
+    if (kind === 'undo') {
+      note = reason || 'Karar geri alındı, teslimat yeniden doğrulama bekliyor.';
+    } else if (kind === 'reject') {
+      nextStatus = 'Rejected'; nextVerified = 0;
+      newPending = Math.max(0, newPending - sub.qty);
+      note = reason || 'Düzeltme: teslim noktasında doğrulanamadı.';
+    } else if (kind === 'info') {
+      nextStatus = 'Information requested';
+      note = reason || 'Düzeltme: bağışçıdan ek bilgi istendi.';
+    } else {
+      const qty = Math.max(0, Math.min(qtyIn || 0, sub.qty));
+      newV = Math.min(need.required, baseV + qty);
+      const partial = qty < sub.qty;
+      nextStatus = partial ? 'Partially verified' : 'Verified';
+      nextVerified = qty;
+      newPending = Math.max(0, newPending - sub.qty);
+      note = reason || (partial ? `Düzeltme: ${qty} adet doğrulandı.` : 'Düzeltme: teslimatın tamamı doğrulandı.');
+    }
+
+    const nowComplete = need.required - newV <= 0;
+    subs = subs.map((x) => (x.id === sub.id
+      ? { ...x, status: nextStatus, verifiedQty: nextVerified, note }
+      : x));
+    needs = needs.map((n) => (n.id === need.id ? {
+      ...n, verified: newV, pending: newPending, updated: NOW,
+      // Düzeltme tamamlanmış bir ihtiyacı tekrar açabilir; 'Completed' kalırsa
+      // ekranlarda karşılanmış görünür.
+      priority: nowComplete ? 'Completed' : n.priority === 'Completed' ? 'Normal' : n.priority,
+    } : n));
+
+    addLog(need.disasterId, {
+      action: kind === 'undo' ? 'Teslimat kararı geri alındı' : 'Teslimat kararı düzeltildi',
+      detail: `${need.name} · ${sub.code} · ${sub.qty} ${sub.unit} bildirildi`
+        + (reason ? ` · gerekçe: ${reason}` : ''),
+      oldValue: `${oldStatus} · ${need.verified} doğrulanmış`,
+      newValue: `${nextStatus} · ${newV} doğrulanmış`,
+      color: kind === 'undo' ? '#627D98' : '#F97316',
+    });
+    return snap();
+  }
+
   // Seed disasters live in a module-level array; a coordinator edit mutates that copy.
   // In local mode this resets on reload, which the panel states.
   async saveDisaster(id: string | null, input: DisasterInput): Promise<Snapshot> {
@@ -908,6 +1052,7 @@ export class LocalRepo implements Repo {
       if (!before) throw new Error(`unknown disaster: ${id}`);
       const next: Disaster = {
         ...before, name: input.name.trim(), type: input.type, province: input.province,
+        districts: splitDistricts(input.district), settlements: input.settlements.slice(),
         region, status: input.status, situation: input.situation.trim(),
         openedByOrgId: input.openedByOrgId, updatedLabel: NOW,
       };
@@ -922,6 +1067,7 @@ export class LocalRepo implements Repo {
     const created: Disaster = {
       id: nextId('d'), slug: disasterSlug(input.name, new Date()), legacySlugs: [],
       name: input.name.trim(), region, province: input.province, type: input.type,
+      districts: splitDistricts(input.district), settlements: input.settlements.slice(),
       status: input.status, situation: input.situation.trim(),
       openedAt: new Date().toISOString().slice(0, 10), updatedLabel: NOW,
       // Counted from approved volunteer applications, never typed (migration 0017).

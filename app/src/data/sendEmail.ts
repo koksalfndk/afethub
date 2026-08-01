@@ -105,27 +105,3 @@ export async function sendVolunteerApproved(applicationId: string): Promise<bool
     return false;
   }
 }
-
-// ---------------------------------------------------------------------------
-// Contact form
-// ---------------------------------------------------------------------------
-// Takes only the stored message id. The Edge Function reads the message and the
-// writer's address from `contact_message_context()` (migration 0025) — which answers
-// once, and only within 15 minutes of the message being written — and takes the team
-// inbox from its own environment. Nothing here chooses a recipient or a line of HTML.
-//
-// Returns false for "not sent" of any kind. The message is already stored by the time
-// this runs, so a false must never be presented to the writer as "your message was not
-// received": it wasn't announced, which is our problem to fix, not theirs.
-export async function sendContactMessage(messageId: string): Promise<boolean> {
-  if (!supabase || !messageId) return false;
-  try {
-    const { data, error } = await supabase.functions.invoke('send-contact', {
-      body: { messageId },
-    });
-    if (error) return false;
-    return data?.ok === true && data?.skipped !== true;
-  } catch {
-    return false;
-  }
-}

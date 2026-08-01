@@ -72,7 +72,6 @@ export function Sidebar() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: C.muted3, padding: '6px 10px' }}>{tr.nav.contentGroup}</span>
           {item(tr.nav.orgAdmin, 'coordOrgs', a.orgs.length, 'grey', () => a.go('coordOrgs'))}
-          {item(tr.contact.panelTitle, 'coordContact', a.contactMessages.filter((m) => m.status === 'Yeni').length || null, 'grey', () => a.go('coordContact'))}
           {item(tr.nav.sliderAdmin, 'coordSlider', null, 'grey', () => a.go('coordSlider'))}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
