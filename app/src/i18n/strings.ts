@@ -1966,6 +1966,8 @@ export const tr = {
     panelTitle: 'İletişim Mesajları',
     panelSubtitle: 'İletişim formundan gelen mesajlar. Yanıtlar e-posta üzerinden verilir; buradaki durum yalnızca ekip içi takip içindir.',
     panelEmpty: 'Henüz mesaj yok.',
+    panelAll: 'Tümü',
+    refresh: 'Yenile',
     panelNew: 'Yeni',
     panelRead: 'Okundu',
     panelClosed: 'Kapatıldı',

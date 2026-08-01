@@ -6,11 +6,13 @@ import { Ico, eyebrow } from '../ui';
 import { Picker } from '../components/Picker';
 import type { ContactMessage, ContactStatus } from '../types';
 
+// "Tümü" başta ve varsayılan: kuyruğu açan kişi önce ne kadar mesaj olduğunu görmeli.
+// "Yeni" ile açmak, okunmuş ama kapatılmamış bir mesajı görünmez kılıyordu.
 const FILTERS: { value: string; label: string }[] = [
+  { value: '', label: tr.contact.panelAll },
   { value: 'Yeni', label: tr.contact.panelNew },
   { value: 'Okundu', label: tr.contact.panelRead },
   { value: 'Kapatıldı', label: tr.contact.panelClosed },
-  { value: '', label: 'Tümü' },
 ];
 
 // Status carries a colour AND its own word — colour alone never says what a row is
@@ -33,7 +35,7 @@ const oneLine = (s: string): string => s.replace(/\s+/g, ' ').trim();
 export function CoordContact() {
   const a = useApp();
   const mob = a.device === 'mobile';
-  const [status, setStatus] = useState('Yeni');
+  const [status, setStatus] = useState('');
   const [openId, setOpenId] = useState('');
 
   useEffect(() => { a.reloadContact(); /* on mount only */ // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -100,7 +102,7 @@ export function CoordContact() {
         <span style={{ minWidth: 190 }}>
           <Picker value={status} onChange={setStatus} options={FILTERS} ariaLabel={tr.contact.panelTitle} />
         </span>
-        <button onClick={() => a.reloadContact()} className="hv-navy" style={{ ...btn, height: 42 }}>{tr.common.retry}</button>
+        <button onClick={() => a.reloadContact()} className="hv-navy" style={{ ...btn, height: 42 }}>{tr.contact.refresh}</button>
         <span className="tnum" style={{ fontSize: 12.5, color: C.muted2 }}>
           {tr.contact.countLabel(rows.length, a.contactMessages.length)}
         </span>
