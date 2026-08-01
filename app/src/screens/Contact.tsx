@@ -4,7 +4,12 @@ import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Field, Ico, inputStyle, eyebrow } from '../ui';
-import { Picker } from '../components/Picker';
+import { Picker, toOptions } from '../components/Picker';
+import { PROVINCES, districtsOf } from '../data/trLocations';
+import {
+  prepareFile, prettyBytes, contactFileAccept, ContactFileError,
+  MAX_FILES, type PreparedContactFile,
+} from '../contactFiles';
 import type { ContactTopic } from '../types';
 
 const TOPICS: ContactTopic[] = ['Genel', 'Kurum', 'Gönüllü', 'Basın', 'Teknik', 'Diğer'];
@@ -32,6 +37,14 @@ export function Contact() {
   const [email, setEmail] = useState(auth.user?.email ?? '');
   const [topic, setTopic] = useState<ContactTopic>('Genel');
   const [message, setMessage] = useState('');
+  // Optional block. Prefilled from the account where we already hold the value — nobody
+  // retypes what they have given us before (rules/01).
+  const [phone, setPhone] = useState(auth.profile?.phone ?? '');
+  const [province, setProvince] = useState(auth.profile?.city ?? '');
+  const [district, setDistrict] = useState(auth.profile?.district ?? '');
+  const [website, setWebsite] = useState('');
+  const [files, setFiles] = useState<PreparedContactFile[]>([]);
+  const [preparing, setPreparing] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -42,20 +55,52 @@ export function Contact() {
     if (!loggedIn) return;
     setName((v) => v || (auth.profile?.fullName ?? ''));
     setEmail((v) => v || (auth.user?.email ?? ''));
-  }, [loggedIn, auth.profile?.fullName, auth.user?.email]);
+    setPhone((v) => v || (auth.profile?.phone ?? ''));
+    setProvince((v) => v || (auth.profile?.city ?? ''));
+    setDistrict((v) => v || (auth.profile?.district ?? ''));
+  }, [loggedIn, auth.profile?.fullName, auth.user?.email, auth.profile?.phone, auth.profile?.city, auth.profile?.district]);
+
+  // Every picked file is decoded and checked here before it is queued. Nothing is
+  // uploaded until the message is sent, so abandoning the page leaves no objects behind.
+  const addFiles = async (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    setErr(''); setPreparing(true);
+    const next: PreparedContactFile[] = [];
+    for (const file of Array.from(list)) {
+      if (files.length + next.length >= MAX_FILES) { setErr(tr.contact.errFileTooMany); break; }
+      try {
+        next.push(await prepareFile(file));
+      } catch (e) {
+        const code = e instanceof ContactFileError ? e.code : 'unreadable';
+        setErr(
+          code === 'too-large' ? tr.contact.errFileTooLarge(file.name)
+            : code === 'bad-type' ? tr.contact.errFileBadType(file.name)
+              : code === 'no-webp' ? tr.contact.errFileNoWebp
+                : tr.contact.errFileUnreadable(file.name),
+        );
+      }
+    }
+    setPreparing(false);
+    if (next.length > 0) setFiles((v) => [...v, ...next].slice(0, MAX_FILES));
+  };
 
   const send = async () => {
     if (name.trim().length < 2) return setErr(tr.contact.errName);
     if (!/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(email.trim())) return setErr(tr.contact.errEmail);
     if (message.trim().length < MIN) return setErr(tr.contact.errMessage);
+    if (website.trim() !== '' && !/^https?:\/\/\S{3,}$/i.test(website.trim())) return setErr(tr.contact.errWebsite);
     setErr(''); setBusy(true);
-    const ok = await a.submitContact({ name, email, topic, message });
+    const ok = await a.submitContact(
+      { name, email, topic, message, phone, province, district, website },
+      files,
+    );
     setBusy(false);
     // The form keeps everything on failure: retyping a long message because a request
     // failed is the worst version of this page (rules/04 §Forms).
     if (!ok) return;
     setDone(true);
     setMessage('');
+    setFiles([]);
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -132,6 +177,85 @@ export function Contact() {
                 }}>
                   <span>{tr.contact.minNote}</span>
                   <span className="tnum">{tr.contact.counter(message.length)}</span>
+                </div>
+
+                {/* Optional block, visibly separated. It is below the message on purpose:
+                    someone who only wants to write a sentence should never have to scroll
+                    past fields they do not owe us (rules/03 §Data Minimization). */}
+                <div style={{ gridColumn: '1 / -1', borderTop: `1px solid ${C.borderFaint}`, paddingTop: 14, marginTop: 2 }}>
+                  <div style={eyebrow}>{tr.contact.optionalTitle}</div>
+                  <p style={{ margin: '6px 0 0', fontSize: 12.5, color: C.muted2 }}>{tr.contact.optionalNote}</p>
+                </div>
+
+                <Field label={tr.contact.fPhone}>
+                  <input value={phone} onChange={(e) => setPhone(e.target.value.slice(0, 32))}
+                    type="tel" autoComplete="tel" placeholder={tr.contact.fPhonePh} style={inputStyle} />
+                </Field>
+                <Field label={tr.contact.fWebsite}>
+                  <input value={website} onChange={(e) => setWebsite(e.target.value.slice(0, 200))}
+                    type="url" inputMode="url" placeholder={tr.contact.fWebsitePh} style={inputStyle} />
+                </Field>
+                <Field label={tr.contact.fProvince}>
+                  <Picker value={province}
+                    onChange={(v) => { setProvince(v); setDistrict(''); }}
+                    options={[{ value: '', label: '—' }, ...toOptions(PROVINCES)]}
+                    ariaLabel={tr.contact.fProvince} />
+                </Field>
+                <Field label={tr.contact.fDistrict}>
+                  <Picker value={district} onChange={setDistrict} disabled={!province}
+                    options={[{ value: '', label: '—' }, ...toOptions(districtsOf(province))]}
+                    ariaLabel={tr.contact.fDistrict} />
+                </Field>
+
+                {/* Files */}
+                <div style={{ gridColumn: '1 / -1', borderTop: `1px solid ${C.borderFaint}`, paddingTop: 14, marginTop: 2 }}>
+                  <div style={eyebrow}>{tr.contact.filesTitle}</div>
+                  <p style={{ margin: '6px 0 0', fontSize: 12.5, color: C.muted2 }}>{tr.contact.filesNote}</p>
+                  <p style={{ margin: '4px 0 0', fontSize: 12.5, color: C.muted2 }}>{tr.contact.filesPrivacy}</p>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+                    <label style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 8, ...plainBtn,
+                      height: 44, cursor: files.length >= MAX_FILES ? 'not-allowed' : 'pointer',
+                      opacity: files.length >= MAX_FILES ? .6 : 1,
+                    }}>
+                      <Ico n="plus" size={15} color={C.info} />{tr.contact.filesPick}
+                      <input type="file" multiple accept={contactFileAccept}
+                        disabled={files.length >= MAX_FILES || preparing}
+                        onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }}
+                        style={{ display: 'none' }} />
+                    </label>
+                    {preparing && <span style={{ fontSize: 12.5, color: C.muted2 }}>{tr.contact.filesPreparing}</span>}
+                    {!preparing && files.length === 0 && (
+                      <span style={{ fontSize: 12.5, color: C.muted3 }}>{tr.contact.filesEmpty}</span>
+                    )}
+                  </div>
+
+                  {files.length > 0 && (
+                    <ul style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {files.map((f, idx) => (
+                        <li key={`${f.objectName}`} style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          background: C.canvas, border: `1px solid ${C.borderFaint}`,
+                          borderRadius: 9, padding: '8px 10px',
+                        }}>
+                          <Ico n={f.kind === 'image' ? 'need' : 'completed'} size={15} color={C.muted} />
+                          <span style={{ minWidth: 0, flex: 1 }}>
+                            <span style={{
+                              display: 'block', fontSize: 13, fontWeight: 600, color: C.navy,
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>{f.name}</span>
+                            <span className="tnum" style={{ fontSize: 11.5, color: C.muted2 }}>{prettyBytes(f.bytes)}</span>
+                          </span>
+                          <button type="button" onClick={() => setFiles((v) => v.filter((_, i) => i !== idx))}
+                            style={{
+                              background: 'none', border: 0, padding: '6px 8px', fontSize: 12.5,
+                              fontWeight: 600, color: C.info, cursor: 'pointer',
+                            }}>{tr.contact.filesRemove}</button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
 

@@ -1,5 +1,5 @@
 import type {
-  ContactInput, ContactMessage, ContactStatus,
+  ContactInput, ContactMessage, ContactStatus, ContactAttachment,
   Disaster, Location, Need, Submission, LogEntry, Announcement,
   VerifyKind, RevisionKind, DeliveryInput, PriorityKey, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
@@ -213,6 +213,9 @@ export interface Repo {
   // that, so no screen can choose a recipient. Reading and triaging is coordinator-only
   // and enforced by RLS, not by the panel being hard to reach (migration 0025).
   submitContact(input: ContactInput): Promise<string>;
+  // Registering uploaded files against a message. Separate from submitContact because
+  // the objects are written under the message id — the server refuses any other folder.
+  attachContactFiles(messageId: string, files: ContactAttachment[]): Promise<void>;
   listContactMessages(): Promise<ContactMessage[]>;
   setContactStatus(id: string, status: ContactStatus): Promise<ContactMessage[]>;
   // Puts an approved volunteer on shift, or takes them off it. This is the only source

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
-  ContactInput, ContactMessage, ContactStatus,
+  ContactInput, ContactMessage, ContactStatus, ContactAttachment,
   Disaster, Location, Need, Submission, LogEntry, Announcement,
   VerifyKind, RevisionKind, DeliveryInput, PriorityKey, StatusKey, DisasterType,
   Organization, OrganizationInput, OrgStatus, OrgKind, OrgScope,
@@ -841,22 +841,44 @@ export class SupabaseRepo implements Repo {
     const { data, error } = await this.db.rpc('submit_contact_message', {
       p_name: input.name.trim(), p_email: input.email.trim(),
       p_topic: input.topic, p_message: input.message.trim(),
+      p_phone: input.phone.trim(), p_province: input.province.trim(),
+      p_district: input.district.trim(), p_website: input.website.trim(),
     });
     if (error) throw error;
     return String(data ?? '');
   }
 
+  async attachContactFiles(messageId: string, files: ContactAttachment[]): Promise<void> {
+    if (files.length === 0) return;
+    const { error } = await this.db.rpc('attach_contact_files', { p_id: messageId, p_files: files });
+    if (error) throw error;
+  }
+
   // Reads the table directly: RLS (contact_read, migration 0025) is what limits this to
   // coordinators. An empty list is what a visitor's token gets, not an error.
   async listContactMessages(): Promise<ContactMessage[]> {
-    const { data, error } = await this.db.from('contact_messages')
-      .select('*').order('created_at', { ascending: false }).limit(200);
-    if (error) throw error;
-    return (data ?? []).map((r: Record<string, unknown>) => ({
+    // Both reads are coordinator-only by RLS (contact_read / contact_att_read); a
+    // visitor's token gets two empty lists rather than an error.
+    const [msg, att] = await Promise.all([
+      this.db.from('contact_messages').select('*').order('created_at', { ascending: false }).limit(200),
+      this.db.from('contact_attachments').select('*').order('created_at', { ascending: true }).limit(600),
+    ]);
+    if (msg.error) throw msg.error;
+    const byMsg = new Map<string, ContactAttachment[]>();
+    for (const r of (att.data ?? []) as Record<string, unknown>[]) {
+      const key = String(r.message_id);
+      const list = byMsg.get(key) ?? [];
+      list.push({ path: String(r.path), name: String(r.name), mime: String(r.mime), bytes: Number(r.bytes ?? 0) });
+      byMsg.set(key, list);
+    }
+    return (msg.data ?? []).map((r: Record<string, unknown>) => ({
       id: String(r.id), name: String(r.name), email: String(r.email),
       topic: r.topic as ContactMessage['topic'], message: String(r.message),
+      phone: String(r.phone ?? ''), province: String(r.province ?? ''),
+      district: String(r.district ?? ''), website: String(r.website ?? ''),
       status: r.status as ContactStatus,
       createdAt: String(r.created_at ?? ''), handledAt: String(r.handled_at ?? ''),
+      files: byMsg.get(String(r.id)) ?? [],
     }));
   }
 

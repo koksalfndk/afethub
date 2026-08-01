@@ -7,7 +7,7 @@ import type {
   OrganizationSave, OrgStatus, VolunteerInput, VolunteerApplication, VolunteerStatus,
   AnnouncementInput, LocationInput,
   StaffMember, StaffRole, RoleInvite, LogEntry,
-  ContactInput, ContactMessage, ContactStatus,
+  ContactInput, ContactMessage, ContactStatus, ContactAttachment,
 } from './types';
 import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
@@ -29,6 +29,8 @@ function reasonOf(e: unknown): string {
 }
 import { useAuth } from './auth';
 import { sendStaffInvite, sendVolunteerReceipt, sendVolunteerApproved, sendContactMessage } from './data/sendEmail';
+import { supabase } from './data/supabaseClient';
+import { uploadContactFiles, type PreparedContactFile } from './contactFiles';
 
 export type Route =
   | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
@@ -290,7 +292,7 @@ export interface AppApi {
   // İletişim. `submitContact` stores the message and then asks the mailer to announce
   // it; the returned boolean is about STORING, never about delivery — presenting a
   // provider failure as "your message was not received" would be a lie to the writer.
-  submitContact: (input: ContactInput) => Promise<boolean>;
+  submitContact: (input: ContactInput, files?: PreparedContactFile[]) => Promise<boolean>;
   contactMessages: ContactMessage[]; contactLoading: boolean; contactError: string;
   reloadContact: () => void;
   setContactStatus: (id: string, status: ContactStatus) => Promise<boolean>;
@@ -1087,9 +1089,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     reloadReportQueue: () => { void loadReportQueue(); },
     reloadSystemLog: () => { void loadSystemLog(); },
     reloadContact: () => { void loadContact(); },
-    submitContact: async (input) => {
+    submitContact: async (input, files) => {
       try {
         const id = await withTimeout(repo.submitContact(input));
+        // Files go up AFTER the message row exists: they are written under its id, and
+        // the server refuses any other folder. A file that fails to upload therefore
+        // costs its own attachment, never the message (rules/05 §Email applies the same
+        // way here — the record is not hostage to a side channel).
+        if (files && files.length > 0) {
+          try {
+            const refs: ContactAttachment[] = supabase
+              ? await uploadContactFiles(supabase, id, files)
+              : files.map((f) => ({ path: `${id}/${f.objectName}`, name: f.name, mime: f.mime, bytes: f.bytes }));
+            if (refs.length > 0) await repo.attachContactFiles(id, refs);
+          } catch {
+            if (typeof console !== 'undefined') console.warn('[AfetHUB] iletişim ekleri yüklenemedi');
+          }
+        }
         // The message is stored at this point. The mail is a separate, best-effort step:
         // its failure is logged as a warning, not raised, because telling the writer
         // "your message was not received" would be false — we have it (rules/05 §Email).

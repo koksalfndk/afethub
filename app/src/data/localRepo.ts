@@ -1,5 +1,5 @@
 import type {
-  ContactInput, ContactMessage, ContactStatus,
+  ContactInput, ContactMessage, ContactStatus, ContactAttachment,
   LogEntry, Need, Submission, VerifyKind, RevisionKind, DeliveryInput, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
   BannerSlide, BannerSlideInput, OrgEditRequestInput,
@@ -706,14 +706,24 @@ export class LocalRepo implements Repo {
     if (same) return same.id;
     const row: ContactMessage = {
       id: nextId('cm'), name, email, topic: input.topic, message,
-      status: 'Yeni', createdAt: new Date().toISOString(), handledAt: '',
+      phone: input.phone.trim(), province: input.province.trim(),
+      district: input.district.trim(), website: input.website.trim(),
+      status: 'Yeni', createdAt: new Date().toISOString(), handledAt: '', files: [],
     };
     contactMessages = [row, ...contactMessages];
     return row.id;
   }
 
   async listContactMessages(): Promise<ContactMessage[]> {
-    return contactMessages.map((m) => ({ ...m }));
+    return contactMessages.map((m) => ({ ...m, files: m.files.map((f) => ({ ...f })) }));
+  }
+
+  // Local mode has no bucket, so the rows are recorded and the panel shows them as
+  // labels: enough to see the flow, never pretending a file was stored.
+  async attachContactFiles(messageId: string, files: ContactAttachment[]): Promise<void> {
+    contactMessages = contactMessages.map((m) => (m.id === messageId
+      ? { ...m, files: files.slice(0, 5).map((f) => ({ ...f })) }
+      : m));
   }
 
   async setContactStatus(id: string, status: ContactStatus): Promise<ContactMessage[]> {

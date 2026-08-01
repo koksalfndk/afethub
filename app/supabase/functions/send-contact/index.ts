@@ -13,6 +13,10 @@
 // input is a message id. The team address is an environment value; the writer's address
 // is read from the row. Neither can be chosen by the request.
 //
+// Attachments are NOT mailed. The names travel; the files stay in the private bucket and
+// are opened from the panel through a short-lived signed URL (migration 0026). Mailing a
+// stranger's document would copy it into an inbox and a backup we do not control.
+//
 // Replay and amplification: contact_message_context() answers once per message and only
 // within 15 minutes of it being written, and submit_contact_message() caps one address
 // at 3 messages per 15 minutes. Those two together are what bound how much mail a
@@ -55,6 +59,14 @@ interface Ctx {
   email: string;
   topic: string;
   message: string;
+  phone: string;
+  province: string;
+  district: string;
+  website: string;
+  // Names and sizes only. The files themselves stay in the private bucket and are opened
+  // from the panel through a signed URL — mailing them out would put a stranger's
+  // document into an inbox and a backup we do not control (migration 0026).
+  files: string[];
   created_at: string;
 }
 
@@ -107,9 +119,13 @@ function fields(c: Ctx): string {
       return '';
     }
   })();
+  const place = [c.district, c.province].filter((v) => String(v ?? '').trim() !== '').join(' / ');
   const rows: [string, string][] = ([
     ['Gönderen', c.name],
     ['E-posta', c.email],
+    ['Telefon', c.phone],
+    ['Konum', place],
+    ['Web', c.website],
     ['Konu', c.topic],
     ['Tarih', when],
   ] as [string, string][]).filter(([, v]) => String(v ?? '').trim() !== '');
@@ -134,6 +150,21 @@ function quote(message: string): string {
   <tr><td style="padding:14px 16px;">
     <p style="${S.eyebrow}">Mesaj</p>
     <p style="margin:0;font-size:14px;line-height:1.6;color:#334E68;white-space:pre-wrap;">${esc((message ?? '').slice(0, 4000))}</p>
+  </td></tr>
+</table>`;
+}
+
+// The list is a heads-up, not a delivery: the files are reachable only from the panel.
+function attachments(files: string[]): string {
+  const list = Array.isArray(files) ? files.filter(Boolean).slice(0, 5) : [];
+  if (list.length === 0) return '';
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;border:1px solid #E2E8F0;border-radius:12px;background:#FFFFFF;">
+  <tr><td style="padding:14px 16px;">
+    <p style="${S.eyebrow}">Ekler (${list.length})</p>
+    ${list.map((f) => `<p style="margin:0 0 4px;font-size:13.5px;line-height:1.6;color:#334E68;">${esc(f)}</p>`).join('')}
+    <p style="margin:8px 0 0;font-size:12.5px;line-height:1.6;color:#829AB1;">
+      Dosyalar e-postaya eklenmedi. Panelde açabilirsiniz; herkese açık bir adresleri yok.
+    </p>
   </td></tr>
 </table>`;
 }
@@ -174,6 +205,7 @@ Deno.serve(async (req: Request) => {
     </p>
     ${fields(c)}
     ${quote(c.message)}
+    ${attachments(c.files)}
     ${btn(`${APP_ORIGIN}/koordinasyon/iletisim`, 'Panelde aç')}
     <p style="${S.faint}">
       Bu adres bir gönderi takibi değildir. Yardım bildirimleri ve ihtiyaç talepleri kendi
@@ -188,6 +220,7 @@ Deno.serve(async (req: Request) => {
       iletildi. Aşağıda ne gönderdiğinizin bir kopyası var.
     </p>
     ${quote(c.message)}
+    ${attachments(c.files)}
     <p style="${S.p}">
       Yanıtlama süresi konuya ve o anki operasyon yoğunluğuna göre değişir; bir süre
       veremiyoruz. <strong>Acil ve hayati tehlike durumlarında bu formu beklemeyin, 112’yi

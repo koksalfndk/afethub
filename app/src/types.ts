@@ -500,6 +500,22 @@ export interface ContactInput {
   email: string;
   topic: ContactTopic;
   message: string;
+  // Optional, and empty by default. A coordinator answering "kurumumuz destek olmak
+  // istiyor" can act on a phone number and a city; nobody is asked for them.
+  phone: string;
+  province: string;
+  district: string;
+  website: string;
+}
+
+// One stored file. `path` is an object path inside the private bucket, never a URL:
+// the app decides where files come from, and the panel opens them through a short-lived
+// signed URL (migration 0026).
+export interface ContactAttachment {
+  path: string;
+  name: string;
+  mime: string;
+  bytes: number;
 }
 
 // What a coordinator sees in the panel queue. The e-mail is here because answering is
@@ -510,7 +526,12 @@ export interface ContactMessage {
   email: string;
   topic: ContactTopic;
   message: string;
+  phone: string;
+  province: string;
+  district: string;
+  website: string;
   status: ContactStatus;
   createdAt: string;
   handledAt: string;
+  files: ContactAttachment[];
 }

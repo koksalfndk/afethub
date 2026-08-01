@@ -4,6 +4,8 @@ import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Ico, eyebrow } from '../ui';
 import { Picker } from '../components/Picker';
+import { supabase } from '../data/supabaseClient';
+import { CONTACT_BUCKET, prettyBytes } from '../contactFiles';
 import type { ContactMessage, ContactStatus } from '../types';
 
 // "Tümü" başta ve varsayılan: kuyruğu açan kişi önce ne kadar mesaj olduğunu görmeli.
@@ -37,6 +39,20 @@ export function CoordContact() {
   const mob = a.device === 'mobile';
   const [status, setStatus] = useState('');
   const [openId, setOpenId] = useState('');
+  const [fileErr, setFileErr] = useState('');
+
+  // Attachments live in a private bucket. A short-lived signed URL is created at the
+  // moment a coordinator asks for one, so nothing here is a durable address that could
+  // be forwarded or leak in a screenshot (migration 0026). `download` also means the
+  // browser saves the file instead of rendering it.
+  const openFile = async (path: string, name: string) => {
+    setFileErr('');
+    if (!supabase) return setFileErr(tr.contact.panelFileError);
+    const { data, error } = await supabase.storage.from(CONTACT_BUCKET)
+      .createSignedUrl(path, 60, { download: name });
+    if (error || !data?.signedUrl) return setFileErr(tr.contact.panelFileError);
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+  };
 
   useEffect(() => { a.reloadContact(); /* on mount only */ // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -137,7 +153,10 @@ export function CoordContact() {
                 fontSize: 13, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis',
                 display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
               }}>{oneLine(m.message)}</span>
-              <span className="tnum" style={{ fontSize: 12, color: C.muted2 }}>{when(m.createdAt)}</span>
+              <span className="tnum" style={{ fontSize: 12, color: C.muted2 }}>
+                {when(m.createdAt)}
+                {m.files.length > 0 && ` · ${m.files.length} ek`}
+              </span>
             </button>
           ))}
         </div>
@@ -154,7 +173,15 @@ export function CoordContact() {
                 <tr key={m.id}>
                   <td style={td}>{statusChip(m.status)}</td>
                   <td style={{ ...td, fontWeight: 700, color: C.navy, whiteSpace: 'nowrap' }}>{m.name}</td>
-                  <td style={{ ...td, color: C.heading2, whiteSpace: 'nowrap' }}>{tr.contact.topics[m.topic] ?? m.topic}</td>
+                  <td style={{ ...td, color: C.heading2, whiteSpace: 'nowrap' }}>
+                    {tr.contact.topics[m.topic] ?? m.topic}
+                    {m.files.length > 0 && (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 8,
+                        fontSize: 11.5, fontWeight: 600, color: C.muted,
+                      }}><Ico n="need" size={12} color={C.muted2} />{m.files.length}</span>
+                    )}
+                  </td>
                   {/* One line only: the list is for scanning, the dialog is for reading. */}
                   <td style={{
                     ...td, color: C.text, maxWidth: 380, overflow: 'hidden',
@@ -210,7 +237,45 @@ export function CoordContact() {
                 <a href={`mailto:${open.email}`} style={{ color: C.info, fontWeight: 600, textDecoration: 'none', wordBreak: 'break-all' }}>{open.email}</a>
                 <span style={{ color: C.muted2 }}>{tr.contact.topicLabel}</span>
                 <span style={{ color: C.heading2, fontWeight: 600 }}>{tr.contact.topics[open.topic] ?? open.topic}</span>
+                {/* Optional fields only appear when the person actually filled them in;
+                    an empty "Telefon —" row is noise in a queue you work through. */}
+                {open.phone && <><span style={{ color: C.muted2 }}>{tr.contact.panelPhone}</span>
+                  <a href={`tel:${open.phone.replace(/[^\d+]/g, '')}`} style={{ color: C.info, fontWeight: 600, textDecoration: 'none' }}>{open.phone}</a></>}
+                {(open.province || open.district) && <><span style={{ color: C.muted2 }}>{tr.contact.panelPlace}</span>
+                  <span style={{ color: C.heading2, fontWeight: 600 }}>{[open.district, open.province].filter(Boolean).join(' / ')}</span></>}
+                {open.website && <><span style={{ color: C.muted2 }}>{tr.contact.panelWebsite}</span>
+                  {/* noreferrer: a coordinator opening a stranger's link must not hand the
+                      panel's URL to that site. */}
+                  <a href={open.website} target="_blank" rel="noopener noreferrer nofollow"
+                    style={{ color: C.info, fontWeight: 600, textDecoration: 'none', wordBreak: 'break-all' }}>{open.website}</a></>}
               </div>
+
+              {open.files.length > 0 && (
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ ...eyebrow, fontSize: 11, marginBottom: 6 }}>{tr.contact.panelFiles}</div>
+                  <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {open.files.map((f) => (
+                      <li key={f.path} style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        background: C.canvas, border: `1px solid ${C.borderFaint}`, borderRadius: 9, padding: '8px 10px',
+                      }}>
+                        <Ico n={f.mime.startsWith('image/') ? 'need' : 'completed'} size={15} color={C.muted} />
+                        <span style={{ minWidth: 0, flex: 1 }}>
+                          <span style={{
+                            display: 'block', fontSize: 13, fontWeight: 600, color: C.navy,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>{f.name}</span>
+                          <span className="tnum" style={{ fontSize: 11.5, color: C.muted2 }}>{prettyBytes(f.bytes)}</span>
+                        </span>
+                        <button onClick={() => void openFile(f.path, f.name)} style={{ ...btn, height: 32 }}>
+                          {tr.contact.panelOpenFile}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  {fileErr && <p role="alert" style={{ margin: '8px 0 0', fontSize: 12.5, color: C.errorText }}>{fileErr}</p>}
+                </div>
+              )}
 
               <div style={{ marginTop: 14 }}>
                 <div style={{ ...eyebrow, fontSize: 11, marginBottom: 6 }}>{tr.contact.messageLabel}</div>
