@@ -1,0 +1,717 @@
+{
+ "_kaynak": "OpenStreetMap katkıcıları · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+ "_not": "Yerleşim NOKTA konumları. Sınır (poligon) verisi değildir.",
+ "il": "Muğla",
+ "ilceler": {
+  "Seydikemer": {
+   "Akbük": {
+    "lat": 36.6148,
+    "lng": 29.37253,
+    "tur": "neighbourhood",
+    "osm": "node/9532651814"
+   },
+   "Alaçat": {
+    "lat": 36.5294,
+    "lng": 29.32957,
+    "tur": "village",
+    "osm": "node/1490409466"
+   },
+   "Arifler": {
+    "lat": 36.48616,
+    "lng": 29.29716,
+    "tur": "village",
+    "osm": "node/1490409470"
+   },
+   "Armutağacı": {
+    "lat": 36.71169,
+    "lng": 29.49086,
+    "tur": "hamlet",
+    "osm": "node/10844119947"
+   },
+   "Arsaköy": {
+    "lat": 36.49712,
+    "lng": 29.44179,
+    "tur": "village",
+    "osm": "node/335344303"
+   },
+   "Asarcık": {
+    "lat": 36.54352,
+    "lng": 29.26517,
+    "tur": "hamlet",
+    "osm": "node/10844119946"
+   },
+   "Atlıdere": {
+    "lat": 36.67962,
+    "lng": 29.36298,
+    "tur": "village",
+    "osm": "node/1490409474"
+   },
+   "Avlan": {
+    "lat": 36.42782,
+    "lng": 29.16446,
+    "tur": "neighbourhood",
+    "osm": "node/4883747251"
+   },
+   "Bağlıağaç": {
+    "lat": 36.53141,
+    "lng": 29.43212,
+    "tur": "village",
+    "osm": "node/335344314"
+   },
+   "Bağlıca": {
+    "lat": 36.35373,
+    "lng": 29.24899,
+    "tur": "neighbourhood",
+    "osm": "node/10844119945"
+   },
+   "Balkıca": {
+    "lat": 36.46768,
+    "lng": 29.33426,
+    "tur": "neighbourhood",
+    "osm": "node/10844119944"
+   },
+   "Ballıca": {
+    "lat": 36.38561,
+    "lng": 29.24519,
+    "tur": "neighbourhood",
+    "osm": "node/9391983977"
+   },
+   "Bayırköy": {
+    "lat": 36.73111,
+    "lng": 29.46196,
+    "tur": "village",
+    "osm": "node/1490409478"
+   },
+   "Bekçiler": {
+    "lat": 36.92959,
+    "lng": 29.73112,
+    "tur": "village",
+    "osm": "node/2246401231"
+   },
+   "Bel": {
+    "lat": 36.38252,
+    "lng": 29.17129,
+    "tur": "neighbourhood",
+    "osm": "node/702891821"
+   },
+   "Belceğiz": {
+    "lat": 36.36251,
+    "lng": 29.1805,
+    "tur": "hamlet",
+    "osm": "way/327378488"
+   },
+   "Belen": {
+    "lat": 36.64775,
+    "lng": 29.36017,
+    "tur": "suburb",
+    "osm": "node/9532664918"
+   },
+   "Boğalar": {
+    "lat": 36.86986,
+    "lng": 29.66092,
+    "tur": "village",
+    "osm": "node/301001339"
+   },
+   "Boğaziçi": {
+    "lat": 36.42474,
+    "lng": 29.18326,
+    "tur": "village",
+    "osm": "node/2427587272"
+   },
+   "Ceylan": {
+    "lat": 36.78602,
+    "lng": 29.60304,
+    "tur": "village",
+    "osm": "node/301001336"
+   },
+   "Cumhuriyet": {
+    "lat": 36.64745,
+    "lng": 29.36439,
+    "tur": "suburb",
+    "osm": "node/9532651816"
+   },
+   "Çakallar": {
+    "lat": 36.56486,
+    "lng": 29.34268,
+    "tur": "neighbourhood",
+    "osm": "node/10844119943"
+   },
+   "Çalkayık Yaylası": {
+    "lat": 36.95156,
+    "lng": 29.58459,
+    "tur": "hamlet",
+    "osm": "node/12124212304"
+   },
+   "Çaltılar": {
+    "lat": 36.92362,
+    "lng": 29.69239,
+    "tur": "village",
+    "osm": "node/301793716"
+   },
+   "Çaltıözü": {
+    "lat": 36.55395,
+    "lng": 29.34607,
+    "tur": "village",
+    "osm": "node/9532651813"
+   },
+   "Çamurköy": {
+    "lat": 36.54593,
+    "lng": 29.37499,
+    "tur": "village",
+    "osm": "node/335344320"
+   },
+   "Çatak": {
+    "lat": 36.62056,
+    "lng": 29.44155,
+    "tur": "village",
+    "osm": "node/1490409528"
+   },
+   "Çataltepe": {
+    "lat": 36.37573,
+    "lng": 29.27887,
+    "tur": "neighbourhood",
+    "osm": "node/335344342"
+   },
+   "Çayan": {
+    "lat": 36.76688,
+    "lng": 29.31454,
+    "tur": "village",
+    "osm": "node/1490409529"
+   },
+   "Çaykenarı": {
+    "lat": 36.50288,
+    "lng": 29.33421,
+    "tur": "village",
+    "osm": "node/1490409530"
+   },
+   "Çiller": {
+    "lat": 36.64305,
+    "lng": 29.30835,
+    "tur": "neighbourhood",
+    "osm": "node/10844119942"
+   },
+   "Çobanisa": {
+    "lat": 36.94886,
+    "lng": 29.687,
+    "tur": "village",
+    "osm": "node/301793715"
+   },
+   "Çobanlar": {
+    "lat": 36.59993,
+    "lng": 29.35425,
+    "tur": "village",
+    "osm": "node/1490409533"
+   },
+   "Çökek": {
+    "lat": 36.67197,
+    "lng": 29.50857,
+    "tur": "village",
+    "osm": "node/2807127784"
+   },
+   "Çukurincir": {
+    "lat": 36.39075,
+    "lng": 29.31423,
+    "tur": "village",
+    "osm": "node/2427589162"
+   },
+   "Demirler": {
+    "lat": 36.45683,
+    "lng": 29.31828,
+    "tur": "village",
+    "osm": "node/1490409481"
+   },
+   "Dereboğazı": {
+    "lat": 36.43302,
+    "lng": 29.23675,
+    "tur": "hamlet",
+    "osm": "node/10844119941"
+   },
+   "Dereköy": {
+    "lat": 36.66473,
+    "lng": 29.49032,
+    "tur": "village",
+    "osm": "node/2807127769"
+   },
+   "Deveciler": {
+    "lat": 36.56105,
+    "lng": 29.40762,
+    "tur": "neighbourhood",
+    "osm": "node/10844119940"
+   },
+   "Dip": {
+    "lat": 36.51583,
+    "lng": 29.23189,
+    "tur": "neighbourhood",
+    "osm": "node/10844119939"
+   },
+   "Dodurga": {
+    "lat": 36.40041,
+    "lng": 29.20529,
+    "tur": "village",
+    "osm": "node/2427587295"
+   },
+   "Doğanlar": {
+    "lat": 36.92058,
+    "lng": 29.74014,
+    "tur": "village",
+    "osm": "node/2246401235"
+   },
+   "Dont": {
+    "lat": 36.8565,
+    "lng": 29.61901,
+    "tur": "village",
+    "osm": "node/9536716600"
+   },
+   "Döğer": {
+    "lat": 36.55177,
+    "lng": 29.39407,
+    "tur": "village",
+    "osm": "node/310787697"
+   },
+   "Erdem": {
+    "lat": 36.5263,
+    "lng": 29.25431,
+    "tur": "neighbourhood",
+    "osm": "node/10844119938"
+   },
+   "Eskiköy": {
+    "lat": 36.41877,
+    "lng": 29.30849,
+    "tur": "neighbourhood",
+    "osm": "node/335344339"
+   },
+   "Eşen": {
+    "lat": 36.45587,
+    "lng": 29.281,
+    "tur": "village",
+    "osm": "node/1490409488"
+   },
+   "Gacak": {
+    "lat": 36.82789,
+    "lng": 29.49758,
+    "tur": "neighbourhood",
+    "osm": "node/10844119937"
+   },
+   "Gavurağılı": {
+    "lat": 36.33441,
+    "lng": 29.20427,
+    "tur": "neighbourhood",
+    "osm": "node/702891814"
+   },
+   "Gerişburnu": {
+    "lat": 36.63931,
+    "lng": 29.38253,
+    "tur": "suburb",
+    "osm": "node/9532651815"
+   },
+   "Gırdev Yaylası": {
+    "lat": 36.66844,
+    "lng": 29.6397,
+    "tur": "hamlet",
+    "osm": "node/3108844822"
+   },
+   "Girmeler": {
+    "lat": 36.58557,
+    "lng": 29.38068,
+    "tur": "village",
+    "osm": "node/1490409489"
+   },
+   "Gölbent": {
+    "lat": 36.41175,
+    "lng": 29.2744,
+    "tur": "village",
+    "osm": "node/2427587276"
+   },
+   "Güneşli": {
+    "lat": 36.56877,
+    "lng": 29.38874,
+    "tur": "village",
+    "osm": "node/335344328"
+   },
+   "Güzeller": {
+    "lat": 36.50422,
+    "lng": 29.30174,
+    "tur": "neighbourhood",
+    "osm": "node/10844119936"
+   },
+   "Hacınebiler": {
+    "lat": 36.51057,
+    "lng": 29.25623,
+    "tur": "neighbourhood",
+    "osm": "node/10844119935"
+   },
+   "Hacıosmanlar": {
+    "lat": 36.52105,
+    "lng": 29.40304,
+    "tur": "village",
+    "osm": "node/1490409490"
+   },
+   "Hisar": {
+    "lat": 36.40813,
+    "lng": 29.19074,
+    "tur": "neighbourhood",
+    "osm": "node/1260508595"
+   },
+   "Hokkabazlar": {
+    "lat": 36.50315,
+    "lng": 29.35815,
+    "tur": "neighbourhood",
+    "osm": "node/10844119934"
+   },
+   "Hortlaklar": {
+    "lat": 36.51337,
+    "lng": 29.35695,
+    "tur": "neighbourhood",
+    "osm": "node/10844119933"
+   },
+   "Ilgın Yaylası": {
+    "lat": 36.96445,
+    "lng": 29.60303,
+    "tur": "hamlet",
+    "osm": "node/12124212300"
+   },
+   "İncealiler": {
+    "lat": 36.80188,
+    "lng": 29.56217,
+    "tur": "neighbourhood",
+    "osm": "node/1974851428"
+   },
+   "İzzettin": {
+    "lat": 36.43701,
+    "lng": 29.22467,
+    "tur": "village",
+    "osm": "node/1490409536"
+   },
+   "Kabaağaç": {
+    "lat": 36.53769,
+    "lng": 29.28957,
+    "tur": "village",
+    "osm": "node/769898446"
+   },
+   "Kabalı Yaylası": {
+    "lat": 36.94722,
+    "lng": 29.62277,
+    "tur": "hamlet",
+    "osm": "node/12124212301"
+   },
+   "Kadıköy": {
+    "lat": 36.53114,
+    "lng": 29.38043,
+    "tur": "village",
+    "osm": "node/1490409491"
+   },
+   "Karabel": {
+    "lat": 36.80031,
+    "lng": 29.50537,
+    "tur": "neighbourhood",
+    "osm": "node/6036049694"
+   },
+   "Karabıyık": {
+    "lat": 36.5788,
+    "lng": 29.3866,
+    "tur": "neighbourhood",
+    "osm": "node/10844119931"
+   },
+   "Karabucak": {
+    "lat": 36.52386,
+    "lng": 29.28598,
+    "tur": "neighbourhood",
+    "osm": "node/10844119930"
+   },
+   "Karadere": {
+    "lat": 36.34506,
+    "lng": 29.27036,
+    "tur": "village",
+    "osm": "node/1490409492"
+   },
+   "Karahasanlar": {
+    "lat": 36.54914,
+    "lng": 29.43087,
+    "tur": "neighbourhood",
+    "osm": "node/10844119929"
+   },
+   "Karahasantaşı Yaylası": {
+    "lat": 36.96591,
+    "lng": 29.63084,
+    "tur": "hamlet",
+    "osm": "node/12124212302"
+   },
+   "Karaköy": {
+    "lat": 36.3563,
+    "lng": 29.31135,
+    "tur": "village",
+    "osm": "node/2427587280"
+   },
+   "Karaman": {
+    "lat": 36.62957,
+    "lng": 29.56088,
+    "tur": "neighbourhood",
+    "osm": "node/10844119928"
+   },
+   "Karaömerler": {
+    "lat": 36.47773,
+    "lng": 29.32747,
+    "tur": "neighbourhood",
+    "osm": "node/10844119927"
+   },
+   "Kayabaşı": {
+    "lat": 36.87525,
+    "lng": 29.73266,
+    "tur": "village",
+    "osm": "node/2246401256"
+   },
+   "Kayacık": {
+    "lat": 36.59819,
+    "lng": 29.44804,
+    "tur": "village",
+    "osm": "node/1490409494"
+   },
+   "Kayadibi": {
+    "lat": 36.50644,
+    "lng": 29.41305,
+    "tur": "village",
+    "osm": "node/1490409495"
+   },
+   "Kıncılar": {
+    "lat": 36.62973,
+    "lng": 29.38932,
+    "tur": "village",
+    "osm": "node/1490409498"
+   },
+   "Kınık": {
+    "lat": 36.84014,
+    "lng": 29.5754,
+    "tur": "village",
+    "osm": "node/301001333"
+   },
+   "Kızılca": {
+    "lat": 36.41735,
+    "lng": 29.22716,
+    "tur": "neighbourhood",
+    "osm": "node/2427587288"
+   },
+   "Kocaoğlanlar": {
+    "lat": 36.54858,
+    "lng": 29.34735,
+    "tur": "neighbourhood",
+    "osm": "node/10844119926"
+   },
+   "Korubükü": {
+    "lat": 36.46799,
+    "lng": 29.34943,
+    "tur": "village",
+    "osm": "node/1490409496"
+   },
+   "Kumluova": {
+    "lat": 36.33663,
+    "lng": 29.30392,
+    "tur": "village",
+    "osm": "node/2427587284"
+   },
+   "Medrese": {
+    "lat": 36.48758,
+    "lng": 29.40094,
+    "tur": "neighbourhood",
+    "osm": "node/10844119925"
+   },
+   "Menekşe": {
+    "lat": 36.64397,
+    "lng": 29.36061,
+    "tur": "suburb",
+    "osm": "node/9532664917"
+   },
+   "Minare": {
+    "lat": 36.49354,
+    "lng": 29.27025,
+    "tur": "village",
+    "osm": "node/1490409500"
+   },
+   "Mundarağaç Yaylası": {
+    "lat": 36.95106,
+    "lng": 29.60625,
+    "tur": "hamlet",
+    "osm": "node/2246401299"
+   },
+   "Ortaköy": {
+    "lat": 36.73208,
+    "lng": 29.34873,
+    "tur": "village",
+    "osm": "node/1490409501"
+   },
+   "Oyruk": {
+    "lat": 36.68534,
+    "lng": 29.30456,
+    "tur": "neighbourhood",
+    "osm": "node/10844119924"
+   },
+   "Ören": {
+    "lat": 36.7479,
+    "lng": 29.38195,
+    "tur": "village",
+    "osm": "node/1490409534"
+   },
+   "Özlen": {
+    "lat": 36.34425,
+    "lng": 29.24418,
+    "tur": "neighbourhood",
+    "osm": "node/10844119923"
+   },
+   "Paşalı": {
+    "lat": 36.76271,
+    "lng": 29.33979,
+    "tur": "village",
+    "osm": "node/1490409502"
+   },
+   "Pınarcık": {
+    "lat": 36.33689,
+    "lng": 29.19883,
+    "tur": "hamlet",
+    "osm": "node/10844119922"
+   },
+   "Sahilceylan": {
+    "lat": 36.73099,
+    "lng": 29.38284,
+    "tur": "village",
+    "osm": "node/1490409503"
+   },
+   "Sakız": {
+    "lat": 36.38861,
+    "lng": 29.16594,
+    "tur": "neighbourhood",
+    "osm": "node/4886552018"
+   },
+   "Sarıçamboğazı Yaylası": {
+    "lat": 36.94639,
+    "lng": 29.5961,
+    "tur": "hamlet",
+    "osm": "node/12124212303"
+   },
+   "Sarıyer": {
+    "lat": 36.6601,
+    "lng": 29.40718,
+    "tur": "village",
+    "osm": "node/2807127770"
+   },
+   "Sazak": {
+    "lat": 36.71556,
+    "lng": 29.3327,
+    "tur": "neighbourhood",
+    "osm": "node/10844119921"
+   },
+   "Seki": {
+    "lat": 36.80415,
+    "lng": 29.65189,
+    "tur": "village",
+    "osm": "node/301001335"
+   },
+   "Seydikemer": {
+    "lat": 36.64816,
+    "lng": 29.36218,
+    "tur": "town",
+    "osm": "node/722616836"
+   },
+   "Seydiler": {
+    "lat": 36.66797,
+    "lng": 29.36597,
+    "tur": "village",
+    "osm": "node/722612732"
+   },
+   "Söğütlüdere": {
+    "lat": 36.79267,
+    "lng": 29.31109,
+    "tur": "village",
+    "osm": "node/1490409506"
+   },
+   "Temel": {
+    "lat": 36.7825,
+    "lng": 29.62032,
+    "tur": "village",
+    "osm": "node/301001361"
+   },
+   "Tomalar": {
+    "lat": 36.40173,
+    "lng": 29.25473,
+    "tur": "neighbourhood",
+    "osm": "node/2427587297"
+   },
+   "Türbe": {
+    "lat": 36.54178,
+    "lng": 29.41329,
+    "tur": "neighbourhood",
+    "osm": "node/10844119919"
+   },
+   "Uğurlu": {
+    "lat": 36.63703,
+    "lng": 29.35555,
+    "tur": "village",
+    "osm": "node/1490409507"
+   },
+   "Ulualan": {
+    "lat": 36.63928,
+    "lng": 29.47002,
+    "tur": "hamlet",
+    "osm": "node/10844119918"
+   },
+   "Uzunduvar": {
+    "lat": 36.43317,
+    "lng": 29.26969,
+    "tur": "neighbourhood",
+    "osm": "node/10844119917"
+   },
+   "Yağcılar": {
+    "lat": 36.39944,
+    "lng": 29.2715,
+    "tur": "neighbourhood",
+    "osm": "node/2427587300"
+   },
+   "Yakabağ": {
+    "lat": 36.47593,
+    "lng": 29.27497,
+    "tur": "village",
+    "osm": "node/1490409508"
+   },
+   "Yakaköy": {
+    "lat": 36.57033,
+    "lng": 29.44082,
+    "tur": "village",
+    "osm": "node/310787695"
+   },
+   "Yayla Eldirek": {
+    "lat": 36.87393,
+    "lng": 29.55119,
+    "tur": "village",
+    "osm": "node/9536716601"
+   },
+   "Yayla Gökben": {
+    "lat": 36.89802,
+    "lng": 29.6288,
+    "tur": "village",
+    "osm": "node/9536716602"
+   },
+   "Yayla Karaçulha": {
+    "lat": 36.92658,
+    "lng": 29.63841,
+    "tur": "village",
+    "osm": "node/9536716603"
+   },
+   "Yayla Patlangıç": {
+    "lat": 36.8427,
+    "lng": 29.5319,
+    "tur": "village",
+    "osm": "node/3612765539"
+   },
+   "Yediburunlar": {
+    "lat": 36.40123,
+    "lng": 29.1374,
+    "tur": "neighbourhood",
+    "osm": "node/4886556137"
+   },
+   "Zorlar": {
+    "lat": 36.63827,
+    "lng": 29.33,
+    "tur": "village",
+    "osm": "node/1490409512"
+   }
+  }
+ }
+}

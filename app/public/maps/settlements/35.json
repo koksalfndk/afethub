@@ -1,0 +1,201 @@
+{
+ "_kaynak": "OpenStreetMap katkıcıları · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+ "_not": "Yerleşim NOKTA konumları. Sınır (poligon) verisi değildir.",
+ "il": "İzmir",
+ "ilceler": {
+  "Karaburun": {
+   "Akçakilise": {
+    "lat": 38.67058,
+    "lng": 26.4745,
+    "tur": "neighbourhood",
+    "osm": "node/2404889818"
+   },
+   "Anbarseki": {
+    "lat": 38.61354,
+    "lng": 26.52278,
+    "tur": "village",
+    "osm": "node/2404614058"
+   },
+   "Ardıç": {
+    "lat": 38.53114,
+    "lng": 26.60693,
+    "tur": "neighbourhood",
+    "osm": "node/269879853"
+   },
+   "Azmak": {
+    "lat": 38.66705,
+    "lng": 26.46591,
+    "tur": "neighbourhood",
+    "osm": "node/2404889819"
+   },
+   "Badem Bükü": {
+    "lat": 38.61891,
+    "lng": 26.35827,
+    "tur": "village",
+    "osm": "node/12386615672"
+   },
+   "Bozköy": {
+    "lat": 38.65628,
+    "lng": 26.4688,
+    "tur": "village",
+    "osm": "node/2404614059"
+   },
+   "Çatalkaya": {
+    "lat": 38.49823,
+    "lng": 26.61157,
+    "tur": "neighbourhood",
+    "osm": "node/2405350616"
+   },
+   "Çullu": {
+    "lat": 38.64824,
+    "lng": 26.49845,
+    "tur": "hamlet",
+    "osm": "node/11083552961"
+   },
+   "Denizgiren": {
+    "lat": 38.56942,
+    "lng": 26.36219,
+    "tur": "hamlet",
+    "osm": "node/11083552960"
+   },
+   "Eğlenhoca": {
+    "lat": 38.54252,
+    "lng": 26.56928,
+    "tur": "village",
+    "osm": "node/269875030"
+   },
+   "Eski Meli": {
+    "lat": 38.50203,
+    "lng": 26.42449,
+    "tur": "neighbourhood",
+    "osm": "node/2405060797"
+   },
+   "Eski Mordoğan": {
+    "lat": 38.51749,
+    "lng": 26.599,
+    "tur": "neighbourhood",
+    "osm": "node/2405350300"
+   },
+   "Eşendere": {
+    "lat": 38.60139,
+    "lng": 26.54948,
+    "tur": "neighbourhood",
+    "osm": "node/2405350295"
+   },
+   "Hamzabükü": {
+    "lat": 38.66451,
+    "lng": 26.38911,
+    "tur": "hamlet",
+    "osm": "node/2405350305"
+   },
+   "Hasseki": {
+    "lat": 38.66408,
+    "lng": 26.41575,
+    "tur": "village",
+    "osm": "node/2404614061"
+   },
+   "İnecik": {
+    "lat": 38.54965,
+    "lng": 26.5654,
+    "tur": "village",
+    "osm": "node/269875511"
+   },
+   "İskele": {
+    "lat": 38.64679,
+    "lng": 26.5153,
+    "tur": "suburb",
+    "osm": "node/8373618939"
+   },
+   "Karaburun": {
+    "lat": 38.63544,
+    "lng": 26.5098,
+    "tur": "town",
+    "osm": "node/260633616"
+   },
+   "Karareis": {
+    "lat": 38.48412,
+    "lng": 26.42632,
+    "tur": "neighbourhood",
+    "osm": "node/2405060799"
+   },
+   "Kaynarpınar": {
+    "lat": 38.55994,
+    "lng": 26.56806,
+    "tur": "neighbourhood",
+    "osm": "node/2405350308"
+   },
+   "Kösedere": {
+    "lat": 38.54791,
+    "lng": 26.55269,
+    "tur": "village",
+    "osm": "node/269875464"
+   },
+   "Küçükbahçe": {
+    "lat": 38.56157,
+    "lng": 26.39018,
+    "tur": "village",
+    "osm": "node/2404614065"
+   },
+   "Merkez": {
+    "lat": 38.63615,
+    "lng": 26.50928,
+    "tur": "suburb",
+    "osm": "node/8373618938"
+   },
+   "Mordoğan": {
+    "lat": 38.51478,
+    "lng": 26.62179,
+    "tur": "village",
+    "osm": "node/2404614066"
+   },
+   "Parlak": {
+    "lat": 38.61148,
+    "lng": 26.39625,
+    "tur": "hamlet",
+    "osm": "node/2404614067"
+   },
+   "Saip": {
+    "lat": 38.62259,
+    "lng": 26.51784,
+    "tur": "village",
+    "osm": "node/2404614068"
+   },
+   "Salman": {
+    "lat": 38.59263,
+    "lng": 26.38343,
+    "tur": "village",
+    "osm": "node/2404614069"
+   },
+   "Sarpıncık": {
+    "lat": 38.65346,
+    "lng": 26.40244,
+    "tur": "village",
+    "osm": "node/2404614070"
+   },
+   "Sazak": {
+    "lat": 38.62512,
+    "lng": 26.38964,
+    "tur": "village",
+    "osm": "way/232123113"
+   },
+   "Tepeboz": {
+    "lat": 38.66199,
+    "lng": 26.44713,
+    "tur": "village",
+    "osm": "node/2404614071"
+   },
+   "Yayla": {
+    "lat": 38.57503,
+    "lng": 26.45416,
+    "tur": "village",
+    "osm": "node/2404614072"
+   },
+   "Yeniliman": {
+    "lat": 38.67155,
+    "lng": 26.44139,
+    "tur": "neighbourhood",
+    "osm": "node/2404889823"
+   }
+  }
+ }
+}

@@ -1,0 +1,13 @@
+{
+  "_not": "Operasyon açılmış il/ilçeler. `disasters` tablosundan üretildi (01-08-2026). Yeni bir operasyon açıldığında buraya eklenmeli; betik bu listeyi okur.",
+  "bolgeler": [
+    { "il": "Antalya",   "plaka": 7,  "ilce": "Kaş",        "afet": "kas-orman-yangini-27-07-2026" },
+    { "il": "Balıkesir", "plaka": 10, "ilce": "Kepsut",     "afet": "balikesir-orman-yangini-05-07-2026" },
+    { "il": "Çanakkale", "plaka": 17, "ilce": "Ayvacık",    "afet": "ayvacik-orman-yangini-28-07-2026" },
+    { "il": "İzmir",     "plaka": 35, "ilce": "Karaburun",  "afet": "karaburun-orman-yangini-30-07-2026" },
+    { "il": "Kastamonu", "plaka": 37, "ilce": "Bozkurt",    "afet": "kastamonu-sel-taskini-25-07-2026" },
+    { "il": "Kastamonu", "plaka": 37, "ilce": "İnebolu",    "afet": "kastamonu-sel-taskini-25-07-2026" },
+    { "il": "Kütahya",   "plaka": 43, "ilce": "Tavşanlı",   "afet": "tavsanli-orman-yangini-29-07-2026" },
+    { "il": "Muğla",     "plaka": 48, "ilce": "Seydikemer", "afet": "seydikemer-orman-yangini-21-07-2026" }
+  ]
+}
