@@ -20,9 +20,12 @@ import { toWebp, ImageError } from './imageUpload';
 export const CONTACT_BUCKET = 'contact-files';
 export const MAX_FILE_BYTES = 8 * 1024 * 1024;
 export const MAX_FILES = 5;
-// A photo from a modern phone is plenty at 2000px, and it keeps a coordinator on a weak
-// connection from downloading 8 MB to look at a damaged roof.
-const IMAGE_MAX_EDGE = 2000;
+// A photo from a modern phone is plenty at 1800px: a coordinator looking at a damaged
+// roof or a letterhead needs to read it, not to print it. Together with WebP at 0.78
+// this turns a 4 MB phone photo into a few hundred KB — which is the difference between
+// a panel that opens on a weak connection and one that does not (rules/01).
+const IMAGE_MAX_EDGE = 1800;
+const IMAGE_QUALITY = 0.78;
 
 export type ContactFileKind = 'image' | 'document';
 
@@ -36,6 +39,8 @@ export interface PickedFile {
   kind: ContactFileKind;
   /** The bytes actually uploaded (WebP for images, the original for documents). */
   blob: Blob;
+  /** What the visitor picked, before re-encoding. Shown so the saving is visible. */
+  originalBytes: number;
 }
 
 export type ContactFileErrorCode = 'too-large' | 'too-many' | 'bad-type' | 'unreadable' | 'no-webp';
@@ -143,10 +148,12 @@ export async function prepareFile(file: File): Promise<PreparedContactFile> {
     // Re-encoding is the metadata strip and the proof in one step: a file that is not
     // decodable as an image never reaches the bucket.
     try {
-      const { blob } = await toWebp(new File([file], file.name, { type: imageTypeFor(bytes) }), IMAGE_MAX_EDGE);
+      const { blob } = await toWebp(
+        new File([file], file.name, { type: imageTypeFor(bytes) }), IMAGE_MAX_EDGE, IMAGE_QUALITY,
+      );
       return {
         name: file.name.slice(0, 200), mime: 'image/webp', bytes: blob.size,
-        kind: 'image', blob, objectName: safeName('webp'),
+        kind: 'image', blob, objectName: safeName('webp'), originalBytes: file.size,
       };
     } catch (e) {
       if (e instanceof ImageError && e.message === 'no-webp-encoder') throw new ContactFileError('no-webp');
@@ -156,9 +163,12 @@ export async function prepareFile(file: File): Promise<PreparedContactFile> {
 
   const doc = DOC_TYPES.find((d) => d.sniff(bytes, file));
   if (!doc) throw new ContactFileError('bad-type');
+  // Documents are stored as they are. A PDF cannot be re-compressed in a browser without
+  // rasterising it, which would destroy the text a coordinator needs to read — so this
+  // path is honest about doing nothing rather than pretending to optimise.
   return {
     name: file.name.slice(0, 200), mime: doc.mime, bytes: file.size,
-    kind: 'document', blob: file, objectName: safeName(doc.ext),
+    kind: 'document', blob: file, objectName: safeName(doc.ext), originalBytes: file.size,
   };
 }
 

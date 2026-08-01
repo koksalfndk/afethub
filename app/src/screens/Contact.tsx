@@ -239,13 +239,20 @@ export function Contact() {
                           background: C.canvas, border: `1px solid ${C.borderFaint}`,
                           borderRadius: 9, padding: '8px 10px',
                         }}>
-                          <Ico n={f.kind === 'image' ? 'need' : 'completed'} size={15} color={C.muted} />
+                          <Ico n={f.kind === 'image' ? 'image' : 'file'} size={15} color={C.muted} />
                           <span style={{ minWidth: 0, flex: 1 }}>
                             <span style={{
                               display: 'block', fontSize: 13, fontWeight: 600, color: C.navy,
                               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                             }}>{f.name}</span>
-                            <span className="tnum" style={{ fontSize: 11.5, color: C.muted2 }}>{prettyBytes(f.bytes)}</span>
+                            {/* The saving is shown, not claimed: a phone photo goes in at
+                                4 MB and is stored at a few hundred KB, and the person who
+                                picked it can see that happened. */}
+                            <span className="tnum" style={{ fontSize: 11.5, color: C.muted2 }}>
+                              {f.kind === 'image' && f.originalBytes > f.bytes
+                                ? tr.contact.fileShrunk(prettyBytes(f.originalBytes), prettyBytes(f.bytes))
+                                : `${prettyBytes(f.bytes)} · ${tr.contact.fileAsIs}`}
+                            </span>
                           </span>
                           <button type="button" onClick={() => setFiles((v) => v.filter((_, i) => i !== idx))}
                             style={{

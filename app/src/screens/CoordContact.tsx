@@ -6,6 +6,7 @@ import { Ico, eyebrow } from '../ui';
 import { Picker } from '../components/Picker';
 import { supabase } from '../data/supabaseClient';
 import { CONTACT_BUCKET, prettyBytes } from '../contactFiles';
+import { FileViewer, type ViewerFile } from '../components/FileViewer';
 import type { ContactMessage, ContactStatus } from '../types';
 
 // "Tümü" başta ve varsayılan: kuyruğu açan kişi önce ne kadar mesaj olduğunu görmeli.
@@ -40,18 +41,24 @@ export function CoordContact() {
   const [status, setStatus] = useState('');
   const [openId, setOpenId] = useState('');
   const [fileErr, setFileErr] = useState('');
+  const [viewing, setViewing] = useState<ViewerFile | null>(null);
 
-  // Attachments live in a private bucket. A short-lived signed URL is created at the
-  // moment a coordinator asks for one, so nothing here is a durable address that could
-  // be forwarded or leak in a screenshot (migration 0026). `download` also means the
-  // browser saves the file instead of rendering it.
-  const openFile = async (path: string, name: string) => {
+  // Attachments live in a private bucket. Two short-lived signed URLs are created at the
+  // moment a coordinator asks: one to render in the viewer, one that downloads. Neither
+  // is a durable address that could be forwarded or leak in a screenshot; both expire in
+  // five minutes (migration 0026).
+  const openFile = async (path: string, name: string, mime: string, bytes: number) => {
     setFileErr('');
     if (!supabase) return setFileErr(tr.contact.panelFileError);
-    const { data, error } = await supabase.storage.from(CONTACT_BUCKET)
-      .createSignedUrl(path, 60, { download: name });
-    if (error || !data?.signedUrl) return setFileErr(tr.contact.panelFileError);
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    const bucket = supabase.storage.from(CONTACT_BUCKET);
+    const [view, dl] = await Promise.all([
+      bucket.createSignedUrl(path, 300),
+      bucket.createSignedUrl(path, 300, { download: name }),
+    ]);
+    if (view.error || !view.data?.signedUrl || dl.error || !dl.data?.signedUrl) {
+      return setFileErr(tr.contact.panelFileError);
+    }
+    setViewing({ name, mime, bytes, url: view.data.signedUrl, downloadUrl: dl.data.signedUrl });
   };
 
   useEffect(() => { a.reloadContact(); /* on mount only */ // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -259,7 +266,7 @@ export function CoordContact() {
                         display: 'flex', alignItems: 'center', gap: 10,
                         background: C.canvas, border: `1px solid ${C.borderFaint}`, borderRadius: 9, padding: '8px 10px',
                       }}>
-                        <Ico n={f.mime.startsWith('image/') ? 'need' : 'completed'} size={15} color={C.muted} />
+                        <Ico n={f.mime.startsWith('image/') ? 'image' : 'file'} size={15} color={C.muted} />
                         <span style={{ minWidth: 0, flex: 1 }}>
                           <span style={{
                             display: 'block', fontSize: 13, fontWeight: 600, color: C.navy,
@@ -267,9 +274,8 @@ export function CoordContact() {
                           }}>{f.name}</span>
                           <span className="tnum" style={{ fontSize: 11.5, color: C.muted2 }}>{prettyBytes(f.bytes)}</span>
                         </span>
-                        <button onClick={() => void openFile(f.path, f.name)} style={{ ...btn, height: 32 }}>
-                          {tr.contact.panelOpenFile}
-                        </button>
+                        <button onClick={() => void openFile(f.path, f.name, f.mime, f.bytes)}
+                          style={{ ...btn, height: 32 }}>{tr.contact.panelOpenFile}</button>
                       </li>
                     ))}
                   </ul>
@@ -293,6 +299,8 @@ export function CoordContact() {
           </div>
         </div>
       )}
+
+      {viewing && <FileViewer file={viewing} mobile={mob} onClose={() => setViewing(null)} />}
     </div>
   );
 }

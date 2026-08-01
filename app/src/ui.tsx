@@ -3,7 +3,8 @@ import {
   Activity, BatteryCharging, Building2, Bus, Check, ChevronDown, ChevronRight, CircleCheck, Clock,
   CloudRain, Flame, House, LogOut, MapPin, Menu, Package, PackageSearch, PawPrint, Plus, Search,
   ShieldCheck, Shirt, Soup, SprayCan, Stethoscope, TriangleAlert, Truck, User, Users, Waves, Wind,
-  SlidersHorizontal, Wrench, X, Share2, Copy, SquarePen, Eye, MessageCircle, Mail, type LucideIcon,
+  SlidersHorizontal, Wrench, X, Share2, Copy, SquarePen, Eye, MessageCircle, Mail,
+  Image as ImageIcon, FileText, Download, type LucideIcon,
 } from 'lucide-react';
 import { C, G, PRI, STATUS, barFill, ribbon, wash, type PriorityKey, type StatusKey } from './theme';
 import { priorityLabel, statusLabel } from './i18n/strings';
@@ -184,7 +185,7 @@ export type IcoName =
   // Need categories (wizard step 2). Kept in the same semantic map so a category's
   // icon is chosen once, here, and never hard-coded at a call site.
   | 'catHealth' | 'catEquipment' | 'catHygiene' | 'catClothing' | 'catEnergy'
-  | 'catFood' | 'catTransport' | 'catHaulage' | 'catPets' | 'mail';
+  | 'catFood' | 'catTransport' | 'catHaulage' | 'catPets' | 'mail' | 'image' | 'file' | 'download';
 
 const ICO: Record<IcoName, LucideIcon> = {
   need: Package,
@@ -215,6 +216,9 @@ const ICO: Record<IcoName, LucideIcon> = {
   catHaulage: Truck,
   catPets: PawPrint,
   mail: Mail,
+  image: ImageIcon,
+  file: FileText,
+  download: Download,
   org: Building2,
   shield: ShieldCheck,
   filter: SlidersHorizontal,
