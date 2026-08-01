@@ -312,6 +312,9 @@ export const tr = {
       badgeNone: 'Şu an yayında aktif afet yok',
       badgeUpdated: (ne: string) => `${ne} güncellendi`,
       title: 'Türkiye’deki aktif afetleri tek ekrandan takip edin.',
+      // Misyon cümlesi. Başlık NE yaptığımızı söylüyor, bu satır NEDEN yaptığımızı.
+      // Tek cümle: iki cümle olsaydı ikincisi okunmazdı.
+      mission: 'Afet anlarında doğru bilgi ve koordinasyon hayat kurtarır.',
       body: 'Neye ihtiyaç var, ne doğrulandı ve ne kaldı — hepsi tek yerde, hesap açmadan.',
       ctaReport: 'Afet Bildir',
       ctaHelp: 'Yardım Et',
@@ -350,6 +353,7 @@ export const tr = {
     helpLead: 'Dördü de hesap açmadan yapılabilir.',
 
     urgentLead: 'Tüm aktif afetlerde kalan miktarı en yüksek kalemler.',
+    mapLead: 'Renkli bir ile tıklayın: o ildeki operasyonlar açılır.',
     urgentAll: 'Tüm ihtiyaçlar',
     urgentSend: 'Göndereceğimi bildir',
     urgentRemaining: (n: string, birim: string) => `${n} ${birim} kalan`,
@@ -357,12 +361,17 @@ export const tr = {
     urgentInMany: (n: number) => (n === 1 ? '1 bölgede aranıyor' : `${n} bölgede aranıyor`),
 
     flowTitle: 'Bir yardım nasıl ilerliyor?',
-    flowLead: 'Dört adım. Hiçbiri atlanmaz.',
+    flowLead: 'Beş adım. Hiçbiri atlanmaz.',
+    // Beş adım, dört değil. Ayrılan yer 4. ve 5. adım: "destek bildirildi" ile
+    // "teslimat doğrulandı" AYNI ŞEY DEĞİL ve bu ayrım platformun tamamının temeli
+    // (rules/07 §Critical Distinctions). Dört adımlık anlatım ikisini tek kutuda
+    // birleştiriyordu; şemanın kendisi kuralı ihlal ediyordu.
     flow: [
-      { title: 'Bildirim', body: 'Vatandaş veya kurum durumu iletir.' },
-      { title: 'Doğrulama', body: 'Koordinatör bilgiyi kontrol eder.' },
-      { title: 'İhtiyaç yayını', body: 'Miktar ve birim herkese açılır.' },
-      { title: 'Destek ulaştı', body: 'Teslim alındı ve koordinatör tarafından doğrulandı.' },
+      { title: 'Afet bildirilir', body: 'Vatandaş veya kurum durumu iletir. Hesap gerekmez.', icon: 'critical' },
+      { title: 'Koordinatör doğrular', body: 'Bilgi kontrol edilir; doğrulanmayan bildirim yayına girmez.', icon: 'shield' },
+      { title: 'İhtiyaç yayınlanır', body: 'Kalem, miktar ve birim herkese açılır.', icon: 'need' },
+      { title: 'Destek bildirilir', body: 'Gönderen ne getirdiğini bildirir. Bu henüz teslim alınmış sayılmaz.', icon: 'pending' },
+      { title: 'Teslimat doğrulanır', body: 'Teslim alındı ve onaylandı; kalan miktar ancak şimdi düşer.', icon: 'completed' },
     ],
     // Canlı akışın ana sayfada kalan TEK izi: en son doğrulanan teslimat. Akan bir
     // liste değil, tek satırlık bir kanıt. Ad ve soyadın baş harfi veritabanından
@@ -372,6 +381,14 @@ export const tr = {
 
     trustSectionTitle: 'Bu sayfadaki bilgiler nereden geliyor?',
     trustSectionLead: 'Bir iddia değil, kayıt. Aşağıdakiler platformun nasıl çalıştığının tanımıdır.',
+    // Onay işaretli dört madde: bölümün ilk ekranda okunan kısmı. Her biri
+    // DOĞRULANABİLİR bir davranış tarifi; "güvenilir", "şeffaf" gibi sıfat yok.
+    trustPoints: [
+      'İhtiyaçlar koordinatör tarafından doğrulanır',
+      'Teslimatlar teslim noktasında onaylanır',
+      'Aynı olaya dair bildirimler birleştirilir',
+      'Kurumlar AfetHUB üzerinden koordine olabilir',
+    ],
     trustCards: [
       {
         title: 'Doğrulanmadan yayınlanmaz',

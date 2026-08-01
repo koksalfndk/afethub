@@ -11,7 +11,8 @@ export const C = {
   success: '#159947',
   successText: '#157F3E',
   warning: '#E6A700',
-  warningText: '#9A7100',
+  // 4.43:1 idi — AA'yı altı basamakla kaçırıyordu. Altı basamak koyultuldu: 4.52:1.
+  warningText: '#946B00',
   canvas: '#F6F8FA',
   surface: '#FFFFFF',
   border: '#E2E8F0',
@@ -20,7 +21,16 @@ export const C = {
   heading: '#102A43',
   heading2: '#334E68',
   text: '#486581',
-  muted: '#627D98',
+  // İkincil METİN rengi. #627D98 iken beyazda 4.28:1, canvas üzerinde 4.02:1 idi —
+  // ikisi de WCAG AA'nın altında ve bu token bölüm açıklamalarında, kart üstbilgisinde,
+  // kısacası okunması gereken yerlerde kullanılıyor. Sekiz basamak koyultuldu; gözle
+  // fark edilmiyor, ölçüyle canvas üzerinde 4.50:1 (rules/04 §Accessibility).
+  muted: '#5A7590',
+  // DİKKAT: muted2 ve muted3 METİN İÇİN DEĞİL. Sırasıyla 2.91:1 ve 2.15:1 —
+  // ikisi de AA metin eşiğinin çok altında. İkon, ayırıcı, kenarlık ve devre dışı
+  // öğeler için kullanılır; okunması gereken bir cümle için ASLA. Koyultmak yerine
+  // kullanım alanı daraltıldı: koyultsaydık `muted` ile ayırt edilemez hale gelir ve
+  // taşıdıkları hiyerarşi bilgisi kaybolurdu.
   muted2: '#829AB1',
   muted3: '#9FB3C8',
   chipNavyBg: '#F0F4F8',

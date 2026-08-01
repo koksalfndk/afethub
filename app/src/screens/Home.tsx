@@ -165,9 +165,10 @@ export function Home() {
       />
 
       {/* ---- 2 · Aktif afetler --------------------------------------------
-          Kartın tek büyük sayısı KALAN. Onaylanan, bekleyen ve talep edilen aynı
-          blokta ama 12.5px'te — dördü de yayında, hiyerarşi ziyaretçinin kararına
-          göre (AmountBlock'un başındaki nota bakın). */}
+          Kartta TEK baskın öğe var: kalan miktar. Onaylanan / bekleyen / talep
+          edilen miktar bloğunun DIŞINDA, 12px'te duruyor (AmountBlock'a bakın) ve
+          "en çok gereken" kalemler çip yığını değil tek satır metin. Amaç tek bir
+          soruya göz taramasıyla cevap verebilmek: hangi afet en çok yardım istiyor?  */}
       <section ref={activeRef} style={{ scrollMarginTop: 88 }}>
         <SectionHead
           title={t.activeTitle} sub={t.activeLead}
@@ -190,26 +191,29 @@ export function Home() {
               const pr = worstPriority(c);
               const tone = PRI[pr] ?? PRI.Normal;
               return (
-                <article key={d.id} style={{ ...panel, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <article key={d.id} className="hv-lift" style={{ ...panel, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                   {/* 4px şerit yalnızca önceliği taşır; başka hiçbir anlamı yok. */}
                   <div style={{ height: 4, background: tone.bar }} />
                   <div style={{ padding: mob ? 18 : 24, display: 'flex', flexDirection: 'column', flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 700, color: C.muted, marginBottom: 5 }}>
-                          <Ico n={DISASTER_ICON[d.type]} size={14} color={C.muted2} />
-                          {/* Yalnızca `region`: ili zaten içinde taşıyor ("Seydikemer, Muğla").
-                              İl adını ayrıca eklemek "Muğla · Seydikemer, Muğla" üretiyordu. */}
+                        {/* h3: ekran okuyucu kullanıcısı başlıklar arasında gezinerek
+                            afetten afete atlayabilmeli (rules/04 §Logical heading order). */}
+                        <h3 style={{ margin: 0 }}>
+                          <button onClick={() => a.openDisaster(d.slug)} className="hv-navy" style={{
+                            background: 'none', border: 0, padding: 0, textAlign: 'left', cursor: 'pointer',
+                            font: 'inherit', fontSize: mob ? 19 : 23, fontWeight: 800, color: C.navy,
+                            letterSpacing: '-.02em', lineHeight: 1.2,
+                          }}>{d.name}</button>
+                        </h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: C.muted, marginTop: 5 }}>
+                          <Ico n={DISASTER_ICON[d.type]} size={13} color={C.muted3} />
                           {d.region || d.province}
                         </div>
-                        <button onClick={() => a.openDisaster(d.slug)} className="hv-navy" style={{
-                          background: 'none', border: 0, padding: 0, textAlign: 'left', cursor: 'pointer',
-                          fontSize: mob ? 18.5 : 22, fontWeight: 800, color: C.navy, letterSpacing: '-.015em',
-                        }}>{d.name}</button>
                       </div>
                       {/* Öncelik renkle DEĞİL kelimeyle; renk yalnızca tekrar ediyor. */}
                       <span style={{
-                        fontSize: 11.5, fontWeight: 800, borderRadius: 999, padding: '4px 10px', whiteSpace: 'nowrap',
+                        fontSize: 12, fontWeight: 800, borderRadius: 999, padding: '4px 10px', whiteSpace: 'nowrap',
                         color: tone.fg, background: tone.bg, border: `1px solid ${tone.border}`,
                       }}>{priorityLabel[pr].toLocaleUpperCase('tr')}</span>
                     </div>
@@ -220,28 +224,25 @@ export function Home() {
                       compact={mob}
                     />
 
+                    {/* Çip yığını yerine TEK SATIR. Beş çip, kartın ikinci bir
+                        odak noktası oluyordu; oysa buradaki bilgi "detaya girmeli
+                        miyim" kararına yardımcı, kendi başına bir karar değil. */}
                     {c.topNeeds.length > 0 && (
-                      <div style={{ marginTop: 16 }}>
-                        <div style={{ fontSize: 13, color: C.muted, marginBottom: 8 }}>{t.topNeedsLabel}</div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          {c.topNeeds.map((n) => (
-                            <span key={n.id} style={{
-                              display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 999,
-                              padding: '4px 11px', fontSize: 11.5, fontWeight: 700, color: C.heading2,
-                              background: C.chipNavyBg, border: `1px solid ${C.borderFaint}`,
-                            }}>
-                              <Ico n={categoryIcon(n.cat)} size={12} color={(PRI[n.priority] ?? PRI.Normal).bar} />
-                              {n.name} · {nf.format(n.remaining)} {n.unit}
-                            </span>
-                          ))}
-                          {c.activeNeeds > c.topNeeds.length && (
-                            <span style={{
-                              borderRadius: 999, padding: '4px 11px', fontSize: 11.5, fontWeight: 700,
-                              color: C.muted, background: C.chipNavyBg, border: `1px solid ${C.borderFaint}`,
-                            }}>{t.moreNeeds(c.activeNeeds - c.topNeeds.length)}</span>
-                          )}
-                        </div>
-                      </div>
+                      <p style={{
+                        margin: '13px 0 0', fontSize: 12.5, color: C.muted, lineHeight: 1.55,
+                      }}>
+                        <span>{t.topNeedsLabel}: </span>
+                        {c.topNeeds.map((n, i) => (
+                          <span key={n.id}>
+                            {i > 0 && ' · '}
+                            <span style={{ color: C.heading2, fontWeight: 600 }}>{n.name}</span>
+                            <span className="tnum"> {nf.format(n.remaining)} {n.unit}</span>
+                          </span>
+                        ))}
+                        {c.activeNeeds > c.topNeeds.length && (
+                          <span> · {t.moreNeeds(c.activeNeeds - c.topNeeds.length)}</span>
+                        )}
+                      </p>
                     )}
 
                     <div style={{
@@ -249,8 +250,8 @@ export function Home() {
                       borderTop: `1px solid ${C.borderFaint}`, paddingTop: 16, marginTop: 'auto',
                       flexWrap: 'wrap',
                     }}>
-                      <span style={{ fontSize: 12.5, color: C.muted2 }}>{t.updatedAgo(d.updatedLabel)}</span>
-                      <button onClick={() => a.openDisaster(d.slug)} style={{
+                      <span style={{ fontSize: 12.5, color: C.muted }}>{t.updatedAgo(d.updatedLabel)}</span>
+                      <button onClick={() => a.openDisaster(d.slug)} className="hv-press" style={{
                         background: G.navyBtn, border: `1px solid ${C.navy}`, color: '#fff',
                         borderRadius: 10, height: 44, padding: '0 16px', fontSize: 13.5,
                         fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
@@ -263,14 +264,14 @@ export function Home() {
 
             {/* Boş yuva değil, bir eylem. Izgarada tek kart kalsa bile sayfa dolu
                 görünür — veri seyrekken de ayakta duran tasarım budur. */}
-            <article style={{
+            <article className="hv-lift" style={{
               ...panel, background: C.chipNavyBg, borderStyle: 'dashed',
               padding: mob ? 20 : 24, display: 'grid', placeItems: 'center', textAlign: 'center',
             }}>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.heading2, marginBottom: 8 }}>{t.reportCardTitle}</div>
                 <p style={{ margin: '0 auto 16px', fontSize: 14, color: C.muted, maxWidth: '36ch' }}>{t.reportCardBody}</p>
-                <button onClick={a.openDisasterForm} style={{
+                <button onClick={a.openDisasterForm} className="hv-press" style={{
                   background: G.emergencyBtn, border: '1px solid #BE2A31', color: '#fff',
                   borderRadius: 10, height: 48, padding: '0 20px', fontSize: 14.5, fontWeight: 700, cursor: 'pointer',
                 }}>{t.hero.ctaReport}</button>
@@ -280,58 +281,15 @@ export function Home() {
         )}
       </section>
 
-      {/* ---- 2b · Topluluk bildirimleri ------------------------------------
-          Tasarım özetinde bu bölüm yoktu; sebebiyle birlikte bırakıldı. Bunlar
-          DOĞRULANMAMIŞ iddialar ve ana sayfadaki tek teyit yolu burası — sessizce
-          kaldırmak, çalışan bir akışı erişilemez kılardı. Yayındaki afetlerden
-          görsel olarak ayrı duruyor (sarı zemin) ve sayı "bildirildi" diye
-          adlandırılıyor, "ulaştı" değil (rules/07 §Critical Distinctions). */}
-      {ov.reports.length > 0 && (
-        <section>
-          <SectionHead title={tr.dashReports.title} sub={tr.dashReports.note} />
-          <div style={{
-            display: 'grid', gap: mob ? 11 : 16,
-            gridTemplateColumns: mob ? '1fr' : `repeat(${Math.min(ov.reports.length, 3)}, minmax(0,1fr))`,
-          }}>
-            {ov.reports.slice(0, 3).map((r) => {
-              const left = Math.max(0, COMMUNITY_THRESHOLD - r.reportCount);
-              return (
-                <article key={r.id} style={{
-                  border: '1px solid #F2DFA8', background: '#FFFDF4', borderRadius: 14,
-                  padding: mob ? 16 : 18, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                    <span style={{ minWidth: 0 }}>
-                      <span style={{ display: 'block', fontSize: 15.5, fontWeight: 800, color: C.navy }}>
-                        {[r.province, r.district].filter(Boolean).join(' / ')}
-                      </span>
-                      <span className="tnum" style={{ display: 'block', fontSize: 12.5, color: C.muted2, marginTop: 2 }}>
-                        {formatDate(r.occurredOn)}
-                      </span>
-                    </span>
-                    <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <span className="tnum" style={{ display: 'block', fontSize: 19, fontWeight: 800, color: C.warningText }}>{r.reportCount}</span>
-                      <span style={{ display: 'block', fontSize: 11.5, color: C.muted }}>{tr.dashReports.reportedWord}</span>
-                    </span>
-                  </div>
-                  {left > 0 && (
-                    <span className="tnum" style={{ fontSize: 12, color: C.muted2 }}>{tr.dashReports.toThreshold(left)}</span>
-                  )}
-                  <button onClick={() => setConfirming(r)} className="hv-navy" style={{
-                    marginTop: 'auto', background: C.surface, border: `1px solid ${C.borderSoft}`,
-                    color: C.navy, borderRadius: 10, height: 44, fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
-                  }}>{tr.dashReports.confirm}</button>
-                </article>
-              );
-            })}
-          </div>
-          <p style={{ margin: '12px 0 0', fontSize: 12, color: C.muted2 }}>
-            {tr.dashReports.thresholdNote(COMMUNITY_THRESHOLD)}
-          </p>
-        </section>
-      )}
+      {/* ---- 3 · Harita ----------------------------------------------------
+          YUKARI TAŞINDI (eskiden 5. bölümdü). Harita "ülkede durum ne" sorusunun
+          en hızlı cevabı ve ziyaretçilerin çoğu ikinci olarak kendi ilini arıyor.
+          Listeden hemen sonra gelmesi, listeyi coğrafi bir bağlama oturtuyor. */}
+      <section>
+        <HomeOperationsMap />
+      </section>
 
-      {/* ---- 3 · Nasıl yardım edebilirim ------------------------------------ */}
+      {/* ---- 4 · Nasıl yardım edebilirim ------------------------------------ */}
       <section>
         <SectionHead title={t.helpTitle} sub={t.helpLead} />
         <div style={{
@@ -339,7 +297,7 @@ export function Home() {
           gridTemplateColumns: mob ? '1fr' : 'repeat(4, minmax(0,1fr))',
         }}>
           {HELP_ACTIONS.map((h) => (
-            <button key={h.key} onClick={() => h.run(a)} className="hv-navy" style={{
+            <button key={h.key} onClick={() => h.run(a)} className="hv-lift hv-press" style={{
               ...panel, cursor: 'pointer', textAlign: 'left',
               padding: mob ? 16 : '28px 22px',
               // Mobilde satır, masaüstünde kart. 76px'lik satır tek elle baş parmakla
@@ -368,9 +326,11 @@ export function Home() {
         </div>
       </section>
 
-      {/* ---- 4 · Şu anda en çok gereken -------------------------------------
-          Sayı KÜÇÜLTÜLMEDİ, sadece tek başına bırakıldı. Miktarı tamamen atmak
-          ziyaretçiyi "ne kadar göndereyim?" sorusuyla baş başa bırakırdı. */}
+      {/* ---- 5 · Acil ihtiyaçlar --------------------------------------------
+          Kart tek bir soruya cevap veriyor: ne göndereyim, ne kadar? Bu yüzden
+          kalan miktar kartın en büyük öğesi — kalem adından da büyük. Öncelik hem
+          renkli şerit hem KELİME ile yazılı (rules/04: renk tek başına anlam
+          taşımaz). Süs yok: ikon, ad, miktar, yer, düğme. */}
       {urgent.length > 0 && (
         <section>
           <SectionHead title={t.urgentTitle} sub={t.urgentLead} />
@@ -393,91 +353,163 @@ export function Home() {
                 setPins({ name: n.name, rect: e.currentTarget.getBoundingClientRect() });
               };
               return (
-                <article key={n.name} style={{
+                <article key={n.name} className="hv-lift" style={{
                   ...panel, borderTop: `3px solid ${tone.bar}`,
-                  padding: mob ? 16 : 24,
-                  display: 'flex', flexDirection: mob ? 'row' : 'column',
-                  alignItems: mob ? 'center' : 'stretch', gap: mob ? 14 : 0, minWidth: 0,
+                  padding: mob ? 16 : 22, display: 'flex', flexDirection: 'column', minWidth: 0,
                 }}>
-                  <span style={{
-                    width: mob ? 44 : 52, height: mob ? 44 : 52, flex: `0 0 ${mob ? 44 : 52}px`,
-                    borderRadius: 14, background: C.chipNavyBg, display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', marginBottom: mob ? 0 : 14,
-                  }}><Ico n={categoryIcon(n.cat)} size={mob ? 21 : 25} color={tone.bar} /></span>
-
-                  <span style={{ flex: 1, minWidth: 0 }}>
+                  {/* Mobilde ikon metnin SOLUNDA, düğme ALT SATIRDA. Üçünü tek satıra
+                      dizmek metne 150px bırakıyordu: kalem adı ve "2 bölgede aranıyor"
+                      kırpılıyor, miktar üç satıra bölünüyordu. Kartın tek işi bir sayıyı
+                      okutmak; o sayı sığmıyorsa kart çalışmıyor demektir. */}
+                  <div style={{
+                    display: 'flex', flexDirection: mob ? 'row' : 'column',
+                    alignItems: mob ? 'center' : 'stretch', gap: mob ? 14 : 0, minWidth: 0,
+                  }}>
                     <span style={{
-                      display: 'block', fontSize: mob ? 16.5 : 19, fontWeight: 800, color: C.navy,
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>{n.name}</span>
-                    <span className="tnum" style={{
-                      display: 'block', fontSize: mob ? 14.5 : 17, fontWeight: 800,
-                      color: tone.fg, marginTop: 3,
-                    }}>{t.urgentRemaining(nf.format(n.remaining), n.unit)}</span>
-                    <span style={{
-                      display: 'block', fontSize: 12.5, color: C.muted, marginTop: 4,
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>{direct ? t.urgentIn(n.ops[0].name) : t.urgentInMany(n.ops.length)}</span>
-                  </span>
+                      width: mob ? 46 : 52, height: mob ? 46 : 52, flex: `0 0 ${mob ? 46 : 52}px`,
+                      borderRadius: 14, background: tone.bg, border: `1px solid ${tone.border}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      marginBottom: mob ? 0 : 14,
+                    }}><Ico n={categoryIcon(n.cat)} size={mob ? 22 : 26} color={tone.bar} /></span>
 
-                  <button onClick={open} className="hv-navy"
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <h3 style={{
+                        margin: 0, fontSize: 13.5, fontWeight: 700, color: C.heading2,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>{n.name}</h3>
+                      {/* Kartın en büyük öğesi: gönderilecek miktar. */}
+                      <span className="tnum" style={{
+                        display: 'block', fontSize: mob ? 21 : 24, fontWeight: 800,
+                        color: C.navy, letterSpacing: '-.02em', lineHeight: 1.15, marginTop: 2,
+                      }}>{t.urgentRemaining(nf.format(n.remaining), n.unit)}</span>
+                      <span style={{
+                        display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap',
+                        fontSize: 12.5, color: C.muted, marginTop: 6,
+                      }}>
+                        <span style={{ color: tone.fg, fontWeight: 700 }}>{priorityLabel[n.priority]}</span>
+                        <span aria-hidden style={{ color: C.borderSoft }}>·</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                          {direct ? t.urgentIn(n.ops[0].name) : t.urgentInMany(n.ops.length)}
+                        </span>
+                      </span>
+                    </span>
+                  </div>
+
+                  <button onClick={open} className="hv-navy hv-press"
                     aria-haspopup={direct ? undefined : 'dialog'}
                     aria-expanded={direct ? undefined : pins?.name === n.name}
                     style={{
                       background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy,
-                      borderRadius: 10, height: 44, padding: '0 14px', fontSize: 13.5, fontWeight: 700,
-                      cursor: 'pointer', whiteSpace: 'nowrap',
-                      width: mob ? undefined : '100%', marginTop: mob ? 0 : 16, flex: mob ? '0 0 auto' : undefined,
+                      borderRadius: 10, height: 48, padding: '0 14px', fontSize: 13.5, fontWeight: 700,
+                      cursor: 'pointer', whiteSpace: 'nowrap', width: '100%', marginTop: mob ? 14 : 16,
                     }}>{t.urgentSend}</button>
                 </article>
               );
             })}
           </div>
-          <p style={{ margin: '12px 0 0', fontSize: 12, color: C.muted2 }}>{tr.common.remainingUnchanged}</p>
+          <p style={{ margin: '12px 0 0', fontSize: 12, color: C.muted }}>{tr.common.remainingUnchanged}</p>
         </section>
       )}
 
-      {/* ---- 5 · Harita ---------------------------------------------------- */}
-      <section>
-        <HomeOperationsMap />
-      </section>
+      {/* ---- 6 · Topluluk bildirimleri --------------------------------------
+          AŞAĞI TAŞINDI. Daha önce aktif afetlerin hemen altındaydı ve ilk kez gelen
+          bir ziyaretçi, doğrulanmış operasyonlarla doğrulanmamış iddiaları yan yana
+          görüyordu — ikisinin farkını henüz öğrenmeden. Artık süreç şemasından ÖNCE
+          ama "nasıl yardım ederim" ve "acil ihtiyaçlar"dan SONRA: platformun nasıl
+          çalıştığı anlaşıldıktan sonra katılım kapısı açılıyor. */}
+      {ov.reports.length > 0 && (
+        <section>
+          <SectionHead title={tr.dashReports.title} sub={tr.dashReports.note} />
+          <div style={{
+            display: 'grid', gap: mob ? 11 : 16,
+            gridTemplateColumns: mob ? '1fr' : `repeat(${Math.min(ov.reports.length, 3)}, minmax(0,1fr))`,
+          }}>
+            {ov.reports.slice(0, 3).map((r) => {
+              const left = Math.max(0, COMMUNITY_THRESHOLD - r.reportCount);
+              return (
+                <article key={r.id} className="hv-lift" style={{
+                  border: '1px solid #F2DFA8', background: '#FFFDF4', borderRadius: 14,
+                  padding: mob ? 16 : 18, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 15.5, fontWeight: 800, color: C.navy }}>
+                        {[r.province, r.district].filter(Boolean).join(' / ')}
+                      </span>
+                      <span className="tnum" style={{ display: 'block', fontSize: 12.5, color: C.muted, marginTop: 2 }}>
+                        {formatDate(r.occurredOn)}
+                      </span>
+                    </span>
+                    <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <span className="tnum" style={{ display: 'block', fontSize: 19, fontWeight: 800, color: C.warningText }}>{r.reportCount}</span>
+                      <span style={{ display: 'block', fontSize: 12, color: C.muted }}>{tr.dashReports.reportedWord}</span>
+                    </span>
+                  </div>
+                  {left > 0 && (
+                    <span className="tnum" style={{ fontSize: 12, color: C.muted }}>{tr.dashReports.toThreshold(left)}</span>
+                  )}
+                  <button onClick={() => setConfirming(r)} className="hv-navy hv-press" style={{
+                    marginTop: 'auto', background: C.surface, border: `1px solid ${C.borderSoft}`,
+                    color: C.navy, borderRadius: 10, height: 46, fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
+                  }}>{tr.dashReports.confirm}</button>
+                </article>
+              );
+            })}
+          </div>
+          <p style={{ margin: '12px 0 0', fontSize: 12, color: C.muted }}>
+            {tr.dashReports.thresholdNote(COMMUNITY_THRESHOLD)}
+          </p>
+        </section>
+      )}
 
-      {/* ---- 6 · Süreç + son doğrulanan teslimat ---------------------------- */}
+      {/* ---- 7 · Süreç ------------------------------------------------------
+          Zaman çizelgesi değil, AKIŞ ŞEMASI. Numaralı daireler bir sıralama
+          gösteriyordu ama adımlar arasındaki NEDENSELLİĞİ göstermiyordu; oklu
+          kutular "bunun olması için önce şunun olması gerek" diyor.
+          Beş kutu, dört değil: "destek bildirildi" ile "teslimat doğrulandı" aynı
+          şey değil ve bu ayrım platformun temeli (rules/07). */}
       <section>
         <SectionHead title={t.flowTitle} sub={t.flowLead} />
         <div style={{
-          display: 'grid', position: 'relative',
-          gridTemplateColumns: mob ? '1fr' : 'repeat(4, minmax(0,1fr))',
+          display: 'grid', gap: mob ? 0 : 10, alignItems: 'stretch',
+          gridTemplateColumns: mob ? '1fr' : 'repeat(5, minmax(0,1fr))',
         }}>
-          {/* Masaüstünde adımları birleştiren yatay çizgi; mobilde dikey. Yalnızca
-              bağlantıyı gösterir, durum taşımaz. */}
-          <span aria-hidden style={mob ? {
-            position: 'absolute', left: 23, top: 22, bottom: 40, width: 2, background: C.borderSoft,
-          } : {
-            position: 'absolute', top: 24, left: '12%', right: '12%', height: 2, background: C.borderSoft,
-          }} />
           {t.flow.map((s, i) => {
             const last = i === t.flow.length - 1;
             return (
-              <div key={s.title} style={{
-                position: 'relative',
-                display: 'flex', flexDirection: mob ? 'row' : 'column',
-                alignItems: mob ? 'flex-start' : 'center',
-                textAlign: mob ? 'left' : 'center',
-                gap: mob ? 16 : 0, paddingBottom: mob && !last ? 22 : 0,
-              }}>
-                <span className="tnum" style={{
-                  width: mob ? 44 : 48, height: mob ? 44 : 48, flex: `0 0 ${mob ? 44 : 48}px`,
-                  borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  // Son adım DOLU: tamamlanmışlığı renk değil dolgu anlatıyor.
-                  background: last ? C.navy : C.surface, color: last ? '#fff' : C.navy,
-                  border: `2px solid ${C.navy}`, fontWeight: 800, fontSize: 17,
-                  marginBottom: mob ? 0 : 18,
-                }}>{i + 1}</span>
-                <span>
-                  <span style={{ display: 'block', fontSize: mob ? 16 : 17, fontWeight: 800, color: C.navy, marginBottom: mob ? 3 : 8 }}>{s.title}</span>
-                  <span style={{ display: 'block', fontSize: 14, color: C.muted, lineHeight: 1.5, padding: mob ? 0 : '0 14px' }}>{s.body}</span>
-                </span>
+              <div key={s.title} style={{ display: 'flex', flexDirection: mob ? 'column' : 'row', alignItems: 'stretch' }}>
+                <div style={{
+                  ...panel, flex: 1, padding: mob ? 15 : '18px 16px',
+                  display: 'flex', flexDirection: mob ? 'row' : 'column',
+                  alignItems: mob ? 'flex-start' : 'stretch', gap: mob ? 13 : 0,
+                  // Son kutu vurgulu: doğrulama, sürecin tamamlandığı tek nokta.
+                  borderColor: last ? '#C9E9D6' : C.border,
+                  background: last ? '#FBFDFC' : C.surface,
+                }}>
+                  <span style={{
+                    width: 40, height: 40, flex: '0 0 40px', borderRadius: 12,
+                    background: last ? '#EAF7EF' : C.chipNavyBg,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginBottom: mob ? 0 : 12,
+                  }}><Ico n={s.icon as IcoName} size={19} color={last ? C.success : C.heading2} /></span>
+                  <span style={{ minWidth: 0 }}>
+                    <span className="tnum" style={{
+                      display: 'block', fontSize: 12, fontWeight: 800, letterSpacing: '.07em',
+                      color: C.muted, marginBottom: 3,
+                    }}>{`${i + 1}. ADIM`}</span>
+                    <span style={{ display: 'block', fontSize: 15.5, fontWeight: 800, color: C.navy, marginBottom: 5 }}>{s.title}</span>
+                    <span style={{ display: 'block', fontSize: 13, color: C.muted, lineHeight: 1.5 }}>{s.body}</span>
+                  </span>
+                </div>
+                {/* Ok: masaüstünde sağa, mobilde aşağı. Yalnızca yön taşır. */}
+                {!last && (
+                  <span aria-hidden style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: C.muted3, fontSize: 17, flex: '0 0 auto',
+                    width: mob ? '100%' : 18, height: mob ? 26 : 'auto',
+                    transform: mob ? 'rotate(90deg)' : undefined,
+                  }}>→</span>
+                )}
               </div>
             );
           })}
@@ -487,7 +519,7 @@ export function Home() {
             geliyor (migration 0024); burada kısaltılacak bir tam ad yok. */}
         <div style={{
           ...panel, borderLeft: `3px solid ${C.success}`, background: '#FBFDFC',
-          padding: mob ? 15 : '18px 22px', marginTop: mob ? 20 : 28,
+          padding: mob ? 15 : '18px 22px', marginTop: mob ? 20 : 26,
           display: 'flex', alignItems: mob ? 'flex-start' : 'center', gap: 12, flexWrap: 'wrap',
         }}>
           <span style={{
@@ -500,7 +532,7 @@ export function Home() {
                 <strong style={{ color: C.navy }}>{t.lastVerified}:</strong>{' '}
                 {[lastVerified.user, lastVerified.detail, lastVerified.disasterName].filter(Boolean).join(' · ')}
               </span>
-              <span style={{ fontSize: 13, color: C.muted2, whiteSpace: 'nowrap' }}>{lastVerified.time}</span>
+              <span style={{ fontSize: 13, color: C.muted, whiteSpace: 'nowrap' }}>{lastVerified.time}</span>
             </>
           ) : (
             <span style={{ fontSize: mob ? 13.5 : 14.5, color: C.muted }}>{t.lastVerifiedEmpty}</span>
@@ -508,9 +540,10 @@ export function Home() {
         </div>
       </section>
 
-      {/* ---- 7 · Güven ------------------------------------------------------
-          Üç sıfat değil, üç KURAL. "Güvenilir", "şeffaf", "hızlı" doğrulanamaz;
-          aşağıdaki üç cümlenin her biri yanlışlanabilir bir davranış tarifi. */}
+      {/* ---- 8 · Güven ------------------------------------------------------
+          Artık bir dipnot değil, bir bölüm. Üstte dört onaylı madde (hızlı okunur),
+          altta üç kutu (ayrıntı isteyen için). Üçü de sıfat değil KURAL — "güvenilir"
+          doğrulanamaz, "kalan = talep − onaylanan" doğrulanabilir. */}
       <section style={{
         background: C.headerNavy, borderRadius: 16,
         padding: mob ? '28px 20px' : '56px 48px',
@@ -519,16 +552,32 @@ export function Home() {
         <p style={{
           margin: '10px 0 0', fontSize: mob ? 14 : 15.5, color: '#8FA7BE', maxWidth: '70ch',
         }}>{t.trustSectionLead}</p>
+
+        <ul style={{
+          listStyle: 'none', margin: mob ? '20px 0 0' : '28px 0 0', padding: 0,
+          display: 'grid', gap: mob ? 10 : 12,
+          gridTemplateColumns: mob ? '1fr' : 'repeat(2, minmax(0,1fr))',
+        }}>
+          {t.trustPoints.map((p) => (
+            <li key={p} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+              <span style={{
+                width: 26, height: 26, flex: '0 0 26px', borderRadius: '50%',
+                background: 'rgba(110,231,168,.14)', border: '1px solid rgba(110,231,168,.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}><Ico n="completed" size={14} color="#6EE7A8" /></span>
+              <span style={{ fontSize: mob ? 14.5 : 15.5, fontWeight: 600, color: '#fff' }}>{p}</span>
+            </li>
+          ))}
+        </ul>
+
         <div style={{
-          display: 'grid', gap: mob ? 11 : 20, marginTop: mob ? 20 : 32,
+          display: 'grid', gap: mob ? 11 : 20, marginTop: mob ? 22 : 34,
+          paddingTop: mob ? 22 : 32, borderTop: '1px solid rgba(255,255,255,.12)',
           gridTemplateColumns: mob ? '1fr' : 'repeat(3, minmax(0,1fr))',
         }}>
           {t.trustCards.map((c) => (
-            <div key={c.title} style={{
-              background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)',
-              borderRadius: 14, padding: mob ? 16 : 22,
-            }}>
-              <div style={{ fontSize: mob ? 15 : 16, fontWeight: 800, color: '#fff', marginBottom: 10 }}>{c.title}</div>
+            <div key={c.title}>
+              <div style={{ fontSize: mob ? 15 : 16, fontWeight: 800, color: '#fff', marginBottom: 8 }}>{c.title}</div>
               <p style={{ margin: 0, fontSize: mob ? 13.5 : 14.5, color: '#C3D3E1', lineHeight: 1.6 }}>{c.body}</p>
             </div>
           ))}
@@ -625,7 +674,7 @@ function UrgentPins({ title, anchor, ops, unit, onPick, onClose }: {
                 display: 'block', fontSize: 13, fontWeight: 600, color: C.navy,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>{o.name}</span>
-              <span className="tnum" style={{ display: 'block', fontSize: 11.5, color: C.muted2, marginTop: 1 }}>
+              <span className="tnum" style={{ display: 'block', fontSize: 12, color: C.muted, marginTop: 1 }}>
                 {tr.home.urgentPinRemaining(o.remaining, unit)}
               </span>
             </span>

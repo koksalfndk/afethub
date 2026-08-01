@@ -2,6 +2,7 @@ import { useApp } from '../store';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
 import { Ico } from '../ui';
+import { HomeIllustration } from './HomeIllustration';
 
 // Ana sayfanın üst üçte biri.
 //
@@ -46,8 +47,15 @@ export function HomeHero({ activeCount, updatedLabel, onSeeActive }: {
       border: `1px solid ${C.border}`, borderRadius: 16,
       padding: mob ? '30px 20px 28px' : '76px 56px 64px',
     }}>
-      <div style={{ maxWidth: 860 }}>
-        <button onClick={onSeeActive} className="hv-navy" style={{
+      {/* İki sütun: solda karar, sağda görsel. 980px altında görsel DÜŞER —
+          küçültülerek değil, tamamen kaldırılarak. Telefonda dekoratif bir çizim,
+          üç düğmeyi ekranın altına iten bir engeldir (rules/04 §Mobile First). */}
+      <div style={{
+        display: 'grid', gap: mob ? 0 : 40, alignItems: 'center',
+        gridTemplateColumns: mob ? '1fr' : 'minmax(0,1.15fr) minmax(0,.85fr)',
+      }}>
+      <div style={{ maxWidth: 720 }}>
+        <button onClick={onSeeActive} className="hv-navy hv-press" style={{
           display: 'inline-flex', alignItems: 'center', gap: 9, minHeight: 40,
           background: C.surface, border: `1px solid ${C.borderSoft}`, borderRadius: 999,
           padding: '0 15px', marginBottom: mob ? 18 : 26, cursor: 'pointer',
@@ -72,22 +80,29 @@ export function HomeHero({ activeCount, updatedLabel, onSeeActive }: {
           margin: `0 0 ${mob ? 14 : 20}px`, color: C.navy, fontWeight: 800,
         }}>{t.title}</h1>
 
+        {/* Misyon: başlığın hemen altında, gövdeden bir tık daha koyu ve kalın.
+            Sırayla okununca "ne yapıyoruz → neden → nasıl" oluyor. */}
         <p style={{
-          fontSize: mob ? 16.5 : 19, lineHeight: 1.55, color: C.text,
-          margin: `0 0 ${mob ? 24 : 36}px`, maxWidth: '58ch',
+          fontSize: mob ? 15.5 : 17.5, lineHeight: 1.5, color: C.heading2, fontWeight: 600,
+          margin: `0 0 ${mob ? 10 : 14}px`, maxWidth: '52ch',
+        }}>{t.mission}</p>
+
+        <p style={{
+          fontSize: mob ? 15.5 : 17, lineHeight: 1.55, color: C.text,
+          margin: `0 0 ${mob ? 24 : 34}px`, maxWidth: '56ch',
         }}>{t.body}</p>
 
         <div style={{ display: mob ? 'grid' : 'flex', gap: mob ? 10 : 14, flexWrap: 'wrap' }}>
-          <button onClick={a.openDisasterForm} style={{
+          <button onClick={a.openDisasterForm} className="hv-press" style={{
             ...btn, background: G.emergencyBtn, border: '1px solid #BE2A31', color: '#fff',
             boxShadow: 'inset 0 1px 0 rgba(255,255,255,.18), 0 2px 6px rgba(191,42,49,.26)',
           }}><Ico n="critical" size={18} color="#fff" />{t.ctaReport}</button>
 
-          <button onClick={() => a.go('report')} style={{
+          <button onClick={() => a.go('report')} className="hv-press" style={{
             ...btn, background: G.navyBtn, border: `1px solid ${C.navy}`, color: '#fff',
           }}><Ico n="need" size={18} color="#fff" />{t.ctaHelp}</button>
 
-          <button onClick={onSeeActive} className="hv-navy" style={{
+          <button onClick={onSeeActive} className="hv-navy hv-press" style={{
             ...btn, background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy,
           }}><Ico n="pin" size={18} color={C.navy} />{t.ctaSee}</button>
         </div>
@@ -96,6 +111,9 @@ export function HomeHero({ activeCount, updatedLabel, onSeeActive }: {
           fontSize: mob ? 12.5 : 13.5, lineHeight: 1.5, color: C.muted,
           margin: `${mob ? 18 : 24}px 0 0`, maxWidth: '72ch',
         }}>{tr.home.disclaimer}</p>
+      </div>
+
+      {!mob && <HomeIllustration height={344} />}
       </div>
     </section>
   );

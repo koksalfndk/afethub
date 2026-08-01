@@ -68,3 +68,12 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
     transition-duration: .001ms !important;
   }
 }
+
+/* Mikro etkileşimler — ana sayfa kartları ve düğmeleri.
+   Üçü de ÖLÇÜLÜ: kart yükselir ama zıplamaz (2px), düğme basılınca içeri gider,
+   hiçbiri konumu değiştirmez. Izgarada zıplayan bir kart, okumayı bozar.
+   prefers-reduced-motion bloğu dosyanın üstünde zaten hepsini kapatıyor. */
+.hv-lift { transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+.hv-lift:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(16,42,67,.10); border-color: #D9E2EC !important; }
+.hv-press { transition: transform .12s ease, box-shadow .16s ease, background .16s ease; }
+.hv-press:active { transform: translateY(1px) scale(.995); }

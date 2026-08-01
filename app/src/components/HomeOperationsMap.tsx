@@ -239,7 +239,7 @@ export function HomeOperationsMap() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{
-                fontSize: 10.5, fontWeight: 700, letterSpacing: '.08em', color: C.muted2,
+                fontSize: 12, fontWeight: 700, letterSpacing: '.07em', color: C.muted2,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>{openCards[0].disaster.province.toLocaleUpperCase('tr')}</span>
               <button
@@ -295,10 +295,10 @@ export function HomeOperationsMap() {
         <Legend color={TONE_COLOR.active} label={tr.home.mapLegendActive} />
         <Legend color={TONE_COLOR.closed} label={tr.home.mapLegendClosed} />
       </div>
-      <p style={{ margin: '8px 0 0', fontSize: 11.5, color: C.muted2 }}>{tr.home.mapHint}</p>
+      <p style={{ margin: '8px 0 0', fontSize: 12.5, color: C.muted }}>{tr.home.mapHint}</p>
       {/* Haritaya yerleştirilemeyen operasyon sessizce kaybolmaz. */}
       {unplaced.length > 0 && (
-        <p style={{ margin: '5px 0 0', fontSize: 11.5, color: C.warningText }}>
+        <p style={{ margin: '5px 0 0', fontSize: 12.5, color: C.warningText }}>
           {tr.home.mapUnplaced(unplaced.length)}
         </p>
       )}
@@ -313,12 +313,12 @@ function Header({ count }: { count: number }) {
         width: 7, height: 7, borderRadius: '50%', background: C.emergency,
         boxShadow: '0 0 0 3px rgba(217,54,62,.15)', display: 'inline-block',
       }} />
-      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.09em', color: C.muted2 }}>
+      <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.07em', color: C.muted2 }}>
         {tr.home.mapTitle.toLocaleUpperCase('tr')}
       </span>
       <span className="tnum" style={{
         marginLeft: 'auto', background: C.chipNavyBg, borderRadius: 20,
-        padding: '2px 8px', fontSize: 10.5, color: C.text,
+        padding: '3px 9px', fontSize: 12, color: C.text,
       }}>{tr.home.mapCount(count)}</span>
     </div>
   );

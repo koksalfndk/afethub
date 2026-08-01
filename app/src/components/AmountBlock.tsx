@@ -54,38 +54,49 @@ export function AmountBlock({ required, verified, pending, remaining, compact }:
   const pendPct = Math.min(pct(pending, required), 100 - okPct);
 
   return (
-    <div style={{
-      background: C.canvas, border: `1px solid ${C.borderFaint}`, borderRadius: 12,
-      padding: compact ? 14 : 16,
-    }}>
+    <div>
       <div aria-hidden>
-        <div className="tnum" style={{
-          fontSize: compact ? 27 : 30, fontWeight: 800, color: C.errorText,
-          lineHeight: 1.1, letterSpacing: '-.02em',
-        }}>{nf.format(remaining)} {t.remainingUnit}</div>
-        <div style={{ fontSize: compact ? 13.5 : 14, color: C.heading2, fontWeight: 700, marginTop: 2 }}>
-          {t.remaining}
+        {/* Kutunun İÇİNDE yalnızca kararı değiştiren sayı ve onun çubuğu var.
+            Destekleyici üç sayı kutunun DIŞINA alındı: aynı yüzeyde durduklarında
+            dördü de eşit ağırlıkta okunuyor ve "hangi afet daha çok yardım
+            istiyor" sorusu göz taramasıyla yanıtlanamıyordu. Şeffaflık kaybolmadı,
+            hiyerarşi kazanıldı (rules/04 §Content Hierarchy). */}
+        <div style={{
+          background: C.canvas, border: `1px solid ${C.borderFaint}`, borderRadius: 12,
+          padding: compact ? '13px 14px' : '15px 16px',
+        }}>
+          <div className="tnum" style={{
+            fontSize: compact ? 28 : 32, fontWeight: 800, color: C.errorText,
+            lineHeight: 1.08, letterSpacing: '-.025em',
+          }}>{nf.format(remaining)} {t.remainingUnit}</div>
+          <div style={{ fontSize: compact ? 13.5 : 14, color: C.heading2, fontWeight: 700, marginTop: 2 }}>
+            {t.remaining}
+          </div>
+
+          {/* Çubuk inceldi (9 → 6px): burada rolü bir ölçü aracı değil, tek bakışta
+              "ne kadarı karşılandı" hissi vermek. Kesin sayılar altta yazıyor. */}
+          <div style={{
+            height: 6, borderRadius: 999, background: C.surface, border: `1px solid ${C.borderFaint}`,
+            overflow: 'hidden', display: 'flex', marginTop: 12,
+          }}>
+            <span style={{ width: `${okPct}%`, background: 'linear-gradient(180deg,#1BB055,#159947)' }} />
+            {/* Taralı desen: bekleyen dilimi renkten bağımsız olarak da ayırır. */}
+            <span style={{
+              width: `${pendPct}%`,
+              background: 'repeating-linear-gradient(45deg,#F0C860,#F0C860 4px,#E6A700 4px,#E6A700 8px)',
+            }} />
+          </div>
         </div>
 
+        {/* Destekleyici sayılar: zeminsiz, 12px, tek satır. Kanıt olarak oradalar,
+            karşılaştırma öğesi olarak değil. */}
         <div style={{
-          height: 9, borderRadius: 999, background: C.surface, border: `1px solid ${C.borderFaint}`,
-          overflow: 'hidden', display: 'flex', margin: '13px 0 9px',
+          display: 'flex', flexWrap: 'wrap', gap: '3px 14px',
+          fontSize: 12, color: C.muted, marginTop: 9, lineHeight: 1.5,
         }}>
-          <span style={{ width: `${okPct}%`, background: 'linear-gradient(180deg,#1BB055,#159947)' }} />
-          {/* Taralı desen: bekleyen dilimi renkten bağımsız olarak da ayırır. */}
-          <span style={{
-            width: `${pendPct}%`,
-            background: 'repeating-linear-gradient(45deg,#F0C860,#F0C860 4px,#E6A700 4px,#E6A700 8px)',
-          }} />
-        </div>
-
-        <div style={{
-          display: 'flex', flexWrap: 'wrap', gap: compact ? '2px 12px' : '4px 16px',
-          fontSize: 12.5, color: C.text,
-        }}>
-          <span><strong className="tnum" style={{ color: C.successText }}>{nf.format(verified)}</strong> {t.verified}</span>
-          <span><strong className="tnum" style={{ color: C.warningText }}>{nf.format(pending)}</strong> {t.pending}</span>
-          <span style={{ color: C.muted }}><strong className="tnum">{nf.format(required)}</strong> {t.required}</span>
+          <span><strong className="tnum" style={{ color: C.successText, fontWeight: 700 }}>{nf.format(verified)}</strong> {t.verified}</span>
+          <span><strong className="tnum" style={{ color: C.warningText, fontWeight: 700 }}>{nf.format(pending)}</strong> {t.pending}</span>
+          <span><strong className="tnum" style={{ fontWeight: 600 }}>{nf.format(required)}</strong> {t.required}</span>
         </div>
       </div>
 
