@@ -205,6 +205,7 @@ export function Header() {
         { label: tr.nav.volunteer, active: a.route === 'volunteer', onClick: () => a.go('volunteer') },
         { label: tr.header.track, active: a.route === 'track', onClick: () => a.go('track') },
         { label: tr.reportDisaster.title, active: a.route === 'reportDisaster', onClick: a.openDisasterForm },
+        { label: tr.contact.navLabel, active: a.route === 'contact', onClick: () => a.go('contact') },
       ].map((n) => (
         <button key={n.label} onClick={goAnd(n.onClick)} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',

@@ -1,4 +1,5 @@
 import type {
+  ContactInput, ContactMessage, ContactStatus,
   Disaster, Location, Need, Submission, LogEntry, Announcement,
   VerifyKind, RevisionKind, DeliveryInput, PriorityKey, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
@@ -208,6 +209,12 @@ export interface Repo {
   // never shows. Who may actually read the private rows is decided by RLS
   // (migration 0017), not by which screen calls this.
   listSystemLog(limit: number): Promise<LogEntry[]>;
+  // İletişim. `submitContact` returns the stored message id — the mailer takes only
+  // that, so no screen can choose a recipient. Reading and triaging is coordinator-only
+  // and enforced by RLS, not by the panel being hard to reach (migration 0025).
+  submitContact(input: ContactInput): Promise<string>;
+  listContactMessages(): Promise<ContactMessage[]>;
+  setContactStatus(id: string, status: ContactStatus): Promise<ContactMessage[]>;
   // Puts an approved volunteer on shift, or takes them off it. This is the only source
   // of the "şu an nöbette" figure.
   setVolunteerShift(applicationId: string, onShift: boolean): Promise<VolunteerApplication[]>;

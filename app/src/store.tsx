@@ -7,6 +7,7 @@ import type {
   OrganizationSave, OrgStatus, VolunteerInput, VolunteerApplication, VolunteerStatus,
   AnnouncementInput, LocationInput,
   StaffMember, StaffRole, RoleInvite, LogEntry,
+  ContactInput, ContactMessage, ContactStatus,
 } from './types';
 import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
@@ -27,13 +28,13 @@ function reasonOf(e: unknown): string {
   return String(e);
 }
 import { useAuth } from './auth';
-import { sendStaffInvite, sendVolunteerReceipt, sendVolunteerApproved } from './data/sendEmail';
+import { sendStaffInvite, sendVolunteerReceipt, sendVolunteerApproved, sendContactMessage } from './data/sendEmail';
 
 export type Route =
   | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
   | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog' | 'coordSlider' | 'coordDisasters' | 'coordDisaster'
   | 'coordOrgEdits' | 'coordOrgs' | 'coordStaff' | 'volunteer' | 'coordOps' | 'coordReports'
-  | 'components' | 'system';
+  | 'components' | 'system' | 'contact' | 'coordContact';
 export type Tab = 'overview' | 'needs' | 'locations' | 'announcements' | 'activity';
 export type Device = 'desktop' | 'mobile';
 export type Role = 'visitor' | 'coordinator';
@@ -83,6 +84,8 @@ function toPath(route: Route, tab: Tab, slug: string): string {
     case 'coordStaff': return '/koordinasyon/ekip';
     case 'coordOps': return '/koordinasyon/operasyon';
     case 'volunteer': return '/gonullu';
+    case 'contact': return '/iletisim';
+    case 'coordContact': return '/koordinasyon/iletisim';
     case 'system': return '/sistem';
     case 'components': return '/bilesenler';
     default: return '/';
@@ -106,6 +109,7 @@ function fromPath(pathname: string): ParsedPath {
     case 'nasil-calisir': return { route: 'howItWorks' };
     case 'hesabim': return { route: 'account' };
     case 'gonullu': return { route: 'volunteer' };
+    case 'iletisim': return { route: 'contact' };
     // Invite landing. It is not a route of its own: there is no page to show, only the
     // sign-up form to open over the home page (handled by the effect below).
     case 'kayit': return { route: 'home' };
@@ -119,6 +123,7 @@ function fromPath(pathname: string): ParsedPath {
         : s === 'kurumlar' ? 'coordOrgs'
         : s === 'bildirimler' ? 'coordReports'
         : s === 'ekip' ? 'coordStaff'
+        : s === 'iletisim' ? 'coordContact'
         : s === 'operasyon' ? 'coordOps' : 'coordHome';
       return { route: r, role: 'coordinator' };
     }
@@ -282,6 +287,13 @@ export interface AppApi {
   // the private rows name people.
   systemLog: LogEntry[]; systemLogLoading: boolean; systemLogError: string;
   reloadSystemLog: () => void;
+  // İletişim. `submitContact` stores the message and then asks the mailer to announce
+  // it; the returned boolean is about STORING, never about delivery — presenting a
+  // provider failure as "your message was not received" would be a lie to the writer.
+  submitContact: (input: ContactInput) => Promise<boolean>;
+  contactMessages: ContactMessage[]; contactLoading: boolean; contactError: string;
+  reloadContact: () => void;
+  setContactStatus: (id: string, status: ContactStatus) => Promise<boolean>;
   // Sistem kaydını belirli bir operasyona daraltılmış olarak açar. Afet detay
   // sayfasındaki "Tüm kayıtlar" düğmesi buradan geçer: koordinatör o operasyonun
   // tamamını görmek istiyor, bütün platformun kaydını değil.
@@ -357,6 +369,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [orgEditsLoading, setOrgEditsLoading] = useState(false);
   const [orgEditsError, setOrgEditsError] = useState('');
   const [orgEditsPending, setOrgEditsPending] = useState(0);
+  const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
+  const [contactLoading, setContactLoading] = useState(false);
+  const [contactError, setContactError] = useState('');
   const [systemLog, setSystemLog] = useState<LogEntry[]>([]);
   const [systemLogLoading, setSystemLogLoading] = useState(false);
   const [systemLogError, setSystemLogError] = useState('');
@@ -523,6 +538,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Contact messages carry the writer's address, so this is fetched only when the panel
+  // screen asks for it — and RLS is what actually decides whether it answers.
+  const loadContact = async () => {
+    setContactLoading(true); setContactError('');
+    try {
+      setContactMessages(await withTimeout(repo.listContactMessages()));
+    } catch {
+      setContactError(tr.contact.loadFailed);
+    } finally {
+      setContactLoading(false);
+    }
+  };
+
   // Both lists carry contact details, so neither is fetched until its screen asks.
   const loadVolunteers = async () => {
     setVolunteersLoading(true); setVolunteersError('');
@@ -659,6 +687,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     reportQueue, reportQueueLoading, reportQueueError,
     myVolunteer, myVolunteerLoading, myVolunteerLoaded,
     systemLog, systemLogLoading, systemLogError, volunteerFilter,
+    contactMessages, contactLoading, contactError,
     volunteers, volunteersLoading, volunteersError,
     volunteersPending: volunteers.filter((v) => v.status === 'Pending review').length,
     staff, invites, staffLoading, staffError,
@@ -1057,6 +1086,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     reloadReportQueue: () => { void loadReportQueue(); },
     reloadSystemLog: () => { void loadSystemLog(); },
+    reloadContact: () => { void loadContact(); },
+    submitContact: async (input) => {
+      try {
+        const id = await withTimeout(repo.submitContact(input));
+        // The message is stored at this point. The mail is a separate, best-effort step:
+        // its failure is logged as a warning, not raised, because telling the writer
+        // "your message was not received" would be false — we have it (rules/05 §Email).
+        void sendContactMessage(id).then((ok) => {
+          if (!ok && typeof console !== 'undefined') console.warn('[AfetHUB] iletişim bildirimi gönderilemedi');
+        });
+        return true;
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : '';
+        showToast(msg.includes('rate limited') ? tr.contact.rateLimited : tr.contact.sendError);
+        return false;
+      }
+    },
+    setContactStatus: async (id, status) => {
+      try {
+        setContactMessages(await withTimeout(repo.setContactStatus(id, status)));
+        showToast(tr.contact.statusToast);
+        return true;
+      } catch { showToast(tr.contact.actionFailed); return false; }
+    },
     openSystemLog: (disasterId) => { setLogDisasterId(disasterId ?? null); setRoute('coordLog'); },
     setLogDisasterId,
     openVolunteers: (disasterId, mode) => {
@@ -1139,7 +1192,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Every piece of state exposed on `api` must be listed here, or consumers keep the
   // previous value: `deliveryOpen` and `slides` were missing, so the delivery overlay
   // never appeared and the slide list could go stale after a save.
-  }), [snap, loadError, overview, coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError, logDisasterId, focusNeedId]);
+  }), [snap, loadError, overview, coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, contactMessages, contactLoading, contactError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError, logDisasterId, focusNeedId]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

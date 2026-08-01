@@ -1,4 +1,5 @@
 import type {
+  ContactInput, ContactMessage, ContactStatus,
   LogEntry, Need, Submission, VerifyKind, RevisionKind, DeliveryInput, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
   BannerSlide, BannerSlideInput, OrgEditRequestInput,
@@ -41,6 +42,8 @@ let locations: Location[] = seed.locations.map((x) => ({ ...x }));
 // volunteer" would be a named person who never applied, and a fake coordinator list
 // would misrepresent who can act on the platform (rules/07 §Seed Content).
 let volunteerApps: VolunteerApplication[] = [];
+// İletişim mesajları — bu oturum boyunca bellekte.
+let contactMessages: ContactMessage[] = [];
 let roleInvites: RoleInvite[] = [];
 // Who confirmed which report. The pair is what makes one e-mail count once, exactly
 // as the unique constraint does in migration 0016.
@@ -685,6 +688,39 @@ export class LocalRepo implements Repo {
   // Unfiltered, unlike the public feed: this is what the panel's system log shows.
   async listSystemLog(limit: number): Promise<LogEntry[]> {
     return log.slice().sort(byRecency).slice(0, limit).map((l) => ({ ...l }));
+  }
+
+  // ---- İletişim ----------------------------------------------------------
+  // The same validation as the RPC in migration 0025, repeated here so the local
+  // backend refuses exactly what the real one refuses. A demo mode that accepts what
+  // production rejects teaches the wrong thing about the form.
+  async submitContact(input: ContactInput): Promise<string> {
+    const name = input.name.trim();
+    const email = input.email.trim().toLowerCase();
+    const message = input.message.trim();
+    if (name.length < 2) throw new Error('name required');
+    if (!/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(email)) throw new Error('email invalid');
+    if (message.length < 20) throw new Error('message too short');
+    if (message.length > 4000) throw new Error('message too long');
+    const same = contactMessages.find((m) => m.email === email && m.message === message);
+    if (same) return same.id;
+    const row: ContactMessage = {
+      id: nextId('cm'), name, email, topic: input.topic, message,
+      status: 'Yeni', createdAt: new Date().toISOString(), handledAt: '',
+    };
+    contactMessages = [row, ...contactMessages];
+    return row.id;
+  }
+
+  async listContactMessages(): Promise<ContactMessage[]> {
+    return contactMessages.map((m) => ({ ...m }));
+  }
+
+  async setContactStatus(id: string, status: ContactStatus): Promise<ContactMessage[]> {
+    contactMessages = contactMessages.map((m) => (m.id === id
+      ? { ...m, status, handledAt: status === 'Yeni' ? '' : new Date().toISOString() }
+      : m));
+    return this.listContactMessages();
   }
 
   async reviewVolunteerApplication(id: string, status: VolunteerStatus, note: string): Promise<VolunteerApplication[]> {

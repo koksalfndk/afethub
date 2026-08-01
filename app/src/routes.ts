@@ -32,6 +32,8 @@ export function routePath(route: Route, tab: Tab, slug: string): string {
     case 'coordStaff': return '/koordinasyon/ekip';
     case 'coordOps': return '/koordinasyon/operasyon';
     case 'volunteer': return '/gonullu';
+    case 'contact': return '/iletisim';
+    case 'coordContact': return '/koordinasyon/iletisim';
     case 'system': return '/sistem';
     case 'components': return '/bilesenler';
     default: return '/';

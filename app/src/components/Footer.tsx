@@ -44,6 +44,7 @@ export function Footer() {
           { label: tr.nav.orgs, onClick: () => a.go('orgs') },
           { label: tr.nav.howItWorks, onClick: () => a.go('howItWorks') },
           { label: tr.footer.about, onClick: () => a.go('about') },
+          { label: tr.contact.navLabel, onClick: () => a.go('contact') },
         ])}
 
         {col(tr.footer.contribute, [

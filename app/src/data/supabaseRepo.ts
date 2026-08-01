@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
+  ContactInput, ContactMessage, ContactStatus,
   Disaster, Location, Need, Submission, LogEntry, Announcement,
   VerifyKind, RevisionKind, DeliveryInput, PriorityKey, StatusKey, DisasterType,
   Organization, OrganizationInput, OrgStatus, OrgKind, OrgScope,
@@ -831,6 +832,38 @@ export class SupabaseRepo implements Repo {
       oldValue: auditValueLabel(String(r.old_value)), newValue: auditValueLabel(String(r.new_value)),
       time: rel(String(r.created_at)), color: String(r.color),
     }));
+  }
+
+  // ---- İletişim ------------------------------------------------------------
+  // The RPC does the validating and the rate limiting; this only forwards. The returned
+  // id is what the mailer is given — it never learns a recipient from the browser.
+  async submitContact(input: ContactInput): Promise<string> {
+    const { data, error } = await this.db.rpc('submit_contact_message', {
+      p_name: input.name.trim(), p_email: input.email.trim(),
+      p_topic: input.topic, p_message: input.message.trim(),
+    });
+    if (error) throw error;
+    return String(data ?? '');
+  }
+
+  // Reads the table directly: RLS (contact_read, migration 0025) is what limits this to
+  // coordinators. An empty list is what a visitor's token gets, not an error.
+  async listContactMessages(): Promise<ContactMessage[]> {
+    const { data, error } = await this.db.from('contact_messages')
+      .select('*').order('created_at', { ascending: false }).limit(200);
+    if (error) throw error;
+    return (data ?? []).map((r: Record<string, unknown>) => ({
+      id: String(r.id), name: String(r.name), email: String(r.email),
+      topic: r.topic as ContactMessage['topic'], message: String(r.message),
+      status: r.status as ContactStatus,
+      createdAt: String(r.created_at ?? ''), handledAt: String(r.handled_at ?? ''),
+    }));
+  }
+
+  async setContactStatus(id: string, status: ContactStatus): Promise<ContactMessage[]> {
+    const { error } = await this.db.rpc('set_contact_status', { p_id: id, p_status: status });
+    if (error) throw error;
+    return this.listContactMessages();
   }
 
   async setVolunteerShift(applicationId: string, onShift: boolean): Promise<VolunteerApplication[]> {

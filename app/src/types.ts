@@ -488,3 +488,29 @@ export interface ReportQueueItem extends DisasterReport {
   openedByCommunity: boolean;
   communityConfirmed: boolean;
 }
+
+// ---- İletişim (contact form) ------------------------------------------------
+// A message from the public contact page. It is stored before it is mailed, so a
+// provider failure loses the notification and not the message (migration 0025).
+export type ContactTopic = 'Genel' | 'Kurum' | 'Gönüllü' | 'Basın' | 'Teknik' | 'Diğer';
+export type ContactStatus = 'Yeni' | 'Okundu' | 'Kapatıldı';
+
+export interface ContactInput {
+  name: string;
+  email: string;
+  topic: ContactTopic;
+  message: string;
+}
+
+// What a coordinator sees in the panel queue. The e-mail is here because answering is
+// the whole point of the page — it is coordinator-only data, never public.
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  topic: ContactTopic;
+  message: string;
+  status: ContactStatus;
+  createdAt: string;
+  handledAt: string;
+}

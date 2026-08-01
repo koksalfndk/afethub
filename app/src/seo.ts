@@ -68,6 +68,17 @@ const ROUTE_META: Record<Route, RouteMeta> = {
   coordReports: { title: 'Topluluk bildirimleri', index: false },
   coordStaff: { title: 'Ekip ve gönüllüler', index: false },
   coordOps: { title: 'Duyuru ve teslim noktaları', index: false },
+  contact: {
+    title: 'İletişim',
+    description: 'AfetHUB koordinasyon ekibine yazın. Soru, düzeltme veya iş birliği önerileriniz için iletişim formu ve e-posta adresi.',
+    index: true,
+  },
+  // The panel is auth-gated; it is a real path, so it gets a real entry — noindex.
+  coordContact: {
+    title: 'İletişim mesajları',
+    description: 'Koordinasyon paneli.',
+    index: false,
+  },
   volunteer: {
     title: 'Gönüllü ol',
     description: 'Afet bölgesinde gönüllü olarak destek vermek için başvurun. Hesap gerekmez; başvurunuz koordinatör incelemesinden sonra değerlendirilir.',

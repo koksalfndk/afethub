@@ -31,6 +31,9 @@ import { CoordReports } from './screens/CoordReports';
 import { CoordStaff } from './screens/CoordStaff';
 import { CoordOps } from './screens/CoordOps';
 import { Volunteer } from './screens/Volunteer';
+import { Contact } from './screens/Contact';
+import { CoordContact } from './screens/CoordContact';
+import { applyRouteMeta } from './seo';
 import { LiveTicker } from './components/LiveTicker';
 import { DisasterReportModal } from './components/DisasterReportModal';
 import { Footer } from './components/Footer';
@@ -49,9 +52,17 @@ export function App() {
   const coord = a.role === 'coordinator';
   const frame = a.frame; // 412px phone mock-up wrapper (dev preview only)
 
+  // Per-route title / canonical / robots. seo.ts existed and was written for this, but
+  // nothing ever called it, so every path shipped the home page's title and a canonical
+  // of "/". Client-side only: it fixes the tab, the share sheet and the history entry,
+  // NOT what a crawler sees before JS runs (rules/09 §3, still true until prerender).
+  useEffect(() => {
+    applyRouteMeta(a.route, { disasterName: a.snap?.disaster.name, slug: a.currentSlug, tab: a.tab });
+  }, [a.route, a.tab, a.currentSlug, a.snap?.disaster.name]);
+
   const screens: Record<string, () => ReactElement | null> = {
-    home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About, howItWorks: HowItWorks, account: Account, volunteer: Volunteer,
-    coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider, coordDisasters: CoordDisasters, coordOrgEdits: CoordOrgEdits, coordOrgs: CoordOrgs, coordStaff: CoordStaff, coordOps: CoordOps, coordReports: CoordReports, coordDisaster: CoordDisaster,
+    home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About, howItWorks: HowItWorks, account: Account, volunteer: Volunteer, contact: Contact,
+    coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider, coordDisasters: CoordDisasters, coordOrgEdits: CoordOrgEdits, coordOrgs: CoordOrgs, coordStaff: CoordStaff, coordOps: CoordOps, coordReports: CoordReports, coordDisaster: CoordDisaster, coordContact: CoordContact,
     components: Components, system: System,
   };
   const isReport = a.route === 'report';
