@@ -1,9 +1,9 @@
-import { useRef, type CSSProperties, type ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import {
   Activity, BatteryCharging, Building2, Bus, Check, ChevronDown, ChevronRight, CircleCheck, Clock,
   CloudRain, Flame, House, LogOut, MapPin, Menu, Package, PackageSearch, PawPrint, Plus, Search,
   ShieldCheck, Shirt, Soup, SprayCan, Stethoscope, TriangleAlert, Truck, User, Users, Waves, Wind,
-  SlidersHorizontal, Wrench, X, Share2, Copy, SquarePen, Eye, MessageCircle, type LucideIcon,
+  SlidersHorizontal, Wrench, X, Mail, type LucideIcon,
 } from 'lucide-react';
 import { C, G, PRI, STATUS, barFill, ribbon, wash, type PriorityKey, type StatusKey } from './theme';
 import { priorityLabel, statusLabel } from './i18n/strings';
@@ -14,45 +14,6 @@ export const inputStyle: CSSProperties = {
   background: C.surface, border: `1px solid ${C.borderSoft}`, borderRadius: 9,
   padding: '11px 12px', fontSize: 14, color: C.navy, minHeight: 46, width: '100%',
 };
-// Tarih alanı. Tek fark: alanın HERHANGİ bir yerine tıklamak takvimi açıyor.
-//
-// Tarayıcının kendi `<input type="date">` alanında takvim yalnızca sağdaki küçük
-// ikonla açılıyor; alanın ortasına tıklayan kişi imleci gün hanesine koyup elle
-// yazmak zorunda kalıyor. Sahada, telefonla, tek elle çalışan biri için o ikon
-// çok küçük bir hedef (rules/01) — ve kimse ikonu aramak zorunda kalmamalı.
-//
-// `showPicker()` desteklenmeyen tarayıcıda hiçbir şey bozulmuyor: alan normal bir
-// tarih girişi olarak çalışmaya devam ediyor, ikon da yerinde duruyor.
-export function DateInput({ value, onChange, name, min, max, style }: {
-  value: string;
-  onChange: (v: string) => void;
-  name?: string;
-  min?: string;
-  max?: string;
-  style?: CSSProperties;
-}) {
-  // Fare ile gelindiğinde odak ve tıklama ARDIŞIK gelir; ikisinde de açmak takvimi
-  // tek harekette iki kez çağırır. Bayrak, her etkileşimde tam bir çağrı bırakıyor.
-  const byMouse = useRef(false);
-  const open = (e: { currentTarget: HTMLInputElement }) => {
-    const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
-    try { el.showPicker?.(); } catch { /* kullanıcı hareketi olmadan çağrılırsa atar */ }
-  };
-  return (
-    <input
-      type="date" name={name} autoComplete="off"
-      value={value} onChange={(e) => onChange(e.target.value)}
-      min={min} max={max}
-      onMouseDown={() => { byMouse.current = true; }}
-      onClick={(e) => { open(e); byMouse.current = false; }}
-      // Klavyeyle gelen kullanıcı için de aynı: Tab ile alana girince takvim açılır.
-      onFocus={(e) => { if (!byMouse.current) open(e); }}
-      onBlur={() => { byMouse.current = false; }}
-      style={{ ...inputStyle, cursor: 'pointer', ...style }}
-    />
-  );
-}
-
 export const cardStyle: CSSProperties = {
   background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18,
 };
@@ -177,14 +138,14 @@ export function LiveDot({ color = C.emergency, size = 7, still }: { color?: stri
 export type IcoName =
   | 'need' | 'verified' | 'pending' | 'completed' | 'pin' | 'people' | 'critical' | 'activity' | 'search'
   | 'user' | 'menu' | 'close' | 'chev' | 'down' | 'home' | 'track' | 'plus' | 'logout'
-  | 'org' | 'shield' | 'filter' | 'share' | 'copy' | 'pencil' | 'eye' | 'chat'
+  | 'org' | 'shield' | 'filter'
   // Disaster kinds. Mapped here so an operation's icon is decided once and every screen
   // (home cards, coordinator list, detail header) shows the same one.
   | 'dWildfire' | 'dFlood' | 'dEarthquake' | 'dStorm' | 'dEvacuation' | 'dOther'
   // Need categories (wizard step 2). Kept in the same semantic map so a category's
   // icon is chosen once, here, and never hard-coded at a call site.
   | 'catHealth' | 'catEquipment' | 'catHygiene' | 'catClothing' | 'catEnergy'
-  | 'catFood' | 'catTransport' | 'catHaulage' | 'catPets';
+  | 'catFood' | 'catTransport' | 'catHaulage' | 'catPets' | 'mail';
 
 const ICO: Record<IcoName, LucideIcon> = {
   need: Package,
@@ -214,16 +175,10 @@ const ICO: Record<IcoName, LucideIcon> = {
   catTransport: Bus,
   catHaulage: Truck,
   catPets: PawPrint,
+  mail: Mail,
   org: Building2,
   shield: ShieldCheck,
   filter: SlidersHorizontal,
-  share: Share2,
-  copy: Copy,
-  pencil: SquarePen,
-  eye: Eye,
-  // WhatsApp bir marka; lucide'de markalı ikon yok ve marka ikonunu taklit etmek
-  // yanlış olur. Genel sohbet ikonu + yazıyla "WhatsApp" diyoruz.
-  chat: MessageCircle,
   dWildfire: Flame,
   dFlood: Waves,
   dEarthquake: Activity,

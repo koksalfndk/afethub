@@ -15,13 +15,6 @@ export interface Disaster {
   name: string;
   region: string;         // "Seydikemer, Muğla · Türkiye"
   province: string;       // "Muğla" — used by the national dashboard
-  // Operasyonun kapsadığı ilçeler. Boş = kaydedilmemiş; asla tahmin edilmez.
-  // Dizi çünkü gerçek kayıtlarda birden çok ilçe var ("Bozkurt ve İnebolu").
-  // Afet sayfasındaki ilçe haritası bunu boyar (migration 0026).
-  districts: string[];
-  // İlçenin bir kademe altı: etkilenen mahalle / köyler (migration 0029). Boş =
-  // kaydedilmemiş; ASLA "hiçbiri etkilenmedi" demek değil.
-  settlements: string[];
   type: DisasterType;
   status: 'Active' | 'Resolved' | 'Archived';
   situation: string;
@@ -62,12 +55,6 @@ export interface Location {
   coords: string;        // display string, e.g. "36.6321° K, 29.3187° D"
   lat: number;
   lng: number;
-  // Doluluk: koordinatörün elle girdiği ölçüm, 0-100. null = BİLİNMİYOR ve ekranda
-  // öyle yazılır. Bilinmeyeni 0 diye göstermek "yer var" olarak okunur ve sevkiyat
-  // dolu bir noktaya yönlendirilir (migration 0025, rules/04 §Empty States).
-  capacityPct: number | null;
-  capacityNote: string;
-  capacityUpdated: string;   // display string, '' when never set
 }
 
 export interface Need {
@@ -102,10 +89,6 @@ export interface Submission {
   note: string;
   photoUrl?: string | null;
   needName?: string;     // set by the public tracking RPC (Supabase mode)
-  // Kararı veren koordinatör (migration 0031). null = karar verilmemiş YA DA 0031
-  // öncesinde verilmiş; ikinci durumda kaydı yalnızca yönetici düzeltebilir.
-  // Arayüz düğmeyi buna bakarak gösterir; asıl kural sunucuda (revise_submission).
-  decidedBy?: string | null;
 }
 
 export interface LogEntry {
@@ -156,8 +139,6 @@ export interface LocationInput {
 
 // Verification action kinds handled by the data layer / RPC.
 export type VerifyKind = 'approve' | 'partial' | 'reject' | 'info';
-// Verilmiş bir kararın düzeltilmesi. 'undo' kaydı doğrulama kuyruğuna geri koyar.
-export type RevisionKind = VerifyKind | 'undo';
 
 export interface DeliveryInput {
   needId: string; qty: number; unit: string; loc: string;
@@ -225,9 +206,6 @@ export interface BannerSlideInput {
 // break existing links.
 export interface DisasterInput {
   name: string; type: DisasterType; province: string; district: string;
-  // Koordinatörün seçtiği yerleşimler. Serbest metin değil: seçici, ilin gerçek
-  // mahalle/köy listesinden okutuyor, böylece ad yazımı kayıtlar arasında tutarlı.
-  settlements: string[];
   status: Disaster['status']; situation: string;
   openedByOrgId: string | null;
   // No volunteer figures here on purpose. "Kayıtlı gönüllü" and "şu an nöbette" are
@@ -435,9 +413,6 @@ export interface DisasterReport {
   province: string;
   district: string;
   locationNote: string;      // landmark / neighbourhood, free text
-  // Etkilenen mahalle / köyler (migration 0034). BOŞ = kaydedilmedi; asla
-  // "hiçbiri etkilenmedi" demek değil. Birleştirilen bildirimlerde birleşim alınır.
-  settlements: string[];
   occurredOn: string;        // YYYY-MM-DD — the day the event was observed
   description: string;
   reportCount: number;       // how many people reported this same event
@@ -452,7 +427,6 @@ export interface DisasterReportInput {
   province: string;
   district: string;
   locationNote: string;
-  settlements: string[];
   occurredOn: string;
   description: string;
   name: string; email: string; phone: string;
@@ -487,4 +461,30 @@ export interface ReportQueueItem extends DisasterReport {
   contacts: number;        // people who left contact details
   openedByCommunity: boolean;
   communityConfirmed: boolean;
+}
+
+// ---- İletişim (contact form) ------------------------------------------------
+// A message from the public contact page. It is stored before it is mailed, so a
+// provider failure loses the notification and not the message (migration 0025).
+export type ContactTopic = 'Genel' | 'Kurum' | 'Gönüllü' | 'Basın' | 'Teknik' | 'Diğer';
+export type ContactStatus = 'Yeni' | 'Okundu' | 'Kapatıldı';
+
+export interface ContactInput {
+  name: string;
+  email: string;
+  topic: ContactTopic;
+  message: string;
+}
+
+// What a coordinator sees in the panel queue. The e-mail is here because answering is
+// the whole point of the page — it is coordinator-only data, never public.
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  topic: ContactTopic;
+  message: string;
+  status: ContactStatus;
+  createdAt: string;
+  handledAt: string;
 }

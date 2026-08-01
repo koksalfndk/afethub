@@ -1,6 +1,7 @@
 import type {
+  ContactInput, ContactMessage, ContactStatus,
   Disaster, Location, Need, Submission, LogEntry, Announcement,
-  VerifyKind, RevisionKind, DeliveryInput, PriorityKey, Organization, OrganizationInput,
+  VerifyKind, DeliveryInput, PriorityKey, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
   BannerSlide, BannerSlideInput, SlideAction,
   OrgEditRequestInput, OrgEditable, OrgEditRequest, DisasterInput,
@@ -59,84 +60,6 @@ export interface Overview {
   demo: boolean;        // any visible record is sample content
 }
 
-// ---------------------------------------------------------------------------
-// Coordinator dashboard (tüm afetler görünümü)
-//
-// Ayrı bir şekil, çünkü `Overview` HERKESE açık verinin projeksiyonu: ana sayfa
-// onu okur. Aşağıdakiler koordinatöre özel sayılar (SLA aşımı, bekleyen gönüllü,
-// doluluk) ve `coordinator_overview()` RPC'sinden gelir — is_coordinator() ile
-// korunur (rules/05 §Public and Private Views).
-//
-// Aciliyet skoru BİLEREK sunucudan geliyor ve bileşenleri de yanında taşınıyor:
-// tarayıcıda hesaplanan bir skor iki ekranda iki farklı sıralama üretir, ve
-// bileşenleri görünmeyen bir skora koordinatör güvenmez.
-// ---------------------------------------------------------------------------
-export interface CoordDisasterRow {
-  id: string;
-  slug: string;
-  name: string;
-  province: string;
-  region: string;
-  type: string;
-  status: Disaster['status'];
-  openedAt: string;          // ISO date, '' when unknown
-  demo: boolean;
-  // Harita pini. null = ne afetin kendi koordinatı ne de bir teslim noktası var;
-  // bu afet haritada gösterilmez, listede durur.
-  lat: number | null;
-  lng: number | null;
-  criticalNeeds: number;
-  urgentNeeds: number;
-  openNeeds: number;
-  completedNeeds: number;
-  requiredTotal: number;
-  verifiedTotal: number;
-  pendingSubs: number;
-  pendingUnits: number;
-  slaBreached: number;       // bekleyen ve SLA saatini aşmış teslimat sayısı
-  decidedToday: number;      // bugün doğrulanan/kısmen doğrulanan
-  deliveryPoints: number;
-  pointsAtCapacity: number;
-  pointsCapacityUnknown: number;
-  volunteers: number;
-  onShift: number;
-  pendingVolunteers: number;
-  openNeedRequests: number;
-  lastActivityAt: string | null;  // ISO
-  urgency: number;                // 0-100, afethub_urgency_score()
-}
-
-export interface CoordOverview {
-  disasters: CoordDisasterRow[];   // aciliyet sırasına göre, sunucudan
-  slaHours: number;                // eşiği ekran da yazabilsin diye
-}
-
-// Birleşik iş kuyruğunun bir satırı. Bağışçının e-postası ve telefonu burada YOK:
-// kuyruk satırı karar vermek için okunur, iletişim kurmak için değil.
-export interface CoordQueueItem {
-  id: string;
-  code: string;
-  disasterId: string;
-  disasterSlug: string;
-  disasterName: string;
-  needId: string;
-  needName: string;
-  needPriority: PriorityKey;
-  contributor: string;
-  qty: number;
-  unit: string;
-  loc: string;
-  note: string;
-  hasPhoto: boolean;
-  submittedAt: string;       // ISO
-  waitingHours: number;
-  slaBreached: boolean;
-}
-
-// Bekleyen bir teslimat kaç saat sonra gecikmiş sayılır. afethub_sla_hours() ile
-// aynı sayı olmalı; yerel (Supabase'siz) mod bu sabiti kullanır.
-export const SLA_HOURS = 24;
-
 export interface CreateDeliveryResult {
   snapshot: Snapshot;
   code: string;
@@ -147,14 +70,6 @@ export interface Repo {
   getSnapshot(slug?: string): Promise<Snapshot>;
   // National dashboard data (home page).
   getOverview(): Promise<Overview>;
-  // Koordinatör paneli: tüm afetler tek çağrıda. Yedi operasyon için yedi ayrı
-  // snapshot çağrısı panelin açılışını yavaşlatırdı (rules/05 §Performance).
-  getCoordOverview(): Promise<CoordOverview>;
-  // Bütün afetlerden bekleyen teslimatlar, en eski önce.
-  getCoordQueue(limit: number): Promise<CoordQueueItem[]>;
-  // Teslim noktası doluluğu. null = "bilinmiyor"a geri döndürür; ölçüm geri
-  // alınabilir olmalı, yoksa yanlış girilen bir %90 orada kalır.
-  setLocationCapacity(locationId: string, pct: number | null, note: string): Promise<Snapshot>;
   // Organizations directory. Entries are public as soon as they are submitted and
   // carry "Doğrulama bekliyor" until a coordinator verifies them.
   listSlides(): Promise<BannerSlide[]>;
@@ -208,14 +123,17 @@ export interface Repo {
   // never shows. Who may actually read the private rows is decided by RLS
   // (migration 0017), not by which screen calls this.
   listSystemLog(limit: number): Promise<LogEntry[]>;
+  // İletişim. `submitContact` returns the stored message id — the mailer takes only
+  // that, so no screen can choose a recipient. Reading and triaging is coordinator-only
+  // and enforced by RLS, not by the panel being hard to reach (migration 0025).
+  submitContact(input: ContactInput): Promise<string>;
+  listContactMessages(): Promise<ContactMessage[]>;
+  setContactStatus(id: string, status: ContactStatus): Promise<ContactMessage[]>;
   // Puts an approved volunteer on shift, or takes them off it. This is the only source
   // of the "şu an nöbette" figure.
   setVolunteerShift(applicationId: string, onShift: boolean): Promise<VolunteerApplication[]>;
   createDelivery(input: DeliveryInput): Promise<CreateDeliveryResult>;
   verifySubmission(subId: string, kind: VerifyKind, qty: number, reason: string): Promise<Snapshot>;
-  // Verilmiş bir kararı düzeltir ya da geri alır (migration 0032). Yetki sunucuda:
-  // kararı veren koordinatör veya yönetici.
-  reviseSubmission(subId: string, kind: RevisionKind, qty: number, reason: string): Promise<Snapshot>;
   // Coordinator-managed operations. A new disaster goes live immediately: the person
   // creating it is the reviewer (rules/03 — authorisation is enforced by RLS, not here).
   saveDisaster(id: string | null, input: DisasterInput): Promise<Snapshot>;
@@ -264,41 +182,6 @@ export interface Repo {
   grantStaffRole(email: string, role: StaffRole, note: string, orgId: string | null): Promise<'granted' | 'invited'>;
   revokeStaffRole(userId: string): Promise<void>;
   cancelRoleInvite(email: string): Promise<void>;
-}
-
-// Aciliyet skoru — afethub_urgency_score() (migration 0025, 0027 ile güncellendi)
-// ile AYNI formül.
-// Yetkili hesap veritabanında; bu kopya yalnızca Supabase'siz yerel mod içindir ve
-// ikisi birlikte değiştirilmelidir. Ağırlıklar migration dosyasında gerekçeleriyle
-// yazılı; burada tekrar edilmiyor ki iki açıklama birbirinden ayrı düşmesin.
-export function urgencyScore(x: {
-  status: Disaster['status'];
-  critical: number; urgent: number; pending: number; slaBreached: number;
-  deliveryPoints: number; required: number; verified: number;
-}): number {
-  // Kalan iş hacmi logaritmik ölçekte: 100 kalem 6, 1.000 kalem 12, 10.000 kalem 18
-  // puan. Doğrusal olsaydı tek bir büyük operasyon diğer bütün bileşenleri ezerdi.
-  const volume = Math.max(0, Math.min(24,
-    Math.round((Math.log10(Math.max(1, x.required - x.verified)) - 1) * 6)));
-  const raw = x.critical * 10
-    + x.urgent * 3
-    + x.pending * 2
-    + x.slaBreached * 5
-    + (x.status === 'Active' && x.deliveryPoints === 0 ? 15 : 0)
-    + (x.required > 0 ? Math.round((1 - Math.min(1, x.verified / x.required)) * 18) : 0)
-    + volume;
-  const capped = x.status === 'Active' ? raw : Math.min(raw, 20);
-  return Math.max(0, Math.min(100, capped));
-}
-
-// Tek bir metin alanından ilçe listesi. Koordinatör "Bozkurt ve İnebolu" ya da
-// "Bozkurt, İnebolu" yazabiliyor; migration 0026'daki geriye doldurma da aynı kuralı
-// uyguluyor — ikisi birlikte değişmeli, yoksa aynı metin iki farklı listeye çevrilir.
-export function splitDistricts(value: string): string[] {
-  return (value ?? '')
-    .split(/\s+ve\s+|,/)
-    .map((x) => x.trim())
-    .filter(Boolean);
 }
 
 // Shared, pure domain helpers — the invariant lives here and in schema.sql.
@@ -403,68 +286,6 @@ const PUBLIC_AUDIT_ACTIONS = new Set([
 ]);
 
 export const isPublicAuditAction = (action: string): boolean => PUBLIC_AUDIT_ACTIONS.has(action);
-
-// Eski kayıtlar için İngilizce → Türkçe aksiyon adı.
-//
-// `verify_submission` migration 0031'e kadar denetim kaydına İngilizce yazıyordu.
-// O satırlar DÜZELTİLEMEZ: `audit_log` bir immutability trigger'ı taşıyor ve
-// denetim kaydının geriye dönük değiştirilmemesi kasıtlı — bir olay kaydı, sonradan
-// düzeltilebiliyorsa kayıt değildir. Bu yüzden çeviri görüntüleme anında yapılır ve
-// saklanan satıra dokunulmaz.
-//
-// Yeni satırlar zaten Türkçe geliyor; bu eşleme yalnızca geçmişi okunur kılıyor ve
-// listede aynı olayın iki ayrı adla görünmesini engelliyor.
-const LEGACY_ACTION_TR: Record<string, string> = {
-  'Delivery verified': 'Teslimat doğrulandı',
-  'Delivery partially verified': 'Teslimat kısmen doğrulandı',
-  'Delivery rejected': 'Teslimat reddedildi',
-  'Information requested': 'Bilgi istendi',
-  'Need completed': 'İhtiyaç tamamlandı',
-};
-
-export const auditActionLabel = (action: string): string => LEGACY_ACTION_TR[action] ?? action;
-
-// Aynı satırların İngilizce detay metni ("30 of 30 kutu", "· Storm"). Yalnızca
-// TANINAN kalıplar çevrilir; tanınmayan metin olduğu gibi bırakılır — anlamadığı bir
-// cümleyi tahminle Türkçeleştiren bir eşleyici, kaydı bozar.
-const EN_DISASTER_TYPE: Record<string, string> = {
-  Wildfire: 'Orman Yangını', Flood: 'Sel ve Taşkın', Earthquake: 'Deprem',
-  Storm: 'Fırtına', Evacuation: 'Tahliye', Other: 'Diğer',
-};
-
-export const auditDetailLabel = (detail: string): string =>
-  detail
-    // "30 of 30 kutu" → "30 kutu bildirildi, 30 doğrulandı". Birim ayrılmadan
-    // kalmalı: "30 bildirildi, 30 doğrulandı · kutu" cümle olmaktan çıkıyor.
-    .replace(/(\d+)\s+of\s+(\d+)\s+(\S+)/g, '$2 $3 bildirildi, $1 doğrulandı')
-    // Afet türü yalnızca "· <Tür>" biçiminde ve satırın SONUNDAYSA çevrilir; metnin
-    // ortasındaki aynı kelime bir yer adı olabilir.
-    .replace(/·\s*(Wildfire|Flood|Earthquake|Storm|Evacuation|Other)\s*$/,
-      (_m, t: string) => `· ${EN_DISASTER_TYPE[t] ?? t}`);
-
-// Satırın "kim" sütunu.
-//
-// Topluluk doğrulamalarında ("Afet bildirimi doğrulandı") aktör bir koordinatör
-// değil, bildirimi teyit eden VATANDAŞ. Adı herkese açık akışta yayınlamak, bir
-// afeti bildiren kişiyi ismiyle teşhir etmek olurdu — migration 0024 zaten tam bunun
-// için `audit_log_public` görünümünü maskeliyor ve satıra 'Misafir' / 'Topluluk'
-// yazıyor.
-//
-// Anlamlı bilgi kişi değil, O ANA KADAR KAÇ KİŞİNİN aynı olayı bildirdiği: bir afet
-// operasyonu bu sayı eşiği geçince kendiliğinden açılıyor. O sayı zaten satırda
-// duruyor ("4 kişi bildirdi"), yalnızca yanlış sütunda görünüyordu.
-export const auditActorLabel = (action: string, actor: string, newValue: string): string =>
-  action === 'Afet bildirimi doğrulandı' && newValue.trim() ? newValue.trim() : actor;
-
-export const auditValueLabel = (value: string): string =>
-  value.replace(/^(\d+)\s+verified$/, '$1 doğrulanmış')
-    .replace(/^Pending verification$/, 'Doğrulama bekliyor')
-    .replace(/^Verified$/, 'Doğrulandı')
-    .replace(/^Partially verified$/, 'Kısmen doğrulandı')
-    .replace(/^Rejected$/, 'Reddedildi')
-    .replace(/^Information requested$/, 'Bilgi istendi')
-    .replace(/^Active$/, 'Aktif')
-    .replace(/^Completed$/, 'Tamamlandı');
 
 // How many people must report the same event before an operation opens by itself.
 // Mirrors community_report_threshold() in migration 0016 — change both together, or

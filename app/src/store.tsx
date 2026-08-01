@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { repo, fallbackToLocal, type Snapshot, type Overview, type CoordOverview, type CoordQueueItem } from './data';
+import { repo, fallbackToLocal, type Snapshot, type Overview } from './data';
 import type {
   Submission, VerifyKind, Organization, OrganizationInput, DisasterReport, DisasterReportInput,
   ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
@@ -7,49 +7,26 @@ import type {
   OrganizationSave, OrgStatus, VolunteerInput, VolunteerApplication, VolunteerStatus,
   AnnouncementInput, LocationInput,
   StaffMember, StaffRole, RoleInvite, LogEntry,
+  ContactInput, ContactMessage, ContactStatus,
 } from './types';
 import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
-import { withTimeout, WRITE_TIMEOUT_MS, RefreshFailedError } from './util';
-
-// Sunucudan gelen sebebi tek satıra indirir. Supabase hataları `{ message, code,
-// details, hint }` taşır; `Error` ise `message`. Hiçbiri yoksa boş döner — uydurma
-// bir açıklama yazmaktansa hiç yazmamak doğru.
-function reasonOf(e: unknown): string {
-  if (!e) return '';
-  if (typeof e === 'object') {
-    const o = e as { message?: unknown; code?: unknown; hint?: unknown };
-    const msg = typeof o.message === 'string' ? o.message : '';
-    const code = typeof o.code === 'string' ? o.code : '';
-    const hint = typeof o.hint === 'string' ? o.hint : '';
-    return [code && `[${code}]`, msg, hint].filter(Boolean).join(' ').trim();
-  }
-  return String(e);
-}
+import { withTimeout } from './util';
 import { useAuth } from './auth';
-import { sendStaffInvite, sendVolunteerReceipt, sendVolunteerApproved } from './data/sendEmail';
+import { sendStaffInvite, sendVolunteerReceipt, sendVolunteerApproved, sendContactMessage } from './data/sendEmail';
 
 export type Route =
   | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
-  | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog' | 'coordSlider' | 'coordDisasters' | 'coordDisaster'
+  | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog' | 'coordSlider' | 'coordDisasters'
   | 'coordOrgEdits' | 'coordOrgs' | 'coordStaff' | 'volunteer' | 'coordOps' | 'coordReports'
-  | 'components' | 'system';
+  | 'components' | 'system' | 'contact' | 'coordContact';
 export type Tab = 'overview' | 'needs' | 'locations' | 'announcements' | 'activity';
 export type Device = 'desktop' | 'mobile';
 export type Role = 'visitor' | 'coordinator';
 export type Filter = 'All' | 'Critical' | 'Urgent' | 'Normal' | 'Completed';
 export type SubFilter = 'Pending' | 'Verified' | 'Partially' | 'Rejected' | 'All';
 
-// `error`: karar yazılamadığında pencere AÇIK kalır ve sebep burada durur. Kaybolan
-// bir toast, koordinatörün "bastım, oldu sandım" demesine yol açıyordu.
-// `revise`: pencere verilmiş bir kararı DÜZELTİYOR. Aynı pencere kullanılıyor çünkü
-// sorulan şey aynı (miktar + gerekçe); değişen tek şey hangi RPC'ye gittiği ve
-// başlığı. İki ayrı pencere, ikisinden birinde yapılan düzeltmenin ötekine
-// taşınmaması demekti.
-export interface ModalState {
-  subId: string; kind: VerifyKind; qty: string; reason: string;
-  revise?: boolean; error?: string; detail?: string;
-}
+export interface ModalState { subId: string; kind: VerifyKind; qty: string; reason: string; }
 
 // ---- Clean URL routing (History API): every screen is a real, shareable path ----
 // A Vercel SPA rewrite (vercel.json) serves index.html for these paths.
@@ -73,16 +50,14 @@ function toPath(route: Route, tab: Tab, slug: string): string {
     case 'coordLog': return '/koordinasyon/kayit';
     case 'coordSlider': return '/koordinasyon/slider';
     case 'coordDisasters': return '/koordinasyon/afetler';
-    // Tek bir operasyonun koordinasyon sayfası. Herkese açık /afet/<slug> ile aynı
-    // slug'ı kullanır: koordinatör adres çubuğundaki tek bir ön ekle iki görünüm
-    // arasında geçebilmeli.
-    case 'coordDisaster': return `/koordinasyon/afet/${slug}`;
     case 'coordOrgEdits': return '/koordinasyon/kurum-duzeltmeleri';
     case 'coordOrgs': return '/koordinasyon/kurumlar';
     case 'coordReports': return '/koordinasyon/bildirimler';
     case 'coordStaff': return '/koordinasyon/ekip';
     case 'coordOps': return '/koordinasyon/operasyon';
     case 'volunteer': return '/gonullu';
+    case 'contact': return '/iletisim';
+    case 'coordContact': return '/koordinasyon/iletisim';
     case 'system': return '/sistem';
     case 'components': return '/bilesenler';
     default: return '/';
@@ -106,12 +81,12 @@ function fromPath(pathname: string): ParsedPath {
     case 'nasil-calisir': return { route: 'howItWorks' };
     case 'hesabim': return { route: 'account' };
     case 'gonullu': return { route: 'volunteer' };
+    case 'iletisim': return { route: 'contact' };
     // Invite landing. It is not a route of its own: there is no page to show, only the
     // sign-up form to open over the home page (handled by the effect below).
     case 'kayit': return { route: 'home' };
     case 'koordinasyon': {
       const s = parts[1];
-      if (s === 'afet' && parts[2]) return { route: 'coordDisaster', slug: parts[2], role: 'coordinator' };
       const r: Route = s === 'kuyruk' ? 'coordQueue' : s === 'ihtiyaclar' ? 'coordNeeds'
         : s === 'kayit' ? 'coordLog' : s === 'slider' ? 'coordSlider'
         : s === 'afetler' ? 'coordDisasters'
@@ -119,6 +94,7 @@ function fromPath(pathname: string): ParsedPath {
         : s === 'kurumlar' ? 'coordOrgs'
         : s === 'bildirimler' ? 'coordReports'
         : s === 'ekip' ? 'coordStaff'
+        : s === 'iletisim' ? 'coordContact'
         : s === 'operasyon' ? 'coordOps' : 'coordHome';
       return { route: r, role: 'coordinator' };
     }
@@ -140,28 +116,13 @@ const IS_DEV = Boolean(import.meta.env.DEV);
 // The step-by-step need wizard is opened in one of two modes:
 //   'coord'  → coordinator publishes a need directly (İhtiyaç oluştur)
 //   'public' → a visitor submits a need request for review (İhtiyaç talebi)
-// 'coordScoped': sihirbaz zaten bir operasyonun sayfasından açıldı, afet seçimi
-// sorulmaz. Ayrı bir değer olmasının sebebi NeedWizard'ın `key={wizardMode}` ile
-// yeniden kurulması — kapsam değişince form da sıfırdan kurulmalı.
-export type WizardMode = 'coord' | 'coordScoped' | 'public';
+export type WizardMode = 'coord' | 'public';
 
 export interface AppApi {
   snap: Snapshot | null;
   loadError: string;          // set when even the local fallback failed
   retryLoad: () => void;
   overview: Overview | null;      // national dashboard (home)
-  // Koordinatör panosunun verisi: koordinatöre özel sayılar taşıdığı için ASLA
-  // spekülatif yüklenmez — yalnızca oturumda koordinatör/yönetici rolü varken
-  // okunur. Sunucu da aynı şeyi is_coordinator() ile ayrıca uygular; bu koşul
-  // yetkilendirme değil, gereksiz reddedilen çağrıyı önleme (rules/03).
-  coordOverview: CoordOverview | null;
-  coordOverviewLoading: boolean;
-  coordOverviewError: string;
-  coordQueue: CoordQueueItem[];
-  coordQueueLoading: boolean;
-  reloadCoordDashboard: () => void;
-  // Teslim noktası doluluğu. null gönderildiğinde ölçüm "bilinmiyor"a döner.
-  setLocationCapacity: (locationId: string, pct: number | null, note: string) => Promise<boolean>;
   orgs: Organization[];           // organizations directory
   slides: BannerSlide[];          // home banner slides (panel-managed)
   backend: 'local' | 'supabase';
@@ -225,21 +186,7 @@ export interface AppApi {
   deliveryOpen: boolean;
 
   go: (r: Route, extra?: Partial<{ tab: Tab }>) => void;
-  // `needId` verilirse afet sayfası açıldığında o kalemin hızlı bakış penceresi
-  // kendiliğinden açılır. Ana sayfadaki "Acil ihtiyaçlar" kutusu bunu kullanıyor:
-  // ziyaretçiyi dokuz kalemlik listenin başına bırakıp aradığını kendi bulmasını
-  // beklemek, tıkladığı şeyi kaybetmesi demekti.
-  openDisaster: (slug: string, tab?: Tab, needId?: string) => void;
-  // Açılışta odaklanacak ihtiyaç. Afet ekranı okuyup TÜKETİR (clearFocusNeed):
-  // ikinci bir gezinmede pencere kendiliğinden yeniden açılmamalı.
-  focusNeedId: string | null;
-  clearFocusNeed: () => void;
-  // Koordinatörün operasyon sayfası. Ziyaretçi görünümünden ayrı bir rota, çünkü
-  // aynı slug iki farklı ekranı besliyor.
-  openCoordDisaster: (slug: string) => void;
-  // Rotayı DEĞİŞTİRMEDEN geçerli operasyonu değiştirir. Koordinatör ekranlarındaki
-  // operasyon seçicisi bunu kullanır: seçim yapmak sayfadan çıkmak değildir.
-  selectOperation: (slug: string) => void;
+  openDisaster: (slug: string, tab?: Tab) => void;
   setDevice: (d: Device) => void; setRole: (r: Role) => void; setTab: (t: Tab) => void;
   setQuery: (q: string) => void; setFilter: (f: Filter) => void; setSubFilter: (f: SubFilter) => void;
   setCatFilter: (c: string) => void; setLocFilter: (l: string) => void;
@@ -257,9 +204,7 @@ export interface AppApi {
   publishNeed: (p: NeedPayload) => Promise<boolean>;
   requestNeed: (p: NeedPayload, contact: { name: string; email: string; phone: string; city: string }) => Promise<string | null>;
   bumpNeed: (id: string) => void; togglePause: (id: string) => void;
-  openModal: (sub: Submission, kind: VerifyKind, revise?: boolean) => void; closeModal: () => void;
-  // Verilmiş bir kararı doğrudan geri alır: miktar sorulmaz, kayıt kuyruğa döner.
-  undoDecision: (sub: Submission) => Promise<void>;
+  openModal: (sub: Submission, kind: VerifyKind) => void; closeModal: () => void;
   setModalQty: (v: string) => void; setModalReason: (v: string) => void; confirmModal: () => void;
   doTrack: () => void; fillDemoCode: () => void;
   showToast: (m: string) => void;
@@ -282,12 +227,13 @@ export interface AppApi {
   // the private rows name people.
   systemLog: LogEntry[]; systemLogLoading: boolean; systemLogError: string;
   reloadSystemLog: () => void;
-  // Sistem kaydını belirli bir operasyona daraltılmış olarak açar. Afet detay
-  // sayfasındaki "Tüm kayıtlar" düğmesi buradan geçer: koordinatör o operasyonun
-  // tamamını görmek istiyor, bütün platformun kaydını değil.
-  logDisasterId: string | null;
-  openSystemLog: (disasterId?: string | null) => void;
-  setLogDisasterId: (id: string | null) => void;
+  // İletişim. `submitContact` stores the message and then asks the mailer to announce
+  // it; the returned boolean is about STORING, never about delivery — presenting a
+  // provider failure as "your message was not received" would be a lie to the writer.
+  submitContact: (input: ContactInput) => Promise<boolean>;
+  contactMessages: ContactMessage[]; contactLoading: boolean; contactError: string;
+  reloadContact: () => void;
+  setContactStatus: (id: string, status: ContactStatus) => Promise<boolean>;
   // Volunteer drill-down from the operation form. `mode` decides which list the staff
   // screen opens on, so "şu an nöbette · 3" lands on those three people.
   volunteerFilter: { disasterId: string | null; mode: 'approved' | 'onShift' } | null;
@@ -307,11 +253,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const initial = fromPath(typeof window !== 'undefined' ? window.location.pathname : '/');
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
-  const [coordOverview, setCoordOverview] = useState<CoordOverview | null>(null);
-  const [coordOverviewLoading, setCoordOverviewLoading] = useState(false);
-  const [coordOverviewError, setCoordOverviewError] = useState('');
-  const [coordQueue, setCoordQueue] = useState<CoordQueueItem[]>([]);
-  const [coordQueueLoading, setCoordQueueLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [slides, setSlides] = useState<BannerSlide[]>([]);
@@ -327,8 +268,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Signed in but email not confirmed → privileged (coordinator) actions are blocked.
   const unverified = auth.enabled && !!auth.user && !auth.emailVerified;
   const [currentSlug, setCurrentSlug] = useState<string>(initial.slug ?? '');
-  // Ana sayfadan bir kaleme tıklanınca taşınan niyet. Afet ekranı okur ve siler.
-  const [focusNeedId, setFocusNeedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('All');
   const [subFilter, setSubFilter] = useState<SubFilter>('Pending');
@@ -347,7 +286,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [disasterFormOpen, setDisasterFormOpen] = useState(false);
   const [deliveryOpen, setDeliveryOpen] = useState(false);
   const [modal, setModal] = useState<ModalState | null>(null);
-  const [logDisasterId, setLogDisasterId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [trackedSub, setTrackedSub] = useState<Submission | null>(null);
   const [mySubs, setMySubs] = useState<Submission[]>([]);
@@ -357,6 +295,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [orgEditsLoading, setOrgEditsLoading] = useState(false);
   const [orgEditsError, setOrgEditsError] = useState('');
   const [orgEditsPending, setOrgEditsPending] = useState(0);
+  const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
+  const [contactLoading, setContactLoading] = useState(false);
+  const [contactError, setContactError] = useState('');
   const [systemLog, setSystemLog] = useState<LogEntry[]>([]);
   const [systemLogLoading, setSystemLogLoading] = useState(false);
   const [systemLogError, setSystemLogError] = useState('');
@@ -438,35 +379,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch(() => undefined);
   }, []);
 
-  // Koordinatör panosu. Ulusal panodan ayrı bir efekt, çünkü:
-  //  - koordinatöre özel sayılar taşır ve rol gelmeden istenmemelidir,
-  //  - oturum açıldığında/kapandığında yeniden çalışmalıdır,
-  //  - yavaş bir panel sorgusu ana sayfayı bekletmemelidir.
-  // Yerel geri düşüş yok: burada boş bir pano, YANLIŞ bir panodan iyidir. Supabase
-  // yanıt vermiyorsa ekran hatayı ve "yeniden dene"yi gösterir (rules/04 §Error States).
-  // Supabase yapılandırılmadığında oturum diye bir şey yok ve `profile` hep null olur.
-  // O modda panel zaten bellek içi örnek veriyle çalışıyor; rol koşulunu orada da
-  // aramak paneli geliştirme ortamında tamamen erişilemez yapardı. Gerçek yetki
-  // kontrolü zaten sunucuda (is_coordinator) — bu koşul sadece boşuna reddedilecek
-  // çağrıyı önlemek için.
-  const isCoord = !auth.enabled || auth.profile?.role === 'coordinator' || auth.profile?.role === 'admin';
-  const loadCoordDashboard = () => {
-    if (!isCoord) { setCoordOverview(null); setCoordQueue([]); setCoordOverviewError(''); return; }
-    setCoordOverviewLoading(true);
-    setCoordQueueLoading(true);
-    withTimeout(repo.getCoordOverview())
-      .then((o) => { setCoordOverview(o); setCoordOverviewError(''); })
-      .catch(() => setCoordOverviewError(tr.common.loadFailed))
-      .finally(() => setCoordOverviewLoading(false));
-    withTimeout(repo.getCoordQueue(50))
-      .then(setCoordQueue)
-      .catch(() => setCoordQueue([]))
-      .finally(() => setCoordQueueLoading(false));
-  };
-
-  useEffect(() => { loadCoordDashboard(); // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCoord]);
-
   // Own submissions are loaded when a session exists and cleared when it goes away, so
   // one account's list can never be left on screen for the next.
   // The queue is coordinator-only data (contact details of the requester travel with
@@ -520,6 +432,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSystemLogError(tr.coordLog.loadFailed);
     } finally {
       setSystemLogLoading(false);
+    }
+  };
+
+  // Contact messages carry the writer's address, so this is fetched only when the panel
+  // screen asks for it — and RLS is what actually decides whether it answers.
+  const loadContact = async () => {
+    setContactLoading(true); setContactError('');
+    try {
+      setContactMessages(await withTimeout(repo.listContactMessages()));
+    } catch {
+      setContactError(tr.contact.loadFailed);
+    } finally {
+      setContactLoading(false);
     }
   };
 
@@ -649,48 +574,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const api: AppApi = useMemo(() => ({
     snap, loadError, retryLoad, overview, orgs, slides, backend: repo.kind,
-    coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading,
     route, tab, device, role, currentSlug, frame, showToolbar: IS_DEV, query, filter, subFilter,
     catFilter, locFilter, onlyCritical, updatedToday,
     form, track, reportStage, lastCode, formError, copied,
-    modal, toast, trackedSub, trackError, wizardMode, disasterFormOpen, deliveryOpen, logDisasterId,
+    modal, toast, trackedSub, trackError, wizardMode, disasterFormOpen, deliveryOpen,
     mySubs, mySubsLoading, mySubsError,
     orgEdits, orgEditsLoading, orgEditsError, orgEditsPending,
     reportQueue, reportQueueLoading, reportQueueError,
     myVolunteer, myVolunteerLoading, myVolunteerLoaded,
     systemLog, systemLogLoading, systemLogError, volunteerFilter,
+    contactMessages, contactLoading, contactError,
     volunteers, volunteersLoading, volunteersError,
     volunteersPending: volunteers.filter((v) => v.status === 'Pending review').length,
     staff, invites, staffLoading, staffError,
 
     go: (r, extra) => { setRoute(r); if (extra?.tab) setTab(extra.tab); },
-    openDisaster: (slug, t, needId) => {
-      setCurrentSlug(slug); setRoute('disaster'); setTab(t ?? 'needs');
-      setFocusNeedId(needId ?? null);
-      // Belirli bir kaleme gidiliyorsa önceki ziyaretten kalan süzgeçler temizlenir.
-      // "Yalnızca kritik" açık kalmışken Normal öncelikli bir kaleme gelmek,
-      // pencereyi kapattığında listede olmayan bir şeyi aramakla bitiyordu.
-      if (needId) {
-        setFilter('All'); setQuery(''); setCatFilter(''); setLocFilter('');
-        setOnlyCritical(false); setUpdatedToday(false);
-      }
-      if (slug !== currentSlug) loadSnapshot(slug);
-    },
-    focusNeedId,
-    clearFocusNeed: () => setFocusNeedId(null),
-    openCoordDisaster: (slug) => { setCurrentSlug(slug); setRoute('coordDisaster'); if (slug !== currentSlug) loadSnapshot(slug); },
-    selectOperation: (slug) => { setCurrentSlug(slug); if (slug !== currentSlug) loadSnapshot(slug); },
-    reloadCoordDashboard: () => loadCoordDashboard(),
-    setLocationCapacity: async (locationId, pct, note) => {
-      if (unverified) { showToast(tr.auth.verifyFirst); return false; }
-      try {
-        setSnap(await withTimeout(repo.setLocationCapacity(locationId, pct, note)));
-        // Doluluk panonun "kapasitede nokta" sayacını besliyor, o yüzden pano da tazelenir.
-        loadCoordDashboard();
-        showToast(pct == null ? tr.coordOps.capacityCleared : tr.coordOps.capacitySaved(pct));
-        return true;
-      } catch { showToast(tr.coordOps.saveFailed); return false; }
-    },
+    openDisaster: (slug, t) => { setCurrentSlug(slug); setRoute('disaster'); setTab(t ?? 'needs'); if (slug !== currentSlug) loadSnapshot(slug); },
     setDevice,
     setRole: (r) => { setProtoRole(r); setRoute(r === 'coordinator' ? 'coordHome' : 'home'); },
     setTab, setQuery, setFilter, setSubFilter,
@@ -772,25 +671,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     bumpNeed: (id) => { if (unverified) return showToast(tr.auth.verifyFirst); repo.bumpNeed(id).then((s) => { setSnap(s); const n = s.needs.find((x) => x.id === id); if (n) showToast(tr.coord.bumpToast(n.name, n.required, n.unit)); }); },
     togglePause: (id) => { if (unverified) return showToast(tr.auth.verifyFirst); repo.togglePause(id).then(setSnap); },
 
-    openModal: (sub, kind, revise) => setModal({
-      subId: sub.id, kind, revise,
-      // Düzeltmede varsayılan, kaydın BİLDİRİLEN miktarı: düzeltmelerin çoğu
-      // "gerisi de geldi" durumu ve oraya varsayılan olarak konması doğru.
-      qty: String(kind === 'partial' && !revise ? Math.max(1, sub.qty - 5) : sub.qty),
-      reason: '',
-    }),
-    undoDecision: async (sub) => {
-      if (unverified) { showToast(tr.auth.verifyFirst); return; }
-      try {
-        setSnap(await withTimeout(repo.reviseSubmission(sub.id, 'undo', 0, ''), WRITE_TIMEOUT_MS));
-        showToast(tr.modal.undone(sub.code));
-        loadCoordDashboard();
-      } catch (e) {
-        console.error('revise_submission undo failed', e);
-        if (e instanceof RefreshFailedError) { showToast(tr.modal.savedNotRefreshed); return; }
-        showToast(reasonOf(e) || tr.modal.failed);
-      }
-    },
+    openModal: (sub, kind) => setModal({ subId: sub.id, kind, qty: String(kind === 'partial' ? Math.max(1, sub.qty - 5) : sub.qty), reason: '' }),
     closeModal: () => setModal(null),
     setModalQty: (v) => setModal((m) => (m ? { ...m, qty: v } : m)),
     setModalReason: (v) => setModal((m) => (m ? { ...m, reason: v } : m)),
@@ -806,47 +687,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const needName = need?.name ?? '';
       const unit = sub?.unit ?? '';
       const remAfter = need ? Math.max(0, need.required - Math.min(need.required, need.verified + qty)) : 0;
-      // Tek `.then` vardı: `.catch` yoktu ve `withTimeout` kullanılmıyordu. RPC
-      // reddedildiğinde ya da ağ düştüğünde promise sessizce reddediliyor, pencere açık
-      // kalıyor ve koordinatör hiçbir şey olmadığını yalnızca tahmin edebiliyordu.
-      // Bu mağazadaki diğer bütün yazma işlemleri try/catch + withTimeout kullanıyor.
-      setModal((m) => (m ? { ...m, error: undefined, detail: undefined } : m));
-      void (async () => {
-        try {
-          // Yazma bütçesi okuma bütçesinden ayrı: bu çağrı RPC + iki tekil sorgu +
-          // altı tablonun yeniden okunmasını kapsıyor, 6 sn'ye sığmayabiliyor.
-          setSnap(await withTimeout(
-            modal.revise
-              ? repo.reviseSubmission(modal.subId, kind, qty, modal.reason)
-              : repo.verifySubmission(modal.subId, kind, qty, modal.reason),
-            WRITE_TIMEOUT_MS,
-          ));
-          setModal(null);
-          if (modal.revise) showToast(tr.modal.revised(code));
-          else if (kind === 'reject') showToast(tr.toasts.rejected(code));
-          else if (kind === 'info') showToast(tr.toasts.infoRequested(contributor));
-          else showToast(tr.toasts.approved(qty, unit, needName, remAfter));
-          // Karar; bekleyen doğrulama, bugün karara bağlanan, karşılama oranı, SLA ve
-          // aciliyet sayaçlarının hepsini değiştiriyor. Bunlar snapshot'tan değil
-          // panodan (coordinator_overview) okunuyor, o yüzden pano da tazelenir —
-          // yoksa satır listeden düşüyor ama üstteki sayaçlar eski kalıyor ve karar
-          // kaydedilmemiş gibi görünüyor.
-          loadCoordDashboard();
-        } catch (e) {
-          console.error(modal.revise ? 'revise_submission failed' : 'verify_submission failed', e);
-          if (e instanceof RefreshFailedError) {
-            // Karar YAZILDI, yalnızca ekran tazelenemedi. "Kayıt değişmedi" demek
-            // koordinatöre aynı teslimatı ikinci kez işletirdi.
-            setModal(null);
-            showToast(tr.modal.savedNotRefreshed);
-            return;
-          }
-          // Sebep ekranda da yazar: bu ekranı yalnızca koordinatör görüyor ve
-          // "bağlantınızı kontrol edin" ile geçiştirmek, sorunu bildirebilmesi için
-          // konsolu açmayı bilmesini gerektiriyordu.
-          setModal((m) => (m ? { ...m, error: tr.modal.failed, detail: reasonOf(e) } : m));
-        }
-      })();
+      repo.verifySubmission(modal.subId, kind, qty, modal.reason).then((s) => {
+        setSnap(s); setModal(null);
+        if (kind === 'reject') showToast(tr.toasts.rejected(code));
+        else if (kind === 'info') showToast(tr.toasts.infoRequested(contributor));
+        else showToast(tr.toasts.approved(qty, unit, needName, remAfter));
+      });
     },
 
     reloadMySubs: () => { void loadMySubs(); },
@@ -1057,8 +903,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     reloadReportQueue: () => { void loadReportQueue(); },
     reloadSystemLog: () => { void loadSystemLog(); },
-    openSystemLog: (disasterId) => { setLogDisasterId(disasterId ?? null); setRoute('coordLog'); },
-    setLogDisasterId,
+    reloadContact: () => { void loadContact(); },
+    submitContact: async (input) => {
+      try {
+        const id = await withTimeout(repo.submitContact(input));
+        // The message is stored at this point. The mail is a separate, best-effort step:
+        // its failure is logged as a warning, not raised, because telling the writer
+        // "your message was not received" would be false — we have it (rules/05 §Email).
+        void sendContactMessage(id).then((ok) => {
+          if (!ok && typeof console !== 'undefined') console.warn('[AfetHUB] iletişim bildirimi gönderilemedi');
+        });
+        return true;
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : '';
+        showToast(msg.includes('rate limited') ? tr.contact.rateLimited : tr.contact.sendError);
+        return false;
+      }
+    },
+    setContactStatus: async (id, status) => {
+      try {
+        setContactMessages(await withTimeout(repo.setContactStatus(id, status)));
+        showToast(tr.contact.statusToast);
+        return true;
+      } catch { showToast(tr.contact.actionFailed); return false; }
+    },
     openVolunteers: (disasterId, mode) => {
       setVolunteerFilter({ disasterId, mode });
       setRoute('coordStaff');
@@ -1139,7 +1007,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Every piece of state exposed on `api` must be listed here, or consumers keep the
   // previous value: `deliveryOpen` and `slides` were missing, so the delivery overlay
   // never appeared and the slide list could go stale after a save.
-  }), [snap, loadError, overview, coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError, logDisasterId, focusNeedId]);
+  }), [snap, loadError, overview, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, contactMessages, contactLoading, contactError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

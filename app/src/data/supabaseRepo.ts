@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
+  ContactInput, ContactMessage, ContactStatus,
   Disaster, Location, Need, Submission, LogEntry, Announcement,
-  VerifyKind, RevisionKind, DeliveryInput, PriorityKey, StatusKey, DisasterType,
+  VerifyKind, DeliveryInput, PriorityKey, StatusKey, DisasterType,
   Organization, OrganizationInput, OrgStatus, OrgKind, OrgScope,
   DisasterReport, DisasterReportInput, ReportStatus, ReportConfirmInput, ReportConfirmResult,
   ReportQueueItem, BannerSlide, BannerSlideInput, SlideAction,
@@ -10,14 +11,10 @@ import type {
   AnnouncementInput, LocationInput,
   StaffMember, StaffRole, RoleInvite,
 } from '../types';
-import type {
-  Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed,
-  CoordOverview, CoordDisasterRow, CoordQueueItem,
-} from './repo';
+import type { Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed } from './repo';
 import type { NeedPayload } from '../needForm';
-import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW, isLocalSlideImage, disasterSlug, isPublicAuditAction, SLA_HOURS, splitDistricts, auditActionLabel, auditDetailLabel, auditValueLabel, auditActorLabel } from './repo';
+import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW, isLocalSlideImage, disasterSlug, isPublicAuditAction } from './repo';
 import { PRI } from '../theme';
-import { RefreshFailedError } from '../util';
 
 // Turkish relative-time formatter for DB timestamps.
 function rel(iso: string): string {
@@ -56,8 +53,6 @@ export class SupabaseRepo implements Repo {
     const mapDisaster = (r: Record<string, unknown>): Disaster => ({
       id: String(r.id), slug: String(r.slug ?? ''),
       legacySlugs: Array.isArray(r.legacy_slugs) ? (r.legacy_slugs as string[]) : [],
-      districts: Array.isArray(r.districts) ? (r.districts as string[]) : [],
-      settlements: Array.isArray(r.settlements) ? (r.settlements as string[]) : [],
       name: String(r.name), region: String(r.region ?? ''), province: String(r.province ?? ''),
       type: (r.type as DisasterType) ?? 'Other',
       status: (r.status as Disaster['status']) ?? 'Active', situation: String(r.situation ?? ''),
@@ -85,9 +80,6 @@ export class SupabaseRepo implements Repo {
       status: String(r.status), statusTone: String(r.status).match(/00/) ? 'yellow' : 'green',
       coords: r.lat != null && r.lng != null ? `${r.lat}° K, ${r.lng}° D` : '',
       lat: Number(r.lat ?? 0), lng: Number(r.lng ?? 0),
-      capacityPct: r.capacity_pct == null ? null : Number(r.capacity_pct),
-      capacityNote: String(r.capacity_note ?? ''),
-      capacityUpdated: r.capacity_updated_at ? rel(String(r.capacity_updated_at)) : '',
     }));
 
     const needs: Need[] = (ne.data ?? []).filter((r: Record<string, unknown>) => String(r.disaster_id) === disaster.id).map((r: Record<string, unknown>) => ({
@@ -107,7 +99,6 @@ export class SupabaseRepo implements Repo {
       loc: String(r.location_name), submitted: rel(String(r.submitted_at)),
       status: r.status as StatusKey, verifiedQty: r.verified_qty == null ? null : Number(r.verified_qty),
       note: String(r.note), photoUrl: r.photo_url ? String(r.photo_url) : null,
-      decidedBy: r.decided_by ? String(r.decided_by) : null,
     }));
 
     // The public feed reads the same for everyone. RLS lets an admin read private rows
@@ -118,14 +109,8 @@ export class SupabaseRepo implements Repo {
       id: String(r.id), disasterId: String(r.disaster_id ?? ''),
       disasterName: byId.get(String(r.disaster_id))?.name ?? '',
       disasterSlug: byId.get(String(r.disaster_id))?.slug ?? '',
-      // Türkçeleştirme eşleme katmanında, TEK yerde: 0031 öncesi satırlar İngilizce
-      // ve `audit_log` değiştirilemez. Ekranların her biri kendi çevirisini yapsaydı,
-      // aynı olay listede iki ayrı adla görünürdü.
-      user: auditActorLabel(String(r.action), String(r.actor), String(r.new_value)),
-      action: auditActionLabel(String(r.action)),
-      detail: auditDetailLabel(String(r.detail)),
-      oldValue: auditValueLabel(String(r.old_value)), newValue: auditValueLabel(String(r.new_value)),
-      time: rel(String(r.created_at)),
+      user: String(r.actor), action: String(r.action), detail: String(r.detail),
+      oldValue: String(r.old_value), newValue: String(r.new_value), time: rel(String(r.created_at)),
       color: String(r.color),
     }));
 
@@ -153,8 +138,6 @@ export class SupabaseRepo implements Repo {
     const mapDisaster = (r: Record<string, unknown>): Disaster => ({
       id: String(r.id), slug: String(r.slug ?? ''),
       legacySlugs: Array.isArray(r.legacy_slugs) ? (r.legacy_slugs as string[]) : [],
-      districts: Array.isArray(r.districts) ? (r.districts as string[]) : [],
-      settlements: Array.isArray(r.settlements) ? (r.settlements as string[]) : [],
       name: String(r.name), region: String(r.region ?? ''), province: String(r.province ?? ''),
       type: (r.type as DisasterType) ?? 'Other',
       status: (r.status as Disaster['status']) ?? 'Active', situation: String(r.situation ?? ''),
@@ -222,10 +205,8 @@ export class SupabaseRepo implements Repo {
         id: String(r.id), disasterId: String(r.disaster_id ?? ''),
         disasterName: byId.get(String(r.disaster_id))?.name ?? '',
         disasterSlug: byId.get(String(r.disaster_id))?.slug ?? '',
-        user: auditActorLabel(String(r.action), String(r.actor), String(r.new_value)),
-      action: auditActionLabel(String(r.action)),
-        detail: auditDetailLabel(String(r.detail)),
-        oldValue: auditValueLabel(String(r.old_value)), newValue: auditValueLabel(String(r.new_value)),
+        user: String(r.actor), action: String(r.action), detail: String(r.detail),
+        oldValue: String(r.old_value), newValue: String(r.new_value),
         time: rel(String(r.created_at)), color: String(r.color),
       })),
       urgent: active.flatMap((c) => topOf(c.disaster, 3))
@@ -234,98 +215,6 @@ export class SupabaseRepo implements Repo {
       reports: (rep.data ?? []).map(this.mapReport).sort((x, y) => y.reportCount - x.reportCount),
       demo: cards.some((c) => c.disaster.demo === true),
     };
-  }
-
-  // ---- Coordinator dashboard ----------------------------------------------
-  // Both calls are RPCs guarded by is_coordinator() inside the database
-  // (migration 0025). A visitor's call is refused there, not by this screen being
-  // hard to reach (rules/03 §Server-Side Authorization).
-  //
-  // Numbers are NOT recomputed here. Whatever SQL returned is what the panel shows,
-  // so the dashboard and the operation page can never disagree about a count
-  // (CLAUDE.md §Source of Truth).
-  async getCoordOverview(): Promise<CoordOverview> {
-    const { data, error } = await this.db.rpc('coordinator_overview');
-    if (error) throw error;
-    const num = (v: unknown): number => {
-      const n = Number(v);
-      return Number.isFinite(n) ? n : 0;
-    };
-    const coord = (v: unknown): number | null => {
-      if (v === null || v === undefined || v === '') return null;
-      const n = Number(v);
-      return Number.isFinite(n) ? n : null;
-    };
-    const disasters: CoordDisasterRow[] = (data ?? []).map((r: Record<string, unknown>) => ({
-      id: String(r.disaster_id),
-      slug: String(r.slug ?? ''),
-      name: String(r.name ?? ''),
-      province: String(r.province ?? ''),
-      region: String(r.region ?? ''),
-      type: String(r.type ?? 'Other'),
-      status: (r.status as CoordDisasterRow['status']) ?? 'Active',
-      openedAt: r.opened_at ? String(r.opened_at) : '',
-      demo: r.is_demo === true,
-      lat: coord(r.lat),
-      lng: coord(r.lng),
-      criticalNeeds: num(r.critical_needs),
-      urgentNeeds: num(r.urgent_needs),
-      openNeeds: num(r.open_needs),
-      completedNeeds: num(r.completed_needs),
-      requiredTotal: num(r.required_total),
-      verifiedTotal: num(r.verified_total),
-      pendingSubs: num(r.pending_subs),
-      pendingUnits: num(r.pending_units),
-      slaBreached: num(r.sla_breached),
-      decidedToday: num(r.decided_today),
-      deliveryPoints: num(r.delivery_points),
-      pointsAtCapacity: num(r.points_at_capacity),
-      pointsCapacityUnknown: num(r.points_capacity_unknown),
-      volunteers: num(r.volunteers),
-      onShift: num(r.on_shift),
-      pendingVolunteers: num(r.pending_volunteers),
-      openNeedRequests: num(r.open_need_requests),
-      lastActivityAt: r.last_activity_at ? String(r.last_activity_at) : null,
-      urgency: num(r.urgency),
-    }));
-    return { disasters, slaHours: SLA_HOURS };
-  }
-
-  async getCoordQueue(limit: number): Promise<CoordQueueItem[]> {
-    const { data, error } = await this.db.rpc('coordinator_pending_queue', { p_limit: limit });
-    if (error) throw error;
-    return (data ?? []).map((r: Record<string, unknown>) => ({
-      id: String(r.submission_id),
-      code: String(r.code ?? ''),
-      disasterId: String(r.disaster_id ?? ''),
-      disasterSlug: String(r.disaster_slug ?? ''),
-      disasterName: String(r.disaster_name ?? ''),
-      needId: String(r.need_id ?? ''),
-      needName: String(r.need_name ?? ''),
-      needPriority: (r.need_priority as CoordQueueItem['needPriority']) ?? 'Normal',
-      contributor: String(r.contributor ?? ''),
-      qty: Number(r.qty ?? 0),
-      unit: String(r.unit ?? ''),
-      loc: String(r.location_name ?? ''),
-      note: String(r.note ?? ''),
-      hasPhoto: r.has_photo === true,
-      submittedAt: String(r.submitted_at ?? ''),
-      waitingHours: Number(r.waiting_hours ?? 0),
-      slaBreached: r.sla_breached === true,
-    }));
-  }
-
-  async setLocationCapacity(locationId: string, pct: number | null, note: string): Promise<Snapshot> {
-    const { error } = await this.db.rpc('set_location_capacity', {
-      p_location: locationId, p_pct: pct, p_note: note,
-    });
-    if (error) throw error;
-    // Re-read the operation this point belongs to, not the default one: the
-    // coordinator is standing on that disaster's page and would otherwise watch the
-    // screen jump to another operation's snapshot.
-    const { data } = await this.db.from('locations').select('disaster_id').eq('id', locationId).maybeSingle();
-    const disasterId = data ? String((data as Record<string, unknown>).disaster_id) : '';
-    return disasterId ? this.snapOf(disasterId) : this.getSnapshot();
   }
 
   // ---- Banner slides -------------------------------------------------------
@@ -731,7 +620,6 @@ export class SupabaseRepo implements Repo {
     id: String(r.id), type: (r.type as DisasterType) ?? 'Other',
     province: String(r.province ?? ''), district: String(r.district ?? ''),
     locationNote: String(r.location_note ?? ''),
-    settlements: Array.isArray(r.settlements) ? (r.settlements as unknown[]).map(String) : [],
     occurredOn: String(r.occurred_on ?? '').slice(0, 10),
     description: String(r.description ?? ''),
     reportCount: Number(r.report_count ?? 1),
@@ -764,7 +652,6 @@ export class SupabaseRepo implements Repo {
       p_location_note: input.locationNote.trim(), p_occurred_on: input.occurredOn,
       p_description: input.description.trim(),
       p_name: input.name.trim(), p_email: input.email.trim(), p_phone: input.phone.trim(),
-      p_settlements: input.settlements,
     }).single();
     if (error) throw error;
     const row = data as Record<string, unknown>;
@@ -825,12 +712,42 @@ export class SupabaseRepo implements Repo {
       disasterSlug: names.get(String(r.disaster_id))?.slug ?? '',
       // The admin log is the one place the name is NOT masked: it is the record an
       // administrator is accountable for reading, and it is gated by is_admin().
-      user: auditActorLabel(String(r.action), String(r.actor), String(r.new_value)),
-      action: auditActionLabel(String(r.action)),
-      detail: auditDetailLabel(String(r.detail)),
-      oldValue: auditValueLabel(String(r.old_value)), newValue: auditValueLabel(String(r.new_value)),
+      user: String(r.actor), action: String(r.action), detail: String(r.detail),
+      oldValue: String(r.old_value), newValue: String(r.new_value),
       time: rel(String(r.created_at)), color: String(r.color),
     }));
+  }
+
+  // ---- İletişim ------------------------------------------------------------
+  // The RPC does the validating and the rate limiting; this only forwards. The returned
+  // id is what the mailer is given — it never learns a recipient from the browser.
+  async submitContact(input: ContactInput): Promise<string> {
+    const { data, error } = await this.db.rpc('submit_contact_message', {
+      p_name: input.name.trim(), p_email: input.email.trim(),
+      p_topic: input.topic, p_message: input.message.trim(),
+    });
+    if (error) throw error;
+    return String(data ?? '');
+  }
+
+  // Reads the table directly: RLS (contact_read, migration 0025) is what limits this to
+  // coordinators. An empty list is what a visitor's token gets, not an error.
+  async listContactMessages(): Promise<ContactMessage[]> {
+    const { data, error } = await this.db.from('contact_messages')
+      .select('*').order('created_at', { ascending: false }).limit(200);
+    if (error) throw error;
+    return (data ?? []).map((r: Record<string, unknown>) => ({
+      id: String(r.id), name: String(r.name), email: String(r.email),
+      topic: r.topic as ContactMessage['topic'], message: String(r.message),
+      status: r.status as ContactStatus,
+      createdAt: String(r.created_at ?? ''), handledAt: String(r.handled_at ?? ''),
+    }));
+  }
+
+  async setContactStatus(id: string, status: ContactStatus): Promise<ContactMessage[]> {
+    const { error } = await this.db.rpc('set_contact_status', { p_id: id, p_status: status });
+    if (error) throw error;
+    return this.listContactMessages();
   }
 
   async setVolunteerShift(applicationId: string, onShift: boolean): Promise<VolunteerApplication[]> {
@@ -868,50 +785,8 @@ export class SupabaseRepo implements Repo {
   }
 
   async verifySubmission(subId: string, kind: VerifyKind, qty: number, reason: string): Promise<Snapshot> {
-    // `rpc()` HATA FIRLATMAZ; `{ data, error }` döndürür. Bu satırda `error`
-    // okunmuyordu: RLS reddettiğinde ya da fonksiyon hata verdiğinde çağrı sessizce
-    // geçiyor, ardından snapshot yeniden okunuyor ve arayüz "Onaylandı ✓" diyordu.
-    // Dosyadaki diğer bütün RPC çağrıları `if (error) throw error` yapıyor; bu
-    // atlanmıştı ve tek başına "aksiyon veritabanına düşmüyor" tablosunu üretiyordu.
-    const { error } = await this.db.rpc('verify_submission', {
-      p_submission: subId, p_kind: kind, p_qty: qty, p_reason: reason || null,
-    });
-    if (error) throw error;
-    // Buradan SONRASI yalnızca ekranı tazelemek. Karar veritabanına yazıldı; bu
-    // okumalar başarısız olursa "kayıt değişmedi" demek yalan olur ve koordinatör
-    // aynı teslimatı ikinci kez işler. Ayrı bir hata tipiyle ayrılıyor.
-    try {
-      // Karar verilen kaydın AİT OLDUĞU operasyon yeniden okunur. `getSnapshot()`
-      // argümansız çağrıldığında "ilk aktif afet"e düşüyor: koordinatör Kastamonu
-      // sayfasında onay verdiğinde ekran sessizce başka bir operasyonun verisine
-      // geçiyor ve karar verilen satır geri gelmiş gibi görünüyordu.
-      const { data } = await this.db.from('submissions').select('disaster_id').eq('id', subId).maybeSingle();
-      const disasterId = data ? String((data as Record<string, unknown>).disaster_id) : '';
-      return disasterId ? await this.snapOf(disasterId) : await this.getSnapshot();
-    } catch (e) {
-      throw new RefreshFailedError(e);
-    }
-  }
-
-  async reviseSubmission(subId: string, kind: RevisionKind, qty: number, reason: string): Promise<Snapshot> {
-    // Yetki sunucuda: kararı veren koordinatör veya yönetici (migration 0032).
-    // Buradaki düğmenin gizlenmesi yetkilendirme DEĞİL, gereksiz reddedilen çağrıyı
-    // önleme (rules/03 §Server-Side Authorization).
-    const { error } = await this.db.rpc('revise_submission', {
-      p_submission: subId, p_kind: kind,
-      // 'undo' ve 'reject' miktar taşımaz; null göndermek fonksiyonun kendi
-      // varsayılanını kullanmasını sağlar.
-      p_qty: kind === 'approve' || kind === 'partial' ? qty : null,
-      p_reason: reason || null,
-    });
-    if (error) throw error;
-    try {
-      const { data } = await this.db.from('submissions').select('disaster_id').eq('id', subId).maybeSingle();
-      const disasterId = data ? String((data as Record<string, unknown>).disaster_id) : '';
-      return disasterId ? await this.snapOf(disasterId) : await this.getSnapshot();
-    } catch (e) {
-      throw new RefreshFailedError(e);
-    }
+    await this.db.rpc('verify_submission', { p_submission: subId, p_kind: kind, p_qty: qty, p_reason: reason || null });
+    return this.getSnapshot();
   }
 
   // Insert/update goes straight to `disasters`; RLS decides whether the caller may.
@@ -921,10 +796,6 @@ export class SupabaseRepo implements Repo {
       name: input.name.trim(), type: input.type, province: input.province, region,
       status: input.status, situation: input.situation.trim(),
       opened_by_org_id: input.openedByOrgId,
-      // Form tek bir alan topluyor ama koordinatör "Bozkurt ve İnebolu" yazabiliyor;
-      // aynı ayırma kuralı migration 0026'daki geriye doldurmada da var.
-      districts: splitDistricts(input.district),
-      settlements: input.settlements,
     };
     if (id) {
       const { error } = await this.db.from('disasters').update(row).eq('id', id);
