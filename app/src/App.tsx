@@ -15,6 +15,7 @@ import { AccountBanner } from './components/AccountBanner';
 import { ReportModal } from './components/ReportModal';
 import { NeedWizard } from './components/NeedWizard';
 import { Home } from './screens/Home';
+import { Disasters } from './screens/Disasters';
 import { Disaster } from './screens/Disaster';
 import { Track } from './screens/Track';
 import { NeedRequest } from './screens/NeedRequest';
@@ -72,7 +73,7 @@ export function App() {
   }, [a.route, a.tab, a.currentSlug, a.snap?.disaster.name]);
 
   const screens: Record<string, () => ReactElement | null> = {
-    home: Home, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About, howItWorks: HowItWorks, account: Account, volunteer: Volunteer, contact: Contact,
+    home: Home, disasters: Disasters, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About, howItWorks: HowItWorks, account: Account, volunteer: Volunteer, contact: Contact,
     coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider, coordDisasters: CoordDisasters, coordOrgEdits: CoordOrgEdits, coordOrgs: CoordOrgs, coordStaff: CoordStaff, coordOps: CoordOps, coordReports: CoordReports, coordDisaster: CoordDisaster, coordContact: CoordContact,
     components: Components, system: System,
   };

@@ -10,6 +10,7 @@ import type { Route, Tab } from './store';
 export function routePath(route: Route, tab: Tab, slug: string): string {
   switch (route) {
     case 'home': return '/';
+    case 'disasters': return '/afetler';
     case 'disaster': return `/afet/${slug}` + (tab && tab !== 'needs' ? `/${tab}` : '');
     case 'report': return '/bildir';
     case 'track': return '/takip';

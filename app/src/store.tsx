@@ -33,7 +33,7 @@ import { supabase } from './data/supabaseClient';
 import { uploadContactFiles, type PreparedContactFile } from './contactFiles';
 
 export type Route =
-  | 'home' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
+  | 'home' | 'disasters' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
   | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog' | 'coordSlider' | 'coordDisasters' | 'coordDisaster'
   | 'coordOrgEdits' | 'coordOrgs' | 'coordStaff' | 'volunteer' | 'coordOps' | 'coordReports'
   | 'components' | 'system' | 'contact' | 'coordContact';
@@ -61,6 +61,8 @@ const TABS: Tab[] = ['overview', 'needs', 'locations', 'announcements', 'activit
 function toPath(route: Route, tab: Tab, slug: string): string {
   switch (route) {
     case 'home': return '/';
+    // Liste ile tekil operasyon aynı kökten: /afetler ve /afet/<slug>.
+    case 'disasters': return '/afetler';
     case 'disaster': return `/afet/${slug}` + (tab && tab !== 'needs' ? `/${tab}` : '');
     case 'report': return '/bildir';
     case 'track': return '/takip';
@@ -99,9 +101,12 @@ function fromPath(pathname: string): ParsedPath {
   const parts = pathname.replace(/^\/+/, '').split('/').filter(Boolean);
   if (parts.length === 0) return { route: 'home', role: 'visitor' };
   switch (parts[0]) {
+    case 'afetler': return { route: 'disasters', role: 'visitor' };
     case 'afet':
       if (parts[1]) return { route: 'disaster', slug: parts[1], tab: (TABS.includes(parts[2] as Tab) ? (parts[2] as Tab) : 'needs'), role: 'visitor' };
-      return { route: 'home', role: 'visitor' };
+      // Slug'sız /afet: eskiden ana sayfaya düşüyordu. Artık listeye gidiyor —
+      // "afet" yazan bir adresten beklenen şey afetlerin listesi.
+      return { route: 'disasters', role: 'visitor' };
     case 'bildir': return { route: 'report' };
     case 'takip': return { route: 'track' };
     case 'talep': return { route: 'needReq' };

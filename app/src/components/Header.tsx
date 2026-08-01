@@ -50,7 +50,11 @@ export function Header() {
   // "Teslim Noktaları" is not in this menu — it lives on the disaster page as a
   // section and in the delivery-points panel on the dashboard.
   const navItems: { label: string; active: boolean; onClick: () => void }[] = [
-    { label: tr.nav.activeDisasters, active: a.route === 'home', onClick: () => a.go('home') },
+    // "Aktif Afetler" artık gerçek liste sayfasına gidiyor. Ana sayfaya logodan
+    // ve mobil alt çubuktaki "Ana Sayfa"dan ulaşılıyor; bir gezinme öğesinin
+    // adının söylediği şeyden başka bir yere gitmesi, öğrenilmesi gereken bir
+    // istisna üretir.
+    { label: tr.nav.activeDisasters, active: a.route === 'disasters', onClick: () => a.go('disasters') },
     { label: tr.nav.orgs, active: a.route === 'orgs', onClick: () => a.go('orgs') },
     { label: tr.nav.howItWorks, active: a.route === 'howItWorks', onClick: () => a.go('howItWorks') },
   ];

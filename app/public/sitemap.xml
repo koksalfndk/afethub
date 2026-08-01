@@ -10,7 +10,8 @@
   Keep <lastmod> truthful (real content-change date). See .claude/rules/09-seo.md.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://afethub.com/</loc><lastmod>2026-07-30</lastmod></url>
+  <url><loc>https://afethub.com/</loc><lastmod>2026-08-01</lastmod></url>
+  <url><loc>https://afethub.com/afetler</loc><lastmod>2026-08-01</lastmod></url>
   <url><loc>https://afethub.com/afet/seydikemer-orman-yangini-21-07-2026</loc><lastmod>2026-07-30</lastmod></url>
   <url><loc>https://afethub.com/afet/kas-orman-yangini-27-07-2026</loc><lastmod>2026-07-30</lastmod></url>
   <url><loc>https://afethub.com/afet/ayvacik-orman-yangini-28-07-2026</loc><lastmod>2026-07-30</lastmod></url>

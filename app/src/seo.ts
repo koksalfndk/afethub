@@ -26,6 +26,11 @@ interface RouteMeta {
 
 const ROUTE_META: Record<Route, RouteMeta> = {
   home: { title: 'AfetHUB — Afet yardım koordinasyonu', description: DEFAULT_DESC, index: true },
+  disasters: {
+    title: 'Aktif afetler — açık operasyonlar',
+    description: 'Türkiye’de yayında olan afet operasyonlarının tamamı: kalan ihtiyaç miktarları, öncelik ve son güncelleme. Hesap gerekmez.',
+    index: true,
+  },
   disaster: {
     title: 'Afet ihtiyaçları ve teslimat',
     description: 'Aktif afet için yayınlanmış ihtiyaçları, kalan miktarları ve teslim noktalarını görüntüleyin.',

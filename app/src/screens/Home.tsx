@@ -6,13 +6,12 @@ import { categoryIcon } from '../needForm';
 import { C, G, PRI, type PriorityKey } from '../theme';
 import { Ico, DISASTER_ICON, type IcoName } from '../ui';
 import { HomeHero } from '../components/HomeHero';
-import { AmountBlock } from '../components/AmountBlock';
+import { DisasterOpCard, worstPriority } from '../components/DisasterOpCard';
 import { HomeOperationsMap } from '../components/HomeOperationsMap';
 import { ReportConfirmModal } from '../components/ReportConfirmModal';
 import { COMMUNITY_THRESHOLD, isVerifiedDelivery } from '../data/repo';
-import { formatDate, prefersReducedMotion } from '../util';
+import { formatDate } from '../util';
 import type { DisasterType, DisasterReport } from '../types';
-import type { DisasterCard } from '../data/repo';
 
 // ---------------------------------------------------------------------------
 // Herkese açık ana sayfa — "birleşim" tasarımı.
@@ -35,16 +34,6 @@ import type { DisasterCard } from '../data/repo';
 // Slider silinmedi, "Nasıl Çalışır" sayfasına taşındı (HowItWorks.tsx).
 // ---------------------------------------------------------------------------
 
-// Bir operasyonun manşet önceliği, açık ihtiyaçlarının en ağırıdır — türetilir,
-// saklanmaz; yoksa ihtiyaçlardan kopar.
-function worstPriority(c: DisasterCard): PriorityKey {
-  let worst: PriorityKey = 'Normal';
-  for (const n of c.topNeeds) {
-    if ((PRI[n.priority] ?? PRI.Normal).rank < (PRI[worst] ?? PRI.Normal).rank) worst = n.priority;
-  }
-  return worst;
-}
-
 // "Nasıl yardım edebilirim" — dört yol, dördü de hesap açmadan.
 const HELP_ACTIONS: {
   key: 'volunteer' | 'supply' | 'donate' | 'report';
@@ -65,11 +54,6 @@ export function Home() {
   // sonradan ölçüp düzeltmek, katmanın açıldıktan sonra zıplamasına yol açıyordu.
   const [pins, setPins] = useState<{ name: string; rect: DOMRect } | null>(null);
   const [confirming, setConfirming] = useState<DisasterReport | null>(null);
-  // Dörtten fazla aktif operasyon varsa liste kısalır. Ayrı bir "tüm afetler"
-  // ROTASI yok ve uydurulmadı: olmayan bir sayfaya giden düğme, çalışmayan düğmedir.
-  // Genişletmek aynı ızgarayı büyütür, ziyaretçi yerini kaybetmez.
-  const [showAll, setShowAll] = useState(false);
-  const activeRef = useRef<HTMLElement | null>(null);
 
   if (!ov) return <div style={{ padding: 40, color: C.muted }}>{tr.common.loading}</div>;
 
@@ -87,10 +71,9 @@ export function Home() {
 
   // Kartlarda gösterilecek operasyonlar: önce önceliğe, sonra kalan miktara.
   // Dört ile sınırlı — beşincisi "tümünü gör"ün arkasında.
-  const sorted = active.slice().sort((x, y) =>
+  const cards = active.slice().sort((x, y) =>
     (PRI[worstPriority(x)] ?? PRI.Normal).rank - (PRI[worstPriority(y)] ?? PRI.Normal).rank
-    || y.remainingTotal - x.remainingTotal);
-  const cards = showAll ? sorted : sorted.slice(0, 4);
+    || y.remainingTotal - x.remainingTotal).slice(0, 4);
 
   // Acil kalemler ADIYLA toplanır: `ov.urgent` operasyon başına satır veriyor ve
   // olduğu gibi basıldığında aynı kalem üç kez yan yana çıkıyor, ziyaretçi üç ayrı
@@ -159,9 +142,9 @@ export function Home() {
       <HomeHero
         activeCount={ov.totals.activeDisasters}
         updatedLabel={freshest}
-        onSeeActive={() => activeRef.current?.scrollIntoView({
-          behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start',
-        })}
+        // Eskiden aşağıdaki bölüme kaydırıyordu, çünkü gidecek bir sayfa yoktu.
+        // Artık var: "Aktif Afetleri Gör" gerçekten aktif afetlerin sayfasına gidiyor.
+        onSeeActive={() => a.go('disasters')}
       />
 
       {/* ---- 2 · Aktif afetler --------------------------------------------
@@ -169,11 +152,11 @@ export function Home() {
           edilen miktar bloğunun DIŞINDA, 12px'te duruyor (AmountBlock'a bakın) ve
           "en çok gereken" kalemler çip yığını değil tek satır metin. Amaç tek bir
           soruya göz taramasıyla cevap verebilmek: hangi afet en çok yardım istiyor?  */}
-      <section ref={activeRef} style={{ scrollMarginTop: 88 }}>
+      <section>
         <SectionHead
           title={t.activeTitle} sub={t.activeLead}
-          link={sorted.length > 4 ? (showAll ? t.showLess : t.seeAllCount(sorted.length)) : undefined}
-          onLink={sorted.length > 4 ? () => setShowAll((v) => !v) : undefined}
+          link={t.seeAllCount(active.length)}
+          onLink={() => a.go('disasters')}
         />
 
         {cards.length === 0 ? (
@@ -186,81 +169,7 @@ export function Home() {
             display: 'grid', gap: mob ? 12 : 20,
             gridTemplateColumns: mob ? '1fr' : 'repeat(2, minmax(0,1fr))',
           }}>
-            {cards.map((c) => {
-              const d = c.disaster;
-              const pr = worstPriority(c);
-              const tone = PRI[pr] ?? PRI.Normal;
-              return (
-                <article key={d.id} className="hv-lift" style={{ ...panel, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                  {/* 4px şerit yalnızca önceliği taşır; başka hiçbir anlamı yok. */}
-                  <div style={{ height: 4, background: tone.bar }} />
-                  <div style={{ padding: mob ? 18 : 24, display: 'flex', flexDirection: 'column', flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
-                      <div style={{ minWidth: 0 }}>
-                        {/* h3: ekran okuyucu kullanıcısı başlıklar arasında gezinerek
-                            afetten afete atlayabilmeli (rules/04 §Logical heading order). */}
-                        <h3 style={{ margin: 0 }}>
-                          <button onClick={() => a.openDisaster(d.slug)} className="hv-navy" style={{
-                            background: 'none', border: 0, padding: 0, textAlign: 'left', cursor: 'pointer',
-                            font: 'inherit', fontSize: mob ? 19 : 23, fontWeight: 800, color: C.navy,
-                            letterSpacing: '-.02em', lineHeight: 1.2,
-                          }}>{d.name}</button>
-                        </h3>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: C.muted, marginTop: 5 }}>
-                          <Ico n={DISASTER_ICON[d.type]} size={13} color={C.muted3} />
-                          {d.region || d.province}
-                        </div>
-                      </div>
-                      {/* Öncelik renkle DEĞİL kelimeyle; renk yalnızca tekrar ediyor. */}
-                      <span style={{
-                        fontSize: 12, fontWeight: 800, borderRadius: 999, padding: '4px 10px', whiteSpace: 'nowrap',
-                        color: tone.fg, background: tone.bg, border: `1px solid ${tone.border}`,
-                      }}>{priorityLabel[pr].toLocaleUpperCase('tr')}</span>
-                    </div>
-
-                    <AmountBlock
-                      required={c.requiredTotal} verified={c.verifiedTotal}
-                      pending={c.pendingUnits} remaining={c.remainingTotal}
-                      compact={mob}
-                    />
-
-                    {/* Çip yığını yerine TEK SATIR. Beş çip, kartın ikinci bir
-                        odak noktası oluyordu; oysa buradaki bilgi "detaya girmeli
-                        miyim" kararına yardımcı, kendi başına bir karar değil. */}
-                    {c.topNeeds.length > 0 && (
-                      <p style={{
-                        margin: '13px 0 0', fontSize: 12.5, color: C.muted, lineHeight: 1.55,
-                      }}>
-                        <span>{t.topNeedsLabel}: </span>
-                        {c.topNeeds.map((n, i) => (
-                          <span key={n.id}>
-                            {i > 0 && ' · '}
-                            <span style={{ color: C.heading2, fontWeight: 600 }}>{n.name}</span>
-                            <span className="tnum"> {nf.format(n.remaining)} {n.unit}</span>
-                          </span>
-                        ))}
-                        {c.activeNeeds > c.topNeeds.length && (
-                          <span> · {t.moreNeeds(c.activeNeeds - c.topNeeds.length)}</span>
-                        )}
-                      </p>
-                    )}
-
-                    <div style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-                      borderTop: `1px solid ${C.borderFaint}`, paddingTop: 16, marginTop: 'auto',
-                      flexWrap: 'wrap',
-                    }}>
-                      <span style={{ fontSize: 12.5, color: C.muted }}>{t.updatedAgo(d.updatedLabel)}</span>
-                      <button onClick={() => a.openDisaster(d.slug)} className="hv-press" style={{
-                        background: G.navyBtn, border: `1px solid ${C.navy}`, color: '#fff',
-                        borderRadius: 10, height: 44, padding: '0 16px', fontSize: 13.5,
-                        fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
-                      }}>{t.detail} →</button>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+            {cards.map((c) => <DisasterOpCard key={c.disaster.id} card={c} />)}
 
             {/* Boş yuva değil, bir eylem. Izgarada tek kart kalsa bile sayfa dolu
                 görünür — veri seyrekken de ayakta duran tasarım budur. */}

@@ -2040,6 +2040,28 @@ export const tr = {
     pwErrGeneric: 'Parola değiştirilemedi. Lütfen tekrar deneyin.',
   },
 
+  // ---- /afetler — bütün operasyonların listesi -------------------------------
+  // Ana sayfadan farklı bir iş yapıyor: orada karar veriliyor, burada arama yapılıyor.
+  // Bu yüzden metinler de farklı: pazarlama cümlesi değil, liste dili.
+  disasters: {
+    title: 'Afetler',
+    lead: 'Yayına alınmış bütün operasyonlar. Kapanmış olanlar da listede kalır — bir operasyonun kapandığını görebilmek, platformun çalıştığının kanıtıdır.',
+    searchPh: 'Afet, il veya bölge ara',
+    fActive: 'Açık',
+    fClosed: 'Kapandı',
+    fAll: 'Tümü',
+    fAllTypes: 'Tüm türler',
+    count: (gosterilen: number, toplam: number) => `${gosterilen} / ${toplam} operasyon`,
+    clear: 'Süzgeçleri temizle',
+    // İki ayrı boşluk. "Hiç kayıt yok" ile "aramanla eşleşen yok" aynı şey değil ve
+    // ikisini aynı cümleyle geçiştirmek kullanıcıyı yanlış sonuca götürür
+    // (rules/04 §Empty States).
+    empty: 'Yayında operasyon yok.',
+    emptyBody: 'Bu, bir afet yaşanmadığı anlamına gelmez; yalnızca yayına alınmış bir operasyon olmadığını gösterir.',
+    emptyFiltered: 'Bu süzgeçlerle eşleşen operasyon yok.',
+    emptyFilteredBody: 'Arama sözcüğünü kısaltmayı veya durum süzgecini "Tümü" yapmayı deneyin.',
+  },
+
   // ---- İletişim ------------------------------------------------------------
   contact: {
     navLabel: 'İletişim',

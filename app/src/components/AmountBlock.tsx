@@ -48,6 +48,10 @@ export function AmountBlock({ required, verified, pending, remaining, compact }:
     );
   }
 
+  // Kalan sıfırsa kırmızı YANLIŞ renk: 0 kalan, karşılanmamış bir ihtiyaç değil
+  // TAMAMLANMIŞ bir ihtiyaçtır. Kırmızıyı burada kullanmak, iyi haberi acil
+  // gösterirdi (rules/01 §No Misleading Urgency).
+  const done = remaining === 0;
   const okPct = pct(verified, required);
   // Bekleyen, çubukta onaylanandan artan yere sığdığı kadar çizilir: onaylanan +
   // bekleyen talebi aşarsa (fazla bildirim) çubuk taşmaz, sayılar yine doğru yazılır.
@@ -66,7 +70,7 @@ export function AmountBlock({ required, verified, pending, remaining, compact }:
           padding: compact ? '13px 14px' : '15px 16px',
         }}>
           <div className="tnum" style={{
-            fontSize: compact ? 28 : 32, fontWeight: 800, color: C.errorText,
+            fontSize: compact ? 28 : 32, fontWeight: 800, color: done ? C.successText : C.errorText,
             lineHeight: 1.08, letterSpacing: '-.025em',
           }}>{nf.format(remaining)} {t.remainingUnit}</div>
           <div style={{ fontSize: compact ? 13.5 : 14, color: C.heading2, fontWeight: 700, marginTop: 2 }}>
