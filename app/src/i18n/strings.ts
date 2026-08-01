@@ -1976,6 +1976,17 @@ export const tr = {
     loadFailed: 'Mesajlar yüklenemedi.',
     actionFailed: 'İşlem tamamlanamadı.',
     statusToast: 'Durum güncellendi.',
+    // Panel listesi ve mesaj detayı
+    head: ['Durum', 'Gönderen', 'Konu', 'Mesaj', 'Tarih', ''],
+    detail: 'Detay',
+    detailTitle: 'Mesaj detayı',
+    close: 'Kapat pencereyi',
+    fromLabel: 'Gönderen',
+    mailLabel: 'E-posta',
+    topicLabel: 'Konu',
+    dateLabel: 'Tarih',
+    messageLabel: 'Mesaj',
+    countLabel: (shown: number, total: number) => `${shown} / ${total} mesaj`,
     topics: {
       Genel: 'Genel',
       Kurum: 'Kurum / dernek',

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactElement } from 'react';
-import { useApp } from './store';
+import { useApp, type Route } from './store';
 import { useAuth } from './auth';
 import { tr } from './i18n/strings';
 import { LOAD_TIMEOUT_MS } from './util';
@@ -44,6 +44,17 @@ import { CoordNeeds } from './screens/CoordNeeds';
 import { CoordLog } from './screens/CoordLog';
 import { Components } from './screens/Components';
 import { System } from './screens/System';
+
+// Sayfa genişliği ve ortalama TEK yerde.
+//
+// Bu tabloya kadar her ekran kendi içinde `maxWidth` + `margin: '0 auto'` yazıyordu ve
+// ikincisini yazmayı unutan sayfa sola yapışıyordu — iletişim sayfası tam olarak böyle
+// çıktı. Kural artık ekranın hatırlamasına bağlı değil: buraya bir satır eklenen sayfa
+// ortalanır, eklenmeyen sayfa (ana sayfa, afet, kurumlar, panel ekranları) bugünkü gibi
+// tam genişlikte kalır.
+const PAGE_MAX: Partial<Record<Route, number>> = {
+  contact: 980,
+};
 
 export function App() {
   const a = useApp();
@@ -107,7 +118,9 @@ export function App() {
               padding: mob ? '16px 14px' : '24px 28px 40px',
               paddingBottom: mob ? (frame ? 24 : 96) : 40,
             }}>
-              {a.snap ? <Screen /> : <LoadState />}
+              <div style={{ width: '100%', maxWidth: PAGE_MAX[a.route], margin: '0 auto' }}>
+                {a.snap ? <Screen /> : <LoadState />}
+              </div>
             </main>
           </div>
           <Footer />

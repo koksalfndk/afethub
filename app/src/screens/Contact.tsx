@@ -65,7 +65,7 @@ export function Contact() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 900, width: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%' }}>
       <div>
         <div style={eyebrow}>{tr.contact.navLabel}</div>
         <h1 style={{ fontSize: mob ? 24 : 28, fontWeight: 700, letterSpacing: '-.02em', margin: '6px 0 8px', color: C.navy }}>
