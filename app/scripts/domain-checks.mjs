@@ -22,6 +22,7 @@ writeFileSync(entry, `
 export { fulfilmentRate, pickFeaturedNeeds, looksLikeContactDetails, isLivePledge,
          PLEDGE_LIVE_STATUSES, OPERATION_STAGES, MAX_FEATURED_NEEDS,
          SITUATION_STALE_DAYS } from ${JSON.stringify(new URL('../src/data/repo.ts', import.meta.url).pathname)};
+export { LocalRepo } from ${JSON.stringify(new URL('../src/data/localRepo.ts', import.meta.url).pathname)};
 `);
 const out = join(dir, 'bundle.mjs');
 await build({ input: entry, output: { file: out, format: 'esm' }, logLevel: 'silent', platform: 'node' });
@@ -95,6 +96,71 @@ ok(D.OPERATION_STAGES.length === 7 && D.OPERATION_STAGES[0] === 'initial_respons
   'yedi operasyon aşaması, müdahaleden izlemeye sıralı');
 ok(D.SITUATION_STALE_DAYS > 0,
   'durum özeti bayatlama eşiği tek bir yerde tanımlı');
+
+// ---- Teslim sözü akışı, uçtan uca (Faz 3-B) ---------------------------------
+//
+// Buradaki asıl soru tek bir cümle: SÖZ MİKTARI DEĞİŞTİRİR Mİ? Cevabın hayır olması
+// gerekiyor ve bunu iddia etmek yetmez — akış çalıştırılıp sayılar ÖNCE ve SONRA
+// karşılaştırılıyor. LocalRepo, canlı RPC'lerin davranışını birebir taklit ediyor;
+// aynı kural sunucu tarafında `supabase/tests/0036_0038_operation_detail.sql`
+// içinde ayrıca doğrulanıyor.
+{
+  const repo = new D.LocalRepo();
+  const before = await repo.getSnapshot();
+  const target = before.needs.find((n) => n.required > n.verified);
+  const snapOf = (s, id) => s.needs.find((n) => n.id === id);
+  const b = snapOf(before, target.id);
+
+  const code = await repo.createDeliveryPledge({
+    needId: target.id, qty: 5, unit: target.unit,
+    locationId: before.locations[0]?.id ?? '', estimatedDeliveryAt: '',
+    name: 'Test Kisi', email: 'test@example.com', phone: '', city: 'Mugla', notes: '',
+  });
+  ok(typeof code === 'string' && code.length > 0, 'teslim sözü bir takip kodu döndürür');
+
+  const after = await repo.getSnapshot();
+  const a1 = snapOf(after, target.id);
+  ok(a1.required === b.required, 'teslim sözü talep edilen miktarı DEĞİŞTİRMEZ');
+  ok(a1.verified === b.verified, 'teslim sözü doğrulanan miktarı ARTIRMAZ');
+  ok(a1.pending === b.pending, 'teslim sözü doğrulama bekleyen miktara GİRMEZ');
+  ok((a1.required - a1.verified) === (b.required - b.verified),
+    'teslim sözü kalan miktarı AZALTMAZ');
+  ok((a1.pledged ?? 0) === (b.pledged ?? 0) + 5,
+    'teslim sözü yalnızca kendi ayrı toplamını artırır');
+
+  // Aynı gönderimin tekrarı (ağ yeniden denemesi) ikinci kayıt üretmez.
+  const again = await repo.createDeliveryPledge({
+    needId: target.id, qty: 5, unit: target.unit,
+    locationId: before.locations[0]?.id ?? '', estimatedDeliveryAt: '',
+    name: 'Test Kisi', email: 'test@example.com', phone: '', city: 'Mugla', notes: '',
+  });
+  ok(again === code, 'aynı gönderimin tekrarı İKİNCİ bir söz oluşturmaz');
+  const dupSnap = await repo.getSnapshot();
+  ok((snapOf(dupSnap, target.id).pledged ?? 0) === (b.pledged ?? 0) + 5,
+    'tekrar gönderim söz toplamını ikinci kez artırmaz');
+
+  // Takip kodu TEK BAŞINA yetmez: e-posta eşleşmesi zorunlu (rules/02 §Tracking Codes).
+  ok((await repo.trackDeliveryPledge(code, 'baska@example.com')) === null,
+    'yanlış e-posta ile takip kodu kayıt AÇMAZ');
+  const tracked = await repo.trackDeliveryPledge(code, 'test@example.com');
+  ok(tracked !== null && tracked.status === 'pledged', 'doğru e-posta ile kayıt açılır');
+  // Takip yanıtı özel alan taşımamalı.
+  const leaked = ['email', 'phone', 'name', 'city', 'id', 'needId', 'disasterId']
+    .filter((k) => k in tracked);
+  ok(leaked.length === 0, 'takip yanıtı e-posta, telefon, ad ve veritabanı kimliği TAŞIMAZ');
+
+  // İptal de miktara dokunmaz.
+  ok((await repo.cancelDeliveryPledge(code, 'test@example.com', 'Planım değişti')) === 'cancelled',
+    'söz sahibi kendi sözünü iptal edebilir');
+  const afterCancel = await repo.getSnapshot();
+  const a2 = snapOf(afterCancel, target.id);
+  ok(a2.required === b.required && a2.verified === b.verified,
+    'iptal talep ve doğrulanan miktarı DEĞİŞTİRMEZ');
+  ok((a2.pledged ?? 0) === (b.pledged ?? 0), 'iptal edilen söz canlı toplamdan düşer');
+  // İkinci iptal yan etki üretmez.
+  ok((await repo.cancelDeliveryPledge(code, 'test@example.com', '')) === 'cancelled',
+    'ikinci iptal isteği yeni bir yan etki üretmez');
+}
 
 console.log(failed === 0 ? '\n=== DOMAIN CHECKS: HEPSİ GEÇTİ ===' : `\n=== ${failed} KONTROL BAŞARISIZ ===`);
 process.exit(failed === 0 ? 0 : 1);

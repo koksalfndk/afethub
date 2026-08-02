@@ -9,6 +9,7 @@ import type {
   AnnouncementInput, LocationInput,
   StaffMember, StaffRole, RoleInvite,
   OperationStage, PledgeStatus, OperationUpdateType, OperationUpdate, OperationMedia,
+  DeliveryPledgeInput, DeliveryPledgeTracking,
 } from '../types';
 import type { NeedPayload } from '../needForm';
 
@@ -269,6 +270,13 @@ export interface Repo {
   bumpNeed(needId: string): Promise<Snapshot>;
   togglePause(needId: string): Promise<Snapshot>;
   submitNeedRequest(p: NeedPayload, contact: { name: string; email: string; phone: string; city: string }): Promise<{ snapshot: Snapshot; code: string }>;
+  // ---- Teslim sözü (migration 0037) ----------------------------------------
+  // Üçü de RPC çağırır; tabloya doğrudan yazma YOK. Doğrulama, hız sınırı ve
+  // idempotency sunucuda (rules/03 §Input Validation).
+  createDeliveryPledge(input: DeliveryPledgeInput): Promise<string>;
+  // Kod TEK BAŞINA yetmez: e-posta eşleşmesi şart (rules/02 §Tracking Codes).
+  trackDeliveryPledge(code: string, email: string): Promise<DeliveryPledgeTracking | null>;
+  cancelDeliveryPledge(code: string, email: string, reason: string): Promise<PledgeStatus>;
   trackSubmission(code: string, email: string): Promise<Submission | null>;
   // Every submission made with the signed-in account's e-mail. Takes no argument on
   // purpose: the address comes from the session server-side, so one account can never

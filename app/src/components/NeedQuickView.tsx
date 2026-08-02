@@ -159,17 +159,19 @@ export function NeedQuickView({ need, onClose }: { need: EnrichedNeed; onClose: 
             background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.heading2, borderRadius: 9,
             padding: '11px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', minHeight: 44,
           }}>{tr.common.close}</button>
-          {/* Karşılanmış bir kalem için "teslimat bildir" açık tutulur ama birincil
+          {/* Karşılanmış bir kalem için destek yolu açık tutulur ama birincil
               görünmez: fazladan gelen bir teslimat gerçek ve kaydedilmeli. */}
           <button
-            onClick={() => { a.prefillReport(need.id, need.unit, need.loc); onClose(); }}
+            type="button"
+            aria-label={tr.support.ctaAria(need.name)}
+            onClick={() => { onClose(); a.openSupport(need.id); }}
             className={need.done ? undefined : 'hv-emergency'}
             style={{
               background: need.done ? C.surface : C.emergency,
               border: `1px solid ${need.done ? C.borderSoft : C.emergency}`,
               color: need.done ? C.navy : '#fff', borderRadius: 9,
               padding: '11px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', minHeight: 44,
-            }}>{tr.disaster.iDelivered}</button>
+            }}>{tr.support.cta}</button>
         </div>
       </div>
     </div>

@@ -503,7 +503,11 @@ export function Disaster() {
                   )}
                   {/* Primary action stays visually dominant; details is a quiet secondary. */}
                   <div style={{ display: 'flex', gap: 8, marginTop: 'auto', flexWrap: 'wrap' }}>
-                    <button onClick={() => a.prefillReport(n.id, n.unit, n.loc)} className={n.done ? undefined : 'hv-emergency'} style={{ flex: '1 1 160px', background: n.done ? C.muted3 : C.emergency, border: `1px solid ${n.done ? C.muted3 : C.emergency}`, color: '#fff', borderRadius: 9, padding: '13px 16px', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', minHeight: 48 }}>{n.done ? tr.disaster.fullyCovered : tr.disaster.iDelivered}</button>
+                    {/* Faz 3-B: kart üstündeki birincil eylem artık doğrudan "teslim ettim"
+                        değil, iki seçenekli "Destek Ol". Kişi teslimatı planlıyor da olabilir,
+                        yapmış da olabilir; kartın bunu varsayması yanlış bildirime yol açıyordu.
+                        Tetikleyici küçük kalıyor, form yalnızca basınca iniyor. */}
+                    <button type="button" onClick={() => a.openSupport(n.id)} aria-label={tr.support.ctaAria(n.name)} className={n.done ? undefined : 'hv-emergency'} style={{ flex: '1 1 160px', background: n.done ? C.muted3 : C.emergency, border: `1px solid ${n.done ? C.muted3 : C.emergency}`, color: '#fff', borderRadius: 9, padding: '13px 16px', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', minHeight: 48 }}>{n.done ? tr.disaster.fullyCovered : tr.support.cta}</button>
                     <button onClick={() => setQuickId(n.id)} className="hv-navy" style={{ flex: '0 0 auto', background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.heading2, borderRadius: 9, padding: '13px 15px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', minHeight: 48 }}>{tr.common.details}</button>
                   </div>
                 </div>

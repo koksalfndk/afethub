@@ -1,9 +1,136 @@
+import { useRef, useState } from 'react';
 import { useApp } from '../store';
 import { tr, statusLabel } from '../i18n/strings';
 import { C, STATUS } from '../theme';
 import { cols } from '../select';
 import { Field, inputStyle, eyebrow, Ico } from '../ui';
 import { useAuth } from '../auth';
+import { isLivePledge } from '../data';
+import type { DeliveryPledgeTracking } from '../types';
+
+// Teslim sözü kartı (Faz 3-B).
+//
+// Ayrı bir karttır ve teslimat bildiriminin kartıyla BİRLEŞTİRİLMEZ: ikisi farklı
+// şeyler. Söz, kişinin niyeti; bildirim, koordinatörün önündeki kayıt. Aynı görsel
+// kutuya konsalardı ziyaretçi "sözüm doğrulandı" diye okurdu (rules/07 §Critical
+// Distinctions). Kart her durumda kalan miktarı etkilemediğini yazar.
+function PledgeCard({ p }: { p: DeliveryPledgeTracking }) {
+  const a = useApp();
+  const [confirming, setConfirming] = useState(false);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  // Senkron kilit: `busy` bir sonraki render'da güncelleniyor, aynı tick içindeki
+  // ikinci tıklama ilk kontrolü geçiyordu (Faz 3-A'da üretimde iki RPC çağrısına yol
+  // açtı).
+  const lock = useRef(false);
+
+  const live = isLivePledge(p.status);
+  // Teslimat bildirildikten sonra iptal sunucuda reddediliyor; butonu göstermek
+  // kişiye yapamayacağı bir eylem teklif etmek olurdu.
+  const cancellable = live;
+
+  const tone = p.status === 'cancelled' || p.status === 'expired'
+    ? { bg: C.canvas, border: C.borderSoft, fg: C.muted }
+    : p.status === 'fulfilled'
+      ? { bg: '#EAF7EF', border: '#C9E9D6', fg: C.successText }
+      : { bg: '#EEF4FB', border: '#CFE0F2', fg: C.navy };
+
+  const doCancel = async () => {
+    if (lock.current) return;
+    lock.current = true; setBusy(true);
+    try {
+      const ok = await a.cancelPledge(p.code, a.track.email, reason);
+      if (ok) setConfirming(false);
+    } finally { lock.current = false; setBusy(false); }
+  };
+
+  // Bildirim formuna geçiş. Söze BAĞLANMIYOR — bu ayrı bir kayıt ve kart bunu açıkça
+  // yazıyor. Bağlama (`link_pledge_to_submission()`) Faz 3-C'de.
+  const needId = a.snap?.needs.find((n) => n.name === p.needName)?.id ?? '';
+
+  return (
+    <div className="anim-in" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18, marginTop: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div style={{ minWidth: 0 }}>
+          <div className="tnum" style={{ fontSize: 12, fontWeight: 600, color: C.muted2 }}>{p.code}</div>
+          <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>{p.qty} {p.unit} · {p.needName || '—'}</div>
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>
+            {[p.locationName, p.estimatedDeliveryAt && tr.support.trackEta(p.estimatedDeliveryAt)].filter(Boolean).join(' · ')}
+          </div>
+        </div>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: tone.fg, background: tone.bg, border: `1px solid ${tone.border}`, borderRadius: 20, padding: '6px 11px', whiteSpace: 'nowrap' }}>
+          {tr.support.statusLabel[p.status] ?? p.status}
+        </span>
+      </div>
+
+      <div style={{ marginTop: 12, fontSize: 13.5, color: C.heading2 }}>{tr.support.statusHelp[p.status] ?? ''}</div>
+
+      {/* Değişmez alan kuralı, sözün her görüntülenişinde tekrar yazılıyor. */}
+      <div style={{ marginTop: 12, background: C.canvas, border: `1px solid ${C.border}`, borderRadius: 9, padding: 12, fontSize: 12.5, color: C.muted, lineHeight: 1.5 }}>
+        {tr.support.notice}
+      </div>
+
+      {p.notes && (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontSize: 12, color: C.muted2, fontWeight: 600 }}>{tr.support.notes}</div>
+          <div style={{ fontSize: 13.5, color: C.heading2, marginTop: 3, whiteSpace: 'pre-wrap' }}>{p.notes}</div>
+        </div>
+      )}
+
+      {live && !confirming && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
+          <button type="button" onClick={() => {
+            a.prefillReport(needId, p.unit, p.locationName);
+            // Kişinin az önce takip kutusuna yazdığı adres forma taşınıyor: aynı adresi
+            // ikinci kez yazdırmak gereksiz (rules/01 §Registration Must Be Optional) ve
+            // bildirimin "Gönderilerim" listesinde çıkmasını sağlayan da bu adres.
+            // Ad, telefon ve şehir TAŞINMIYOR — takip yanıtı bunları hiç içermiyor.
+            if (a.track.email) a.setForm('email', a.track.email);
+          }} className="hv-emergency" style={{
+            background: C.emergency, border: `1px solid ${C.emergency}`, color: '#fff', borderRadius: 9,
+            padding: '12px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', minHeight: 48,
+          }}>{tr.support.reportDelivery}</button>
+          {cancellable && (
+            <button type="button" onClick={() => setConfirming(true)} className="hv-navy" style={{
+              background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 9,
+              padding: '12px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', minHeight: 48,
+            }}>{tr.support.cancelPlan}</button>
+          )}
+        </div>
+      )}
+      {live && !confirming && (
+        <div style={{ fontSize: 12, color: C.muted2, marginTop: 8, lineHeight: 1.5 }}>{tr.support.reportDeliveryNote}</div>
+      )}
+
+      {/* Sonucu ÖNCE söyleyen onay (rules/04 §Destructive Actions). */}
+      {confirming && (
+        <div style={{ marginTop: 16, background: C.canvas, border: `1px solid ${C.borderSoft}`, borderRadius: 10, padding: 14 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 700, color: C.navy }}>{tr.support.cancelTitle}</div>
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>{tr.support.cancelLead}</div>
+          <div style={{ marginTop: 12 }}>
+            <Field label={tr.support.cancelReason}>
+              <select value={reason} onChange={(e) => setReason(e.target.value)} style={inputStyle}>
+                <option value="">—</option>
+                {tr.support.cancelReasons.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </Field>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+            <button type="button" onClick={doCancel} disabled={busy} style={{
+              background: busy ? C.muted3 : C.emergency, border: `1px solid ${busy ? C.muted3 : C.emergency}`,
+              color: '#fff', borderRadius: 9, padding: '12px 16px', fontSize: 14, fontWeight: 600,
+              cursor: busy ? 'default' : 'pointer', minHeight: 48,
+            }}>{busy ? tr.support.submitting : tr.support.cancelConfirm}</button>
+            <button type="button" onClick={() => setConfirming(false)} disabled={busy} style={{
+              background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 9,
+              padding: '12px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', minHeight: 48,
+            }}>{tr.support.cancelKeep}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Track() {
   const a = useApp();
@@ -11,6 +138,7 @@ export function Track() {
   const loggedIn = auth.enabled && !!auth.user;
   const L = cols(a.device === 'mobile');
   const sub = a.trackedSub;
+  const pledge = a.trackedPledge;
   // A submission opened from the list may belong to another operation than the loaded
   // snapshot, so its need name comes from the record itself when the lookup misses.
   const need = sub && a.snap ? a.snap.needs.find((n) => n.id === sub.needId) : null;
@@ -114,6 +242,8 @@ export function Track() {
         </div>
         {a.trackError && <div style={{ background: '#FEF3F2', border: '1px solid #F6C9C9', borderRadius: 10, padding: '12px 13px', fontSize: 13.5, color: C.errorText }}>{a.trackError}</div>}
       </div>
+
+      {pledge && <PledgeCard p={pledge} />}
 
       {sub && (
         <div className="anim-in" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18, marginTop: 14 }}>

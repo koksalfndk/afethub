@@ -58,6 +58,10 @@ const NeedWizard = lazy(() => import('./components/NeedWizard').then((m) => ({ d
 const AuthModal = lazy(() => import('./components/AuthModal').then((m) => ({ default: m.AuthModal })));
 const DisasterReportModal = lazy(() => import('./components/DisasterReportModal').then((m) => ({ default: m.DisasterReportModal })));
 const ReportModal = lazy(() => import('./components/ReportModal').then((m) => ({ default: m.ReportModal })));
+// Destek sayfası formu ihtiyaç kartındaki küçük tetikleyiciden ağır: yalnızca
+// "Destek Ol"a basıldığında iniyor (rules/09 §8 — zayıf bağlantıdaki ziyaretçi
+// açmadığı formu indirmemeli).
+const SupportSheet = lazy(() => import('./components/SupportSheet').then((m) => ({ default: m.SupportSheet })));
 import { LiveTicker } from './components/LiveTicker';
 import { Footer } from './components/Footer';
 
@@ -149,6 +153,7 @@ export function App() {
             <DisasterReportModal />
             <NeedWizard />
             <AuthModal key={auth.prefillEmail} />
+            {a.supportNeedId && <SupportSheet />}
           </Suspense>
           <Modal />
           <Toast />

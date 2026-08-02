@@ -11,6 +11,7 @@ import type {
   AnnouncementInput, LocationInput,
   StaffMember, StaffRole, RoleInvite, OperationStage,
   OperationUpdate, OperationUpdateType, OperationMedia,
+  DeliveryPledgeInput, DeliveryPledgeTracking, PledgeStatus,
 } from '../types';
 import type {
   Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed,
@@ -1181,6 +1182,39 @@ export class SupabaseRepo implements Repo {
       note: String(r.note ?? ''), photoUrl: r.photo_url ? String(r.photo_url) : null,
       needName: String(r.need_name ?? ''),
     }));
+  }
+
+  // Teslim sözü — hiçbiri miktarları değiştirmez (migration 0037).
+  async createDeliveryPledge(f: DeliveryPledgeInput): Promise<string> {
+    const { data, error } = await this.db.rpc('create_delivery_pledge', {
+      p_need: f.needId, p_qty: f.qty, p_unit: f.unit || null,
+      p_location: f.locationId, p_eta: f.estimatedDeliveryAt || null,
+      p_name: f.name, p_email: f.email, p_phone: f.phone, p_city: f.city, p_notes: f.notes,
+    });
+    if (error) throw error;
+    return String(data);
+  }
+
+  async trackDeliveryPledge(code: string, email: string): Promise<DeliveryPledgeTracking | null> {
+    const { data, error } = await this.db.rpc('track_delivery_pledge', { p_code: code, p_email: email });
+    if (error) throw error;
+    const r = (data as Record<string, unknown>[] | null)?.[0];
+    if (!r) return null;
+    return {
+      code: String(r.code), qty: Number(r.qty), unit: String(r.unit),
+      needName: String(r.need_name), locationName: String(r.location_name ?? ''),
+      estimatedDeliveryAt: String(r.estimated_delivery_at ?? ''),
+      status: r.status as DeliveryPledgeTracking['status'],
+      notes: String(r.notes ?? ''), createdAt: String(r.created_at ?? ''),
+    };
+  }
+
+  async cancelDeliveryPledge(code: string, email: string, reason: string): Promise<PledgeStatus> {
+    const { data, error } = await this.db.rpc('cancel_delivery_pledge', {
+      p_code: code, p_email: email, p_reason: reason,
+    });
+    if (error) throw error;
+    return data as PledgeStatus;
   }
 
   async trackSubmission(code: string, email: string): Promise<Submission | null> {

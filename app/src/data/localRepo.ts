@@ -6,12 +6,13 @@ import type {
   OrgEditRequest, Disaster, DisasterInput, OrganizationSave, OrgStatus,
   VolunteerInput, VolunteerApplication, VolunteerStatus, StaffMember, StaffRole, RoleInvite,
   Announcement, AnnouncementInput, Location, LocationInput, OperationUpdate, OperationStage,
+  DeliveryPledgeInput, DeliveryPledgeTracking, PledgeStatus,
 } from '../types';
 import type {
   Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed,
   CoordOverview, CoordDisasterRow, CoordQueueItem,
 } from './repo';
-import { genCode, genNrq, remaining, isSameEvent, SLA_HOURS, urgencyScore, splitDistricts, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS, COMMUNITY_THRESHOLD, isPublicAuditAction, MAX_FEATURED_NEEDS } from './repo';
+import { genCode, genNrq, remaining, isSameEvent, SLA_HOURS, urgencyScore, splitDistricts, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS, COMMUNITY_THRESHOLD, isPublicAuditAction, MAX_FEATURED_NEEDS, isLivePledge } from './repo';
 import { disasterTypeLabel } from '../i18n/strings';
 import { agoMinutes } from '../util';
 import { PRI } from '../theme';
@@ -38,6 +39,12 @@ let orgEdits: OrgEditRequest[] = [];
 // they become module state like needs and orgs instead of being read straight from seed.
 let announcements: Announcement[] = seed.announcements.map((x) => ({ ...x }));
 const updates: OperationUpdate[] = seed.operationUpdates.map((x) => ({ ...x }));
+// Yerel teslim sözü deposu. Sayfa yenilenince sıfırlanır — kalıcı bir kayıt değil.
+type LocalPledge = {
+  code: string; email: string; needId: string; qty: number; unit: string; needName: string;
+  locationName: string; eta: string; notes: string; status: PledgeStatus; createdAt: string;
+};
+const pledges: LocalPledge[] = [];
 let locations: Location[] = seed.locations.map((x) => ({ ...x }));
 // Volunteer applications and staff both start empty on purpose: an invented "pending
 // volunteer" would be a named person who never applied, and a fake coordinator list
@@ -139,7 +146,16 @@ function snap(slug?: string): Snapshot {
     disaster: current,
     disasters: seed.disasters.map((d) => ({ ...d })),
     locations: locations.filter((l) => mine(l.disasterId)).map((l) => ({ ...l })),
-    needs: needs.filter((n) => mine(n.disasterId)).map((n) => ({ ...n })),
+    // `pledged`, canlıdaki `need_pledge_totals` görünümünün yerel karşılığı: YALNIZCA
+    // canlı durumlar sayılır ve bu sayı `required`/`verified`/`pending` alanlarının
+    // hiçbirine dokunmaz. Hesaplanmadığı sürece yerel önizleme sözü hiç göstermiyordu
+    // — demo modda "0 teslim sözü" yazan bir sayaç, kaydın oluşmadığı izlenimi verirdi.
+    needs: needs.filter((n) => mine(n.disasterId)).map((n) => ({
+      ...n,
+      pledged: pledges
+        .filter((p) => p.needId === n.id && isLivePledge(p.status))
+        .reduce((x, p) => x + p.qty, 0),
+    })),
     // Submissions and audit entries are scoped to the current operation so one
     // disaster page never shows another operation's traffic.
     subs: subs.filter((s) => mine(disasterOfNeed(s.needId))).map((s) => ({ ...s })),
@@ -1227,6 +1243,61 @@ export class LocalRepo implements Repo {
       .slice()
       .sort((x, y) => agoMinutes(x.submitted) - agoMinutes(y.submitted))
       .map((s) => ({ ...s }));
+  }
+
+  // ---- Teslim sözü — YEREL DEMO --------------------------------------------
+  // Gerçek yetkilendirme, gerçek hız sınırı ve gerçek e-posta doğrulaması YOK; bunlar
+  // Supabase yolundaki RPC'lerin işi. Burada yalnızca arayüzün akışı denenebilsin diye
+  // bellekte bir kayıt tutuluyor ve takip kodu "DEMO-" ile başlıyor ki üretimdeki
+  // "SOZ-" kodlarıyla karışmasın (CLAUDE.md §No Fabricated Completion).
+  //
+  // MİKTARLARA DOKUNMUYOR: `needs` dizisi bu metotların hiçbirinde değişmiyor.
+  async createDeliveryPledge(f: DeliveryPledgeInput): Promise<string> {
+    const need = needs.find((n) => n.id === f.needId);
+    if (!need) throw new Error('Need not found');
+    if (need.priority === 'Completed' || need.priority === 'Paused') {
+      throw new Error('This need is not accepting aid');
+    }
+    if (!(f.qty > 0)) throw new Error('Quantity must be greater than zero');
+    // Sunucudaki idempotency kuralının aynısı: aynı adres + aynı kalem + aynı miktar.
+    const dup = pledges.find((p) => p.needId === f.needId
+      && p.email.toLowerCase() === f.email.trim().toLowerCase()
+      && p.qty === f.qty && p.status === 'pledged');
+    if (dup) return dup.code;
+    const code = 'DEMO-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+    pledges.push({
+      code, email: f.email.trim().toLowerCase(), needId: f.needId, qty: f.qty,
+      unit: f.unit || need.unit, needName: need.name,
+      locationName: locations.find((l) => l.id === f.locationId)?.name ?? '',
+      eta: f.estimatedDeliveryAt, notes: f.notes, status: 'pledged',
+      createdAt: new Date().toISOString(),
+    });
+    return code;
+  }
+
+  async trackDeliveryPledge(code: string, email: string): Promise<DeliveryPledgeTracking | null> {
+    const p = pledges.find((x) => x.code.toUpperCase() === code.trim().toUpperCase()
+      && x.email === email.trim().toLowerCase());
+    if (!p) return null;
+    return {
+      code: p.code, qty: p.qty, unit: p.unit, needName: p.needName,
+      locationName: p.locationName, estimatedDeliveryAt: p.eta,
+      status: p.status, notes: p.notes, createdAt: p.createdAt,
+    };
+  }
+
+  async cancelDeliveryPledge(code: string, email: string, _reason: string): Promise<PledgeStatus> {
+    void _reason;
+    const p = pledges.find((x) => x.code.toUpperCase() === code.trim().toUpperCase()
+      && x.email === email.trim().toLowerCase());
+    if (!p) throw new Error('Pledge not found');
+    // İkinci iptal yan etki üretmez: zaten kapalıysa mevcut durum döner.
+    if (p.status === 'cancelled' || p.status === 'expired') return p.status;
+    if (p.status === 'delivered_reported' || p.status === 'fulfilled') {
+      throw new Error('This pledge already became a delivery report');
+    }
+    p.status = 'cancelled';
+    return 'cancelled';
   }
 
   async trackSubmission(code: string, _email: string): Promise<Submission | null> {

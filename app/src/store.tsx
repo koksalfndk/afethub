@@ -8,6 +8,7 @@ import type {
   AnnouncementInput, LocationInput,
   StaffMember, StaffRole, RoleInvite, LogEntry,
   ContactInput, ContactMessage, ContactStatus, ContactAttachment, OperationStage,
+  DeliveryPledgeInput, DeliveryPledgeTracking,
 } from './types';
 import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
@@ -276,6 +277,14 @@ export interface AppApi {
   openDisasterForm: () => void; closeDisasterForm: () => void;
   openDelivery: () => void; closeDelivery: () => void;
   saveDisaster: (id: string | null, input: DisasterInput) => Promise<boolean>;
+  // ---- Faz 3-B: teslim sözü ------------------------------------------------
+  // `supportNeedId`: "Destek Ol" ile açılan kalem. null = kapalı.
+  supportNeedId: string | null;
+  openSupport: (needId: string) => void;
+  closeSupport: () => void;
+  createDeliveryPledge: (input: DeliveryPledgeInput) => Promise<string | null>;
+  trackedPledge: DeliveryPledgeTracking | null;
+  cancelPledge: (code: string, email: string, reason: string) => Promise<boolean>;
   // Faz 3-A koordinatör araçları. İkisi de sunucu tarafındaki RPC'yi çağırır; yetki
   // ve denetim kaydı orada (migration 0036).
   setOperationStage: (disasterId: string, stage: OperationStage | null, note: string, reason: string) => Promise<boolean>;
@@ -382,6 +391,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [wizardMode, setWizardMode] = useState<WizardMode | null>(null);
   const [disasterFormOpen, setDisasterFormOpen] = useState(false);
   const [deliveryOpen, setDeliveryOpen] = useState(false);
+  const [supportNeedId, setSupportNeedId] = useState<string | null>(null);
+  const [trackedPledge, setTrackedPledge] = useState<DeliveryPledgeTracking | null>(null);
   const [modal, setModal] = useState<ModalState | null>(null);
   const [logDisasterId, setLogDisasterId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -706,7 +717,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     route, tab, device, role, currentSlug, frame, showToolbar: IS_DEV, query, filter, subFilter,
     catFilter, locFilter, onlyCritical, updatedToday,
     form, track, reportStage, lastCode, formError, copied,
-    modal, toast, trackedSub, trackError, wizardMode, disasterFormOpen, deliveryOpen, logDisasterId,
+    modal, toast, trackedSub, trackError, trackedPledge, supportNeedId, wizardMode, disasterFormOpen, deliveryOpen, logDisasterId,
     mySubs, mySubsLoading, mySubsError,
     orgEdits, orgEditsLoading, orgEditsError, orgEditsPending,
     reportQueue, reportQueueLoading, reportQueueError,
@@ -839,6 +850,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
         showToast(needIds.length === 0 ? tr.coordOps2.featuredCleared : tr.coordOps2.featuredSaved);
         return true;
       } catch { showToast(tr.coordOps2.featuredFailed); return false; }
+    },
+    openSupport: (needId) => { setFormError(''); setSupportNeedId(needId); },
+    closeSupport: () => setSupportNeedId(null),
+    createDeliveryPledge: async (input) => {
+      try {
+        const code = await withTimeout(repo.createDeliveryPledge(input));
+        // Miktarlar DEĞİŞMEDİ; yine de anlık görüntü tazeleniyor çünkü "yolda /
+        // planlanan" toplamı arttı (migration 0037 `need_pledge_totals`).
+        try { setSnap(await withTimeout(repo.getSnapshot(currentSlug || undefined))); } catch { /* toplam bir sonraki okumada gelir */ }
+        return code;
+      } catch (e) {
+        setFormError(e instanceof Error && /not accepting aid/i.test(e.message)
+          ? tr.support.errClosed : tr.support.errGeneric);
+        return null;
+      }
+    },
+    cancelPledge: async (code, email, reason) => {
+      try {
+        await withTimeout(repo.cancelDeliveryPledge(code, email, reason));
+        const p = await repo.trackDeliveryPledge(code, email).catch(() => null);
+        setTrackedPledge(p);
+        showToast(tr.support.cancelled);
+        return true;
+      } catch { showToast(tr.support.cancelFailed); return false; }
     },
     publishNeed: async (p) => {
       if (unverified) { showToast(tr.auth.verifyFirst); return false; }
@@ -1097,10 +1132,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // is one place where a submission is rendered.
     openTrackedSub: (sub) => { setTrackedSub(sub); setTrackError(''); },
     doTrack: () => {
-      repo.trackSubmission(track.code, track.email).then((sub) => {
-        if (!sub) { setTrackedSub(null); setTrackError(tr.track.notFound); }
-        else { setTrackedSub(sub); setTrackError(''); }
-      });
+      // Tek arama kutusu, iki kayıt türü. Önce teslimat bildirimi, sonra teslim sözü.
+      // İkisi de bulunamazsa TEK ve AYNI mesaj döner: "böyle bir kod var ama e-postan
+      // yanlış" ile "böyle bir kod yok" ayrımı sızdırılmaz (rules/03 §Error Handling).
+      setTrackedSub(null); setTrackedPledge(null); setTrackError('');
+      repo.trackSubmission(track.code, track.email).then(async (sub) => {
+        if (sub) { setTrackedSub(sub); return; }
+        try {
+          const p = await repo.trackDeliveryPledge(track.code, track.email);
+          if (p) setTrackedPledge(p); else setTrackError(tr.track.notFound);
+        } catch { setTrackError(tr.track.notFound); }
+      }).catch(() => setTrackError(tr.track.notFound));
     },
     fillDemoCode: () => {
       setTrackState({ code: 'AFT-4821', email: 'ayse@example.com' });
@@ -1266,7 +1308,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Every piece of state exposed on `api` must be listed here, or consumers keep the
   // previous value: `deliveryOpen` and `slides` were missing, so the delivery overlay
   // never appeared and the slide list could go stale after a save.
-  }), [snap, loadError, overview, coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, contactMessages, contactLoading, contactError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError, logDisasterId, focusNeedId, opChosen]);
+  }), [snap, loadError, overview, coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, contactMessages, contactLoading, contactError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError, trackedPledge, supportNeedId, logDisasterId, focusNeedId, opChosen]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
