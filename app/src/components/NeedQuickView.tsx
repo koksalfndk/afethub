@@ -2,8 +2,9 @@ import { useEffect, useRef } from 'react';
 import { useApp } from '../store';
 import { tr } from '../i18n/strings';
 import { C, wash } from '../theme';
-import { PriorityBadge, ProgressBar, Ico } from '../ui';
+import { PriorityBadge, ProgressBar, Ico, ClosedNeedNotice } from '../ui';
 import { detailPairs, categoryIcon } from '../needForm';
+import { acceptsPledges } from '../data';
 import type { EnrichedNeed } from '../select';
 
 // Bir ihtiyaç kaleminin hızlı bakış penceresi.
@@ -160,7 +161,10 @@ export function NeedQuickView({ need, onClose }: { need: EnrichedNeed; onClose: 
             padding: '11px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', minHeight: 44,
           }}>{tr.common.close}</button>
           {/* Karşılanmış bir kalem için destek yolu açık tutulur ama birincil
-              görünmez: fazladan gelen bir teslimat gerçek ve kaydedilmeli. */}
+              görünmez: fazladan gelen bir teslimat gerçek ve kaydedilmeli.
+              Duraklatılmış/tamamlanmış kalemde ise eylem hiç sunulmuyor — sunucu
+              zaten reddediyor ve pencere bunu önceden söylüyor. */}
+          {!acceptsPledges(need) ? <ClosedNeedNotice priority={need.priority} /> : (
           <button
             type="button"
             aria-label={tr.support.ctaAria(need.name)}
@@ -171,7 +175,7 @@ export function NeedQuickView({ need, onClose }: { need: EnrichedNeed; onClose: 
               border: `1px solid ${need.done ? C.borderSoft : C.emergency}`,
               color: need.done ? C.navy : '#fff', borderRadius: 9,
               padding: '11px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', minHeight: 44,
-            }}>{tr.support.cta}</button>
+            }}>{tr.support.cta}</button>)}
         </div>
       </div>
     </div>

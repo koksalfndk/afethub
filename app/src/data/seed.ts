@@ -250,7 +250,10 @@ const rawNeeds: RawNeed[] = [
   ['n6', 'd1', 'İş Eldiveni', 'Ekipman', 'Normal', 100, 40, 8, 'çift', '1 saat önce', 'Çamlıyayla Okul Spor Salonu'],
   ['n7', 'd1', 'Islak Mendil', 'Hijyen', 'Normal', 300, 120, 35, 'paket', '1 saat önce', 'Seydikemer Kapalı Pazar Yeri'],
   ['n8', 'd1', 'İş Pantolonu', 'Giyim', 'Normal', 60, 18, 5, 'adet', '2 saat önce', 'Çamlıyayla Okul Spor Salonu'],
-  ['n9', 'd1', 'Tişört ve Gömlek', 'Giyim', 'Normal', 150, 55, 12, 'adet', '2 saat önce', 'Seydikemer Kapalı Pazar Yeri'],
+  // Duraklatılmış kalem. Örnek veride BİLEREK var: "duraklatıldı", ürünün gerçek bir
+  // operasyonel durumu ve kartın onu nasıl gösterdiği (eylem yerine durum) yalnızca
+  // böyle bir kayıt varsa denenebiliyor. Üretimde de duraklatılmış bir kalem bulunuyor.
+  ['n9', 'd1', 'Tişört ve Gömlek', 'Giyim', 'Paused', 150, 55, 12, 'adet', '2 saat önce', 'Seydikemer Kapalı Pazar Yeri'],
   // d2 — Kaş
   ['n10', 'd2', 'Maske', 'Sağlık', 'Critical', 150, 40, 20, 'kutu', '11 dakika önce', 'Kaş Kültür Merkezi'],
   ['n11', 'd2', 'İçme Suyu', 'Gıda ve Su', 'Critical', 5000, 1800, 600, 'litre', '19 dakika önce', 'Kaş Kültür Merkezi'],

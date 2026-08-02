@@ -7,7 +7,7 @@ import {
   Image as ImageIcon, FileText, Download, type LucideIcon,
 } from 'lucide-react';
 import { C, G, PRI, STATUS, barFill, ribbon, wash, type PriorityKey, type StatusKey } from './theme';
-import { priorityLabel, statusLabel } from './i18n/strings';
+import { priorityLabel, statusLabel, tr } from './i18n/strings';
 import type { DisasterType } from './types';
 
 // Reusable style fragments ported from the prototype.
@@ -329,4 +329,43 @@ export function MetricCell({ accent, value, label, onClick, title }: {
   return onClick
     ? <button onClick={onClick} title={title ?? label} className="hv-navy" style={{ ...style, cursor: 'pointer', width: '100%' }}>{inner}</button>
     : <div style={style}>{inner}</div>;
+}
+
+// ---------------------------------------------------------------------------
+// Teslim sözü kabul etmeyen bir kalemin kart üzerindeki karşılığı.
+//
+// Neden düğme değil: üretimde duraklatılmış bir ihtiyaç tam yetkili bir "Destek Ol"
+// düğmesi gösteriyordu. Sunucu doğru davranıp reddediyordu (migration 0037), ama
+// kişi bunu ancak formu baştan sona doldurup gönderdikten SONRA öğreniyordu. Kart
+// artık kararı önce söylüyor — sunucu doğrulaması olduğu gibi duruyor; bu yalnızca
+// boşa emek harcanmasını önlüyor (rules/04 §Error States).
+//
+// Ayrı bir "Neden?" açılır alanı BİLEREK yok: ihtiyaç kaydında koordinatörün yazdığı
+// bir duraklatma gerekçesi alanı bulunmuyor. Her açılışta aynı sabit cümleyi
+// gösterecek bir düğme, bilgi vaat edip vermemek olurdu. Gerekçe alanı eklendiğinde
+// buraya opsiyonel bir `reason` gelir.
+export function ClosedNeedNotice({ priority, reason }: { priority: PriorityKey; reason?: string }) {
+  const completed = priority === 'Completed';
+  const t = completed ? PRI.Completed : PRI.Paused;
+  return (
+    <div
+      role="status"
+      style={{
+        flex: '1 1 160px', minHeight: 48, borderRadius: 9,
+        background: t.bg, border: `1px solid ${t.border}`, padding: '9px 12px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2,
+      }}
+    >
+      {/* Durum renkle DEĞİL, kelimeyle taşınıyor (rules/04 §Accessibility). */}
+      <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: t.fg }}>
+        {completed ? tr.support.closedDoneBadge : tr.support.closedBadge}
+      </span>
+      <span style={{ fontSize: 12.5, color: C.heading2, lineHeight: 1.4 }}>
+        {tr.support.closedLead}
+      </span>
+      <span style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.4 }}>
+        {reason?.trim() || (completed ? tr.support.closedDoneWhy : tr.support.closedWhy)}
+      </span>
+    </div>
+  );
 }

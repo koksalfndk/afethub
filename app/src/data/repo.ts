@@ -386,6 +386,21 @@ export const PLEDGE_LIVE_STATUSES: PledgeStatus[] = ['pledged', 'confirmed', 'in
 
 export const isLivePledge = (s: PledgeStatus): boolean => PLEDGE_LIVE_STATUSES.includes(s);
 
+// Bir ihtiyaç yeni teslim sözü kabul ediyor mu?
+//
+// Bu, sunucudaki kuralın AYNASIDIR — yetkilendirme değil. Karar `create_delivery_pledge()`
+// içinde veriliyor ve orada kalıyor (migration 0037: "This need is not accepting aid").
+// Buradaki kopyanın tek işi, kişiyi reddedileceği bir formu baştan sona doldurmaktan
+// kurtarmak: üretimde duraklatılmış bir kalem tam yetkili bir "Destek Ol" düğmesi
+// gösteriyordu ve red, ancak son adımda geliyordu (rules/04 §Error States).
+//
+// Listeyi burada tutmanın sebebi, iki yüzeyin (kart ve hızlı bakış penceresi) aynı
+// cümleyi iki ayrı yerde tanımlamasını engellemek.
+export const PLEDGE_CLOSED_PRIORITIES: PriorityKey[] = ['Completed', 'Paused'];
+
+export const acceptsPledges = (n: { priority: PriorityKey }): boolean =>
+  !PLEDGE_CLOSED_PRIORITIES.includes(n.priority);
+
 // Sunucudaki check constraint'lerin ve RPC doğrulamalarının karşılıkları.
 export const UPDATE_BODY_MAX = 1200;
 export const UPDATE_LOCATION_MAX = 120;

@@ -1015,7 +1015,12 @@ export const tr = {
     email: 'E-posta',
     trackBtn: 'Takip et',
     demo: 'Demo kodu kullan AFT-4821',
-    notFound: 'Bu koda ait gönderi bulunamadı. Onay e-postandaki kodu kontrol et.',
+    // Tek kutu iki kayıt türüne bakıyor: teslimat bildirimi ve teslim sözü. Eski metin
+    // ("Onay e-postandaki kodu kontrol et") yalnızca bildirim için doğruydu — teslim
+    // sözü için onay e-postası GÖNDERİLMİYOR, yani kişiyi olmayan bir e-postayı
+    // aramaya yolluyordu. Yeni metin ikisi için de doğru ve hangi kaydın var olduğunu
+    // ele vermiyor (rules/03 §Error Handling).
+    notFound: 'Bu bilgilerle eşleşen bir işlem bulunamadı. Lütfen takip kodunuzu ve e-posta adresinizi kontrol ederek tekrar deneyin.',
     lastUpdated: (t: string) => `son güncelleme ${t}`,
     reported: 'Bildirilen',
     verified: 'Doğrulanan',
@@ -2158,6 +2163,15 @@ export const tr = {
   // ---- Faz 3-B: public destek akışı -----------------------------------------
   support: {
     cta: 'Destek Ol',
+    // Duraklatılmış/tamamlanmış kalem: kart tam yetkili bir eylem göstermek yerine
+    // durumu söylüyor. Metin sunucunun verdiği kararı tekrar ediyor, yeni bir kural
+    // koymuyor.
+    closedBadge: 'Duraklatıldı',
+    closedDoneBadge: 'Tamamlandı',
+    closedLead: 'Bu ihtiyaç şu anda teslim sözü kabul etmiyor.',
+    closedWhy: 'Koordinasyon ekibi geçici olarak bu ihtiyaç için yeni teslim sözü kabul etmiyor.',
+    closedDoneWhy: 'Bu ihtiyacın talep edilen miktarı karşılandı; yeni teslim sözü alınmıyor.',
+    closedOther: 'Diğer ihtiyaçları görüntüle',
     ctaAria: (need: string) => `${need} için destek ol`,
     chooseTitle: 'Nasıl destek olacaksınız?',
     chooseLead: 'Planladığınız teslimatı veya gerçekleştirdiğiniz teslimatı bildirin.',

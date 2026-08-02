@@ -4,13 +4,13 @@ import { useAuth } from '../auth';
 import { tr, disasterTypeLabel } from '../i18n/strings';
 import { C, G, wash, MOBILE_HEADER_H, DESKTOP_HEADER_H } from '../theme';
 import { enrichSorted, cols, type EnrichedNeed } from '../select';
-import { PriorityBadge, ProgressBar, Chip, StatCard, LiveDot, Ico, DISASTER_ICON, eyebrow, filterPickerStyle, washCard, type IcoName } from '../ui';
+import { PriorityBadge, ProgressBar, Chip, StatCard, LiveDot, Ico, DISASTER_ICON, ClosedNeedNotice, eyebrow, filterPickerStyle, washCard, type IcoName } from '../ui';
 import { Picker, toOptions } from '../components/Picker';
 import { detailPairs, categoryIcon } from '../needForm';
 import { NeedFilterSheet, activeFilterCount } from '../components/NeedFilterSheet';
 import { NeedQuickView } from '../components/NeedQuickView';
 import { OperationOverview, OperationStageBlock, FeaturedNeeds } from '../components/OperationOverview';
-import { fulfilmentRate } from '../data';
+import { fulfilmentRate, acceptsPledges } from '../data';
 import { isToday, formatDate } from '../util';
 import type { Filter, Tab } from '../store';
 import type { Location } from '../types';
@@ -507,7 +507,11 @@ export function Disaster() {
                         değil, iki seçenekli "Destek Ol". Kişi teslimatı planlıyor da olabilir,
                         yapmış da olabilir; kartın bunu varsayması yanlış bildirime yol açıyordu.
                         Tetikleyici küçük kalıyor, form yalnızca basınca iniyor. */}
-                    <button type="button" onClick={() => a.openSupport(n.id)} aria-label={tr.support.ctaAria(n.name)} className={n.done ? undefined : 'hv-emergency'} style={{ flex: '1 1 160px', background: n.done ? C.muted3 : C.emergency, border: `1px solid ${n.done ? C.muted3 : C.emergency}`, color: '#fff', borderRadius: 9, padding: '13px 16px', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', minHeight: 48 }}>{n.done ? tr.disaster.fullyCovered : tr.support.cta}</button>
+                    {acceptsPledges(n) ? (
+                      <button type="button" onClick={() => a.openSupport(n.id)} aria-label={tr.support.ctaAria(n.name)} className={n.done ? undefined : 'hv-emergency'} style={{ flex: '1 1 160px', background: n.done ? C.muted3 : C.emergency, border: `1px solid ${n.done ? C.muted3 : C.emergency}`, color: '#fff', borderRadius: 9, padding: '13px 16px', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', minHeight: 48 }}>{n.done ? tr.disaster.fullyCovered : tr.support.cta}</button>
+                    ) : (
+                      <ClosedNeedNotice priority={n.priority} />
+                    )}
                     <button onClick={() => setQuickId(n.id)} className="hv-navy" style={{ flex: '0 0 auto', background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.heading2, borderRadius: 9, padding: '13px 15px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', minHeight: 48 }}>{tr.common.details}</button>
                   </div>
                 </div>

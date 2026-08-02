@@ -240,7 +240,44 @@ await cta.waitFor({ state: 'visible' });
 const cardFinal = await cardText();
 ok(cardFinal === cardBefore, 'iptalden sonra da kartta hiçbir sayı değişmedi');
 
-// ---- 10) Telefon: alt sayfa (bottom sheet) ----------------------------------
+// ---- 10) Duraklatilmis ihtiyac: eylem sunulmuyor (Faz 3-B.1) -----------------
+//
+// Sunucu bu kalemi zaten reddediyor. Buradaki soru, kartin bunu ONCEDEN soyleyip
+// soylemedigi: eskiden tam yetkili bir "Destek Ol" gosteriyordu ve kisi formu
+// bastan sona doldurduktan sonra reddediliyordu.
+{
+  const paused = page.locator('div').filter({ hasText: /^Tişört ve Gömlek/ }).last();
+  const pausedText = await page.evaluate(() => {
+    const h = Array.from(document.querySelectorAll('div'))
+      .find((d) => d.children.length === 0 && /Tişört ve Gömlek/.test(d.textContent || ''));
+    return h ? h.closest('div[style*="flex-direction: column"]')?.innerText.replace(/\s+/g, ' ').trim()
+             ?? h.parentElement?.parentElement?.innerText.replace(/\s+/g, ' ').trim() : '';
+  });
+  ok(/DURAKLATILDI|Duraklatıldı/i.test(pausedText), 'duraklatılmış kalem kartta durumunu yazıyor');
+  ok(/teslim sözü kabul etmiyor/i.test(pausedText),
+    'duraklatılmış kalemde "teslim sözü kabul etmiyor" cümlesi kartta yazılı');
+  ok(await page.getByRole('button', { name: /^Tişört ve Gömlek için destek ol$/ }).count() === 0,
+    'duraklatılmış kalemde "Destek Ol" eylemi HİÇ sunulmuyor');
+  void paused;
+}
+
+// ---- 11) Takip: bulunamadi mesaji islem turunden bagimsiz --------------------
+{
+  await page.goto(`${BASE}/takip`, { waitUntil: 'networkidle' });
+  await page.getByLabel('Takip kodu').fill('SOZ-YOKBOYLE');
+  await page.getByLabel('E-posta').fill('kimse@example.com');
+  await page.getByRole('button', { name: 'Takip et', exact: true }).click();
+  await page.waitForTimeout(500);
+  const t = await page.locator('main').innerText();
+  ok(/Bu bilgilerle eşleşen bir işlem bulunamadı/.test(t),
+    'bulunamadı mesajı işlem türünden bağımsız');
+  ok(!/Onay e-postandaki/.test(t),
+    'artık var olmayan bir onay e-postasına yönlendirmiyor');
+  ok(/takip kodunuzu ve e-posta adresinizi kontrol/i.test(t),
+    'mesaj ne yapılacağını söylüyor');
+}
+
+// ---- 12) Telefon: alt sayfa (bottom sheet) ----------------------------------
 {
   const m = await browser.newContext({ viewport: { width: 390, height: 780 }, isMobile: true, hasTouch: true });
   const mp = await m.newPage();
