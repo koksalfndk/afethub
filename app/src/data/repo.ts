@@ -534,7 +534,9 @@ const PUBLIC_AUDIT_ACTIONS = new Set([
   // migration 0036 / 0038. Teslim sözü ve moderasyon kayıtları BİLEREK yok: biri kişiye
   // bağlanabilir bir niyet, diğeri adı geçen kişi hakkında bir moderasyon kararı.
   'Operasyon aşaması güncellendi',
-  'Saha güncellemesi yayınlandı', 'Saha güncellemesi düzeltildi', 'Saha güncellemesi sabitlendi',
+  // Saha güncellemesi aksiyonları Faz 4'e kadar LİSTEDE DEĞİL (migration 0040):
+  // modülün arayüzü yayında olmadığı için akışta kaynağı bulunamayan satırlar
+  // üretiyorlardı. Modül yayına girdiğinde SQL ile birlikte geri eklenecek.
 ]);
 
 export const isPublicAuditAction = (action: string): boolean => PUBLIC_AUDIT_ACTIONS.has(action);

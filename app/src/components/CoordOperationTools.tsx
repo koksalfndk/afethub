@@ -53,6 +53,24 @@ function FieldError({ id, text }: { id: string; text: string }) {
   );
 }
 
+// Çift gönderim kilidi — `useState` DEĞİL, `useRef`.
+//
+// ÖLÇÜLDÜ (02-08-2026, canlı doğrulama): aynı tick içinde iki kez tıklandığında
+// `if (busy) return` koruması geçildi ve sunucuya İKİ RPC çağrısı gitti; denetim
+// kaydında aynı milisaniyede iki satır oluştu (intensive→cooling ve cooling→cooling).
+// Sebebi React state'inin asenkron olması: ikinci tıklamada `busy` hâlâ `false`.
+// `ref.current` ise anında değişir, dolayısıyla ikinci çağrı gerçekten durur.
+function useSubmitLock() {
+  const lock = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const run = async (fn: () => Promise<void>) => {
+    if (lock.current) return;
+    lock.current = true; setBusy(true);
+    try { await fn(); } finally { lock.current = false; setBusy(false); }
+  };
+  return { busy, run };
+}
+
 function DemoNote() {
   const a = useApp();
   if (a.backend !== 'local') return null;
@@ -78,7 +96,7 @@ export function CoordOperationStatus({ d }: { d: Disaster }) {
   const [note, setNote] = useState(d.operationStageNote ?? '');
   const [reason, setReason] = useState('');
   const [err, setErr] = useState('');
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useSubmitLock();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const firstFieldRef = useRef<HTMLSelectElement | null>(null);
 
@@ -95,12 +113,11 @@ export function CoordOperationStatus({ d }: { d: Disaster }) {
     // Aynı aşama + aynı açıklama: sunucuya gitmeye değmez. Denetim kaydı bir olay
     // kaydıdır; hiçbir şeyin değişmediği bir satır onu gürültüye çevirir.
     if (!dirty) { setErr(tr.coordOps2.noChange); return; }
-    if (busy) return;                       // çift gönderim koruması
-    setBusy(true);
-    const ok = await a.setOperationStage(d.id, (stage || null) as OperationStage | null, note.trim(), reason.trim());
-    setBusy(false);
-    // Hata durumunda form KAPANMAZ ve değerler durur (rules/04 §Forms).
-    if (ok) { setReason(''); setOpen(false); }
+    await run(async () => {
+      const ok = await a.setOperationStage(d.id, (stage || null) as OperationStage | null, note.trim(), reason.trim());
+      // Hata durumunda form KAPANMAZ ve değerler durur (rules/04 §Forms).
+      if (ok) { setReason(''); setOpen(false); }
+    });
   };
 
   return (
@@ -218,7 +235,7 @@ export function CoordSituationSummary({ d }: { d: Disaster }) {
   const a = useApp();
   const uid = useId();
   const [text, setText] = useState(d.situation ?? '');
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useSubmitLock();
   const [err, setErr] = useState('');
 
   const pii = looksLikeContactDetails(text);
@@ -227,8 +244,7 @@ export function CoordSituationSummary({ d }: { d: Disaster }) {
   const save = async () => {
     setErr('');
     if (!dirty) { setErr(tr.coordOps2.summaryUnchanged); return; }
-    if (busy) return;
-    setBusy(true);
+    await run(async () => {
     // Mevcut güvenli yol: doğrudan tablo update'i DEĞİL, `saveDisaster`. Denetim
     // kaydını migration 0016'daki `disasters_audit` tetikleyicisi yazıyor; arayüz
     // ikinci bir kayıt üretmiyor.
@@ -237,9 +253,9 @@ export function CoordSituationSummary({ d }: { d: Disaster }) {
       district: d.districts.join(', '), settlements: d.settlements.slice(),
       status: d.status, situation: text.trim(), openedByOrgId: d.openedByOrgId,
     };
-    const ok = await a.saveDisaster(d.id, input);
-    setBusy(false);
-    if (!ok) setErr(tr.coordOps2.summaryFailed);
+      const ok = await a.saveDisaster(d.id, input);
+      if (!ok) setErr(tr.coordOps2.summaryFailed);
+    });
   };
 
   return (
@@ -300,7 +316,7 @@ export function CoordFeaturedNeeds({ d }: { d: Disaster }) {
     [all],
   );
   const [picked, setPicked] = useState<string[]>(saved);
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useSubmitLock();
   const [err, setErr] = useState('');
   // Kayıtlı seçim sunucudan yenilendiğinde formu ona eşitle.
   useEffect(() => { setPicked(saved); }, [saved.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -322,11 +338,11 @@ export function CoordFeaturedNeeds({ d }: { d: Disaster }) {
   };
 
   const save = async (ids: string[]) => {
-    if (busy) return;
-    setErr(''); setBusy(true);
-    const ok = await a.setFeaturedNeeds(d.id, ids);
-    setBusy(false);
-    if (!ok) setErr(tr.coordOps2.featuredFailed);
+    setErr('');
+    await run(async () => {
+      const ok = await a.setFeaturedNeeds(d.id, ids);
+      if (!ok) setErr(tr.coordOps2.featuredFailed);
+    });
   };
 
   const previewNames = picked.map((id) => byId.get(id)?.name).filter(Boolean);
