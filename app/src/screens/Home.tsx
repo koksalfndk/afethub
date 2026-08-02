@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../store';
 import { tr, priorityLabel } from '../i18n/strings';
@@ -7,11 +7,14 @@ import { C, G, PRI, type PriorityKey } from '../theme';
 import { Ico, DISASTER_ICON, type IcoName } from '../ui';
 import { HomeHero } from '../components/HomeHero';
 import { DisasterOpCard, worstPriority } from '../components/DisasterOpCard';
-import { HomeOperationsMap } from '../components/HomeOperationsMap';
 import { ReportConfirmModal } from '../components/ReportConfirmModal';
 import { COMMUNITY_THRESHOLD, isVerifiedDelivery } from '../data/repo';
 import { formatDate } from '../util';
 import type { DisasterType, DisasterReport } from '../types';
+
+// Ana sayfa haritası Leaflet'i getiriyor; sayfanın ilk ekranında değil, aşağısında.
+// Ayrı bir parça olarak inmesi ilk boyamayı hızlandırıyor, görünümü değiştirmiyor.
+const HomeOperationsMap = lazy(() => import('../components/HomeOperationsMap').then((m) => ({ default: m.HomeOperationsMap })));
 
 // ---------------------------------------------------------------------------
 // Herkese açık ana sayfa — "birleşim" tasarımı.
@@ -195,7 +198,9 @@ export function Home() {
           en hızlı cevabı ve ziyaretçilerin çoğu ikinci olarak kendi ilini arıyor.
           Listeden hemen sonra gelmesi, listeyi coğrafi bir bağlama oturtuyor. */}
       <section>
-        <HomeOperationsMap />
+        <Suspense fallback={<div aria-hidden style={{ height: 380 }} />}>
+          <HomeOperationsMap />
+        </Suspense>
       </section>
 
       {/* ---- 4 · Nasıl yardım edebilirim ------------------------------------ */}

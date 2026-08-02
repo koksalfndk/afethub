@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react';
+import { lazy, Suspense, useEffect, useState, type ComponentType } from 'react';
 import { useApp, type Route } from './store';
 import { useAuth } from './auth';
 import { tr } from './i18n/strings';
@@ -10,41 +10,56 @@ import { Sidebar } from './components/Sidebar';
 import { BottomNav } from './components/BottomNav';
 import { Modal } from './components/Modal';
 import { Toast } from './components/Toast';
-import { AuthModal } from './components/AuthModal';
 import { AccountBanner } from './components/AccountBanner';
-import { ReportModal } from './components/ReportModal';
-import { NeedWizard } from './components/NeedWizard';
 import { Home } from './screens/Home';
-import { Disasters } from './screens/Disasters';
 import { Disaster } from './screens/Disaster';
-import { Track } from './screens/Track';
-import { NeedRequest } from './screens/NeedRequest';
-import { Organizations } from './screens/Organizations';
-import { ReportDisaster } from './screens/ReportDisaster';
-import { About } from './screens/About';
-import { HowItWorks } from './screens/HowItWorks';
-import { Account } from './screens/Account';
-import { CoordSlider } from './screens/CoordSlider';
-import { CoordDisasters } from './screens/CoordDisasters';
-import { CoordOrgEdits } from './screens/CoordOrgEdits';
-import { CoordOrgs } from './screens/CoordOrgs';
-import { CoordReports } from './screens/CoordReports';
-import { CoordStaff } from './screens/CoordStaff';
-import { CoordOps } from './screens/CoordOps';
-import { Volunteer } from './screens/Volunteer';
-import { Contact } from './screens/Contact';
-import { CoordContact } from './screens/CoordContact';
 import { applyRouteMeta } from './seo';
+
+// ---------------------------------------------------------------------------
+// Route seviyesinde kod bölme.
+//
+// Neden: tek bir paket 1,29 MB'a çıkmıştı ve içinde koordinatör panelinin on üç
+// ekranı da vardı — yani bir afet sayfasını telefonda açan ziyaretçi, hiçbir zaman
+// göremeyeceği yönetim ekranlarını da indiriyordu. Zayıf bağlantıdaki bir kullanıcı
+// için bu, ihtiyaç listesinin geç gelmesi demek (rules/01 §Emergency First,
+// rules/09 §8).
+//
+// `Home` ve `Disaster` BİLEREK eager: ikisi de giriş noktası ve onları geciktirmek
+// ilk boyamayı bir tur geriye atardı. Geri kalan her ekran ve ağır modal, ancak
+// gerçekten açıldığında iniyor. Davranış değişmiyor; `Suspense` sınırı zaten var olan
+// `LoadState` iskeletini gösteriyor.
+// ---------------------------------------------------------------------------
+const Disasters = lazy(() => import('./screens/Disasters').then((m) => ({ default: m.Disasters })));
+const Track = lazy(() => import('./screens/Track').then((m) => ({ default: m.Track })));
+const NeedRequest = lazy(() => import('./screens/NeedRequest').then((m) => ({ default: m.NeedRequest })));
+const Organizations = lazy(() => import('./screens/Organizations').then((m) => ({ default: m.Organizations })));
+const ReportDisaster = lazy(() => import('./screens/ReportDisaster').then((m) => ({ default: m.ReportDisaster })));
+const About = lazy(() => import('./screens/About').then((m) => ({ default: m.About })));
+const HowItWorks = lazy(() => import('./screens/HowItWorks').then((m) => ({ default: m.HowItWorks })));
+const Account = lazy(() => import('./screens/Account').then((m) => ({ default: m.Account })));
+const CoordSlider = lazy(() => import('./screens/CoordSlider').then((m) => ({ default: m.CoordSlider })));
+const CoordDisasters = lazy(() => import('./screens/CoordDisasters').then((m) => ({ default: m.CoordDisasters })));
+const CoordOrgEdits = lazy(() => import('./screens/CoordOrgEdits').then((m) => ({ default: m.CoordOrgEdits })));
+const CoordOrgs = lazy(() => import('./screens/CoordOrgs').then((m) => ({ default: m.CoordOrgs })));
+const CoordReports = lazy(() => import('./screens/CoordReports').then((m) => ({ default: m.CoordReports })));
+const CoordStaff = lazy(() => import('./screens/CoordStaff').then((m) => ({ default: m.CoordStaff })));
+const CoordOps = lazy(() => import('./screens/CoordOps').then((m) => ({ default: m.CoordOps })));
+const Volunteer = lazy(() => import('./screens/Volunteer').then((m) => ({ default: m.Volunteer })));
+const Contact = lazy(() => import('./screens/Contact').then((m) => ({ default: m.Contact })));
+const CoordContact = lazy(() => import('./screens/CoordContact').then((m) => ({ default: m.CoordContact })));
+const CoordHome = lazy(() => import('./screens/CoordHome').then((m) => ({ default: m.CoordHome })));
+const CoordDisaster = lazy(() => import('./screens/CoordDisaster').then((m) => ({ default: m.CoordDisaster })));
+const CoordQueue = lazy(() => import('./screens/CoordQueue').then((m) => ({ default: m.CoordQueue })));
+const CoordNeeds = lazy(() => import('./screens/CoordNeeds').then((m) => ({ default: m.CoordNeeds })));
+const CoordLog = lazy(() => import('./screens/CoordLog').then((m) => ({ default: m.CoordLog })));
+const Components = lazy(() => import('./screens/Components').then((m) => ({ default: m.Components })));
+const System = lazy(() => import('./screens/System').then((m) => ({ default: m.System })));
+const NeedWizard = lazy(() => import('./components/NeedWizard').then((m) => ({ default: m.NeedWizard })));
+const AuthModal = lazy(() => import('./components/AuthModal').then((m) => ({ default: m.AuthModal })));
+const DisasterReportModal = lazy(() => import('./components/DisasterReportModal').then((m) => ({ default: m.DisasterReportModal })));
+const ReportModal = lazy(() => import('./components/ReportModal').then((m) => ({ default: m.ReportModal })));
 import { LiveTicker } from './components/LiveTicker';
-import { DisasterReportModal } from './components/DisasterReportModal';
 import { Footer } from './components/Footer';
-import { CoordHome } from './screens/CoordHome';
-import { CoordDisaster } from './screens/CoordDisaster';
-import { CoordQueue } from './screens/CoordQueue';
-import { CoordNeeds } from './screens/CoordNeeds';
-import { CoordLog } from './screens/CoordLog';
-import { Components } from './screens/Components';
-import { System } from './screens/System';
 
 // Sayfa genişliği ve ortalama TEK yerde.
 //
@@ -72,7 +87,7 @@ export function App() {
     applyRouteMeta(a.route, { disasterName: a.snap?.disaster.name, slug: a.currentSlug, tab: a.tab });
   }, [a.route, a.tab, a.currentSlug, a.snap?.disaster.name]);
 
-  const screens: Record<string, () => ReactElement | null> = {
+  const screens: Record<string, ComponentType> = {
     home: Home, disasters: Disasters, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About, howItWorks: HowItWorks, account: Account, volunteer: Volunteer, contact: Contact,
     coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider, coordDisasters: CoordDisasters, coordOrgEdits: CoordOrgEdits, coordOrgs: CoordOrgs, coordStaff: CoordStaff, coordOps: CoordOps, coordReports: CoordReports, coordDisaster: CoordDisaster, coordContact: CoordContact,
     components: Components, system: System,
@@ -120,17 +135,22 @@ export function App() {
               paddingBottom: mob ? (frame ? 24 : 96) : 40,
             }}>
               <div style={{ width: '100%', maxWidth: PAGE_MAX[a.route], margin: '0 auto' }}>
-                {a.snap ? <Screen /> : <LoadState />}
+                {a.snap ? <Suspense fallback={<LoadState />}><Screen /></Suspense> : <LoadState />}
               </div>
             </main>
           </div>
           <Footer />
           {mob && <BottomNav />}
-          {(isReport || a.deliveryOpen) && <ReportModal />}
-          <DisasterReportModal />
-          <NeedWizard />
+          {/* Ağır modaller yalnızca açıldıklarında iniyor. `fallback={null}`: modal
+              kapalıyken ekranda hiçbir şey olmamalı; bir iskelet göstermek kapalı bir
+              pencerenin yerini işaretlemek olurdu. */}
+          <Suspense fallback={null}>
+            {(isReport || a.deliveryOpen) && <ReportModal />}
+            <DisasterReportModal />
+            <NeedWizard />
+            <AuthModal key={auth.prefillEmail} />
+          </Suspense>
           <Modal />
-          <AuthModal key={auth.prefillEmail} />
           <Toast />
         </div>
       </div>

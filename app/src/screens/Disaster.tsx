@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useApp } from '../store';
 import { useAuth } from '../auth';
 import { tr, disasterTypeLabel } from '../i18n/strings';
@@ -7,7 +7,6 @@ import { enrichSorted, cols, type EnrichedNeed } from '../select';
 import { PriorityBadge, ProgressBar, Chip, StatCard, LiveDot, Ico, DISASTER_ICON, eyebrow, filterPickerStyle, washCard, type IcoName } from '../ui';
 import { Picker, toOptions } from '../components/Picker';
 import { detailPairs, categoryIcon } from '../needForm';
-import { LocationsMap } from '../components/LocationsMap';
 import { NeedFilterSheet, activeFilterCount } from '../components/NeedFilterSheet';
 import { NeedQuickView } from '../components/NeedQuickView';
 import { OperationOverview, OperationStageBlock, FeaturedNeeds } from '../components/OperationOverview';
@@ -15,6 +14,16 @@ import { fulfilmentRate } from '../data';
 import { isToday, formatDate } from '../util';
 import type { Filter, Tab } from '../store';
 import type { Location } from '../types';
+
+// Harita Leaflet'i getiriyor (~150 kB) ve YALNIZCA teslim noktaları sekmesinde
+// görünüyor. Eager import, ihtiyaç listesini okumaya gelen ziyaretçiye hiç açmayacağı
+// bir haritanın kütüphanesini indirtiyordu (rules/09 §8). Yer tutucu haritanın tam
+// yüksekliğinde: yükleme sırasında sayfa zıplamıyor (CLS).
+const LocationsMap = lazy(() => import('../components/LocationsMap').then((m) => ({ default: m.LocationsMap })));
+
+function MapSlot({ height }: { height: number }) {
+  return <div aria-hidden style={{ height, background: C.canvas, border: `1px solid ${C.borderFaint}` }} />;
+}
 
 const FILTERS: Filter[] = ['All', 'Critical', 'Urgent', 'Normal', 'Completed'];
 
@@ -322,7 +331,9 @@ export function Disaster() {
               <button key={t.key} onClick={() => a.setTab(t.key)} aria-current={a.tab === t.key ? 'page' : undefined} style={{
                 whiteSpace: 'nowrap', border: `1px solid ${a.tab === t.key ? C.navy : C.borderSoft}`,
                 background: a.tab === t.key ? C.navy : C.surface, color: a.tab === t.key ? '#fff' : C.heading2,
-                borderRadius: 20, padding: '9px 13px', fontSize: 13, fontWeight: 600, cursor: 'pointer', minHeight: 40,
+                // 44px: mobil sekme çipleri ölçüldü ve 40 pikselde kalıyordu; rules/04
+                // yaklaşık 48px hedef koyuyor ve bu satır telefonda en çok dokunulan yer.
+                borderRadius: 20, padding: '11px 13px', fontSize: 13, fontWeight: 600, cursor: 'pointer', minHeight: 44,
               }}>{t.label}{sectionCount[t.key] ? ` · ${sectionCount[t.key]}` : ''}</button>
             ))}
           </div>
@@ -803,7 +814,9 @@ function DeliveryPoints({ points, needs, mob, onNeedsAt, onReportAt }: {
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>{list}</div>
         {shown.length > 0 && (
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
-            <LocationsMap items={shown} selectedId={sel?.id ?? ''} onSelect={setSelId} height={300} />
+            <Suspense fallback={<MapSlot height={300} />}>
+              <LocationsMap items={shown} selectedId={sel?.id ?? ''} onSelect={setSelId} height={300} />
+            </Suspense>
           </div>
         )}
         {detail}
@@ -817,7 +830,11 @@ function DeliveryPoints({ points, needs, mob, onNeedsAt, onReportAt }: {
       <div style={{ position: 'relative', minHeight: 520 }}>
         {/* `bottomPad`: detay kartı haritanın alt ~240 pikselini kapatıyor. Onsuz
             güneydeki nokta kartın altında kalıyor ve haritada hiç görünmüyordu. */}
-        {shown.length > 0 && <LocationsMap items={shown} selectedId={sel?.id ?? ''} onSelect={setSelId} height={520} bottomPad={240} />}
+        {shown.length > 0 && (
+          <Suspense fallback={<MapSlot height={520} />}>
+            <LocationsMap items={shown} selectedId={sel?.id ?? ''} onSelect={setSelId} height={520} bottomPad={240} />
+          </Suspense>
+        )}
         {/* Kart haritanın ÜSTÜNDE duruyor ama `zIndex` Leaflet'in kendi katmanlarının
             (400-700) üzerinde olmalı; 500'ün altında kalırsa işaretçiler kartın önüne
             geçiyor. */}
