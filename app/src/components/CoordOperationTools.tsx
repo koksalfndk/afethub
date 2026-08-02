@@ -41,15 +41,6 @@ const BTN_TINY = {
   width: 44, height: 44, cursor: 'pointer', fontSize: 15, fontWeight: 700, lineHeight: 1,
 };
 
-function SectionHead({ title, help }: { title: string; help?: string }) {
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <h2 style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: C.navy }}>{title}</h2>
-      {help ? <p style={HELP}>{help}</p> : null}
-    </div>
-  );
-}
-
 // Hata metni renkle değil, metinle ve bir simgeyle taşınıyor (rules/04).
 function FieldError({ id, text }: { id: string; text: string }) {
   return (
@@ -458,5 +449,3 @@ export function CoordOperationTools({ d }: { d: Disaster }) {
     </div>
   );
 }
-
-export { SectionHead };

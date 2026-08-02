@@ -22,7 +22,9 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 .idea
+# macOS: alt klasörlerde de oluşuyor (app/src/.DS_Store gibi), tek satır yetmiyordu.
 .DS_Store
+**/.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
