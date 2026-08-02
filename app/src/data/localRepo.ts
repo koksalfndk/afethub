@@ -5,7 +5,7 @@ import type {
   BannerSlide, BannerSlideInput, OrgEditRequestInput,
   OrgEditRequest, Disaster, DisasterInput, OrganizationSave, OrgStatus,
   VolunteerInput, VolunteerApplication, VolunteerStatus, StaffMember, StaffRole, RoleInvite,
-  Announcement, AnnouncementInput, Location, LocationInput,
+  Announcement, AnnouncementInput, Location, LocationInput, OperationUpdate,
 } from '../types';
 import type {
   Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed,
@@ -37,6 +37,7 @@ let orgEdits: OrgEditRequest[] = [];
 // Announcements and delivery points are seeded content that the panel can now edit, so
 // they become module state like needs and orgs instead of being read straight from seed.
 let announcements: Announcement[] = seed.announcements.map((x) => ({ ...x }));
+const updates: OperationUpdate[] = seed.operationUpdates.map((x) => ({ ...x }));
 let locations: Location[] = seed.locations.map((x) => ({ ...x }));
 // Volunteer applications and staff both start empty on purpose: an invented "pending
 // volunteer" would be a named person who never applied, and a fake coordinator list
@@ -147,11 +148,23 @@ function snap(slug?: string): Snapshot {
     log: log.filter((l) => mine(l.disasterId) && isPublicAuditAction(l.action)).slice().sort(byRecency).map((l) => ({ ...l })),
     announcements: announcements.filter((x) => mine(x.disasterId)).map((x) => ({ ...x })),
     verifiedTotal: verifiedTotals[current.id] ?? 0,
+    // Saha güncellemeleri: tohum içeriği. Bunlar ÖRNEK; taşıdıkları operasyon
+    // `demo: true` ve arayüz bunu görünür biçimde işaretliyor (rules/07 §Seed Content).
+    updates: updates.filter((u) => mine(u.disasterId)).map((u) => ({ ...u })),
+    // FOTOĞRAF YOK ve uydurulmuyor. Yerel modda sahte bir saha fotoğrafı üretmek,
+    // ekranın en çok güvenilen bölümünü kurmaca ile doldurmak olurdu; bunun yerine
+    // galeri kendi boş durumunu gösteriyor ve o durum da test edilmiş oluyor.
+    media: [],
   };
 }
 
 export class LocalRepo implements Repo {
   readonly kind = 'local' as const;
+
+  // Yerel modda özel bir depolama kovası yok; imzalanacak bir şey de yok. Boş eşleme
+  // döndürmek, galerinin "bağlantı üretilemeyen fotoğrafı gösterme" davranışını yerel
+  // modda da aynen çalıştırır.
+  async signMedia(): Promise<Record<string, string>> { return {}; }
 
   async getSnapshot(slug?: string): Promise<Snapshot> {
     return snap(slug);

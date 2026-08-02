@@ -46,7 +46,25 @@ export interface Disaster {
   // True while the record is sample content. The UI must label it visibly so it is
   // never mistaken for verified live disaster data (rules/07, rules/08).
   demo?: boolean;
+  // Sahanın durumu — kaydın durumu değil. `status` operasyon KAYDININ durumu
+  // (Active/Resolved/Archived); bu alan ziyaretçinin sorduğu şeyi cevaplıyor:
+  // "yangın sürüyor mu, söndü mü". null/undefined = BELİRTİLMEDİ ve ekranda öyle
+  // yazılır; asla tahmin edilmez (migration 0036).
+  operationStage?: OperationStage | null;
+  operationStageNote?: string;
+  operationStageSetAt?: string;   // display string, '' when never set
 }
+
+// Halka açık operasyon aşaması. Kanonik anahtarlar İngilizce (veritabanı enum'u ile
+// birebir), Türkçe etiketler i18n/strings.ts içinde.
+export type OperationStage =
+  | 'initial_response'
+  | 'intensive_response'
+  | 'evacuation'
+  | 'cooling'
+  | 'recovery'
+  | 'monitoring'
+  | 'completed';
 
 export interface Location {
   id: string;
@@ -85,6 +103,130 @@ export interface Need {
   updated: string;       // display string
   loc: string;
   details?: Record<string, string>; // category-specific extra fields (transport/pets/…)
+  // Koordinatörün "şu anda en çok ihtiyaç duyulan destek" satırında öne çıkardığı sıra
+  // (1-4). null/undefined = öne çıkarılmamış (migration 0036).
+  featuredRank?: number | null;
+  // Verilmiş ama HENÜZ TESLİM EDİLMEMİŞ söz miktarı. Bilgilendiricidir: kalan miktarı
+  // azaltmaz, doğrulanan miktara girmez. "Bekleyen doğrulama" ile AYNI ŞEY DEĞİLDİR —
+  // biri yola çıkmamış bir niyet, diğeri koordinatörün önündeki bir kayıt
+  // (migration 0037).
+  pledged?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Teslim sözü (migration 0037)
+// ---------------------------------------------------------------------------
+export type PledgeStatus =
+  | 'pledged'
+  | 'confirmed'
+  | 'in_transit'
+  | 'delivered_reported'
+  | 'fulfilled'
+  | 'cancelled'
+  | 'expired';
+
+// Ziyaretçinin doldurduğu form. Hesap gerekmez (CLAUDE.md §Primary Product Rule).
+export interface DeliveryPledgeInput {
+  needId: string;
+  qty: number;
+  unit: string;
+  locationId: string | null;
+  // ISO 8601. Boş = tarih verilmedi; hatırlatma da yapılamaz.
+  estimatedDeliveryAt: string;
+  name: string; email: string; phone: string; city: string;
+  notes: string;
+}
+
+// Kişinin KENDİ kaydını takip ederken gördüğü şekil. Başkasının kaydına ulaşmanın
+// yolu yok: kod tek başına yetmiyor, e-posta eşleşmesi şart (rules/02 §Tracking Codes).
+export interface DeliveryPledgeTracking {
+  code: string;
+  qty: number;
+  unit: string;
+  needName: string;
+  locationName: string;
+  estimatedDeliveryAt: string;
+  status: PledgeStatus;
+  notes: string;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Saha güncellemeleri (migration 0038)
+// ---------------------------------------------------------------------------
+export type OperationUpdateType =
+  | 'coordinator_update'
+  | 'institution_update'
+  | 'field_report'
+  | 'delivery_update'
+  | 'need_update'
+  | 'safety_notice'
+  | 'public_comment'
+  | 'system_event';
+
+export type OperationUpdateStatus =
+  | 'draft' | 'moderation_pending' | 'published' | 'rejected' | 'hidden' | 'corrected' | 'archived';
+
+export type OperationUpdateAuthorType =
+  | 'coordinator' | 'institution' | 'volunteer' | 'user' | 'guest' | 'system';
+
+export type UpdateReportReason =
+  | 'wrong_info' | 'personal_data' | 'safety_risk' | 'spam'
+  | 'inappropriate' | 'duplicate' | 'off_topic';
+
+// Herkese açık akışta bir kart. KİŞİSEL VERİ TAŞIMAZ: `authorLabel` bir rol ya da
+// doğrulanmış bir kurum adıdır, kişi adı değil (migration 0038 §Gizlilik Mimarisi).
+export interface OperationUpdate {
+  id: string;
+  disasterId: string;
+  type: OperationUpdateType;
+  authorType: OperationUpdateAuthorType;
+  authorLabel: string;
+  organizationId: string | null;
+  body: string;
+  // 'coordinator_verified' değilse arayüz bunu kesin bilgi gibi göstermemeli
+  // (rules/07 §Critical Distinctions).
+  verified: boolean;
+  relatedNeedId: string | null;
+  relatedNeedName: string;
+  relatedLocationId: string | null;
+  relatedLocationName: string;
+  approximateLocation: string;
+  pinned: boolean;
+  correctsUpdateId: string | null;
+  photoCount: number;
+  publishedAt: string;   // ISO
+  time: string;          // display string
+}
+
+export interface OperationUpdateInput {
+  disasterId: string;
+  type: OperationUpdateType;
+  body: string;
+  relatedNeedId: string | null;
+  relatedLocationId: string | null;
+  approximateLocation: string;
+  // Misafir için zorunlu: moderasyon geri dönüş yapabilsin ve kötüye kullanım
+  // sınırlanabilsin diye. Hiçbir herkese açık yüzeye çıkmaz.
+  name: string; email: string; phone: string;
+}
+
+// Galeri kaydı. `storagePath` ÖZEL bir kovadaki nesne yolu — tek başına erişim vermez;
+// görüntü kısa ömürlü imzalı bir bağlantıyla açılır (migration 0038 §Depolama).
+export interface OperationMedia {
+  id: string;
+  disasterId: string;
+  updateId: string;
+  storagePath: string;
+  fileType: string;
+  width: number | null;
+  height: number | null;
+  caption: string;
+  capturedAt: string;
+  locationText: string;
+  authorLabel: string;
+  updateType: OperationUpdateType;
+  publishedAt: string;
 }
 
 export interface Submission {

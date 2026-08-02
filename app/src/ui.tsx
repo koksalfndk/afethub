@@ -262,24 +262,31 @@ export function Ico({ n, size = 17, color }: { n: IcoName; size?: number; color?
 // Operational stat card. The card body stays white — only the top border, the
 // icon and the number carry the status colour, so a grid of these stays calm
 // while still being scannable.
-export function StatCard({ accent, icon, label, value, hint, onClick }: {
-  accent: string; icon: IcoName; label: string; value: string | number; hint?: string; onClick?: () => void;
+// `primary`: karar verdiren sayı. Bir KPI ızgarasında her karta eşit ağırlık vermek,
+// okuyucuya "hepsi aynı derecede önemli" demektir; oysa aktif ihtiyaç sayısı ile
+// gönüllü sayısı aynı şeyi yapmıyor. Fark boyut ve çerçeveyle veriliyor — RENKLE
+// DEĞİL, çünkü renk zaten durumu taşıyor (rules/04 §Accessibility).
+export function StatCard({ accent, icon, label, value, hint, onClick, primary }: {
+  accent: string; icon: IcoName; label: string; value: string | number; hint?: string;
+  onClick?: () => void; primary?: boolean;
 }) {
   const body = (
     <>
       {/* Gradient ribbon on the top edge carries the status colour; the surface stays white. */}
-      <i style={{ position: 'absolute', inset: '0 0 auto 0', height: 4, background: ribbon(accent) }} />
+      <i style={{ position: 'absolute', inset: '0 0 auto 0', height: primary ? 4 : 3, background: ribbon(accent) }} />
       <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        <Ico n={icon} size={16} color={accent} />
-        <span style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>{label}</span>
+        <Ico n={icon} size={primary ? 16 : 14} color={accent} />
+        <span style={{ fontSize: primary ? 12 : 11.5, fontWeight: 600, color: C.muted }}>{label}</span>
       </span>
-      <span className="tnum" style={{ fontSize: 25, fontWeight: 700, color: accent, letterSpacing: '-.02em', lineHeight: 1.1 }}>{value}</span>
+      <span className="tnum" style={{ fontSize: primary ? 28 : 20, fontWeight: 700, color: accent, letterSpacing: '-.02em', lineHeight: 1.1 }}>{value}</span>
       {hint ? <span style={{ fontSize: 11.5, color: C.muted2 }}>{hint}</span> : null}
     </>
   );
   const style: CSSProperties = {
-    textAlign: 'left', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
-    padding: '14px 15px 13px', display: 'flex', flexDirection: 'column', gap: 5,
+    textAlign: 'left', background: C.surface,
+    border: `1px solid ${primary ? C.borderSoft : C.borderFaint}`, borderRadius: 12,
+    padding: primary ? '15px 16px 14px' : '12px 14px 11px',
+    display: 'flex', flexDirection: 'column', gap: 5,
     position: 'relative', overflow: 'hidden',
   };
   return onClick

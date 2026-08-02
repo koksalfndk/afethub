@@ -723,11 +723,124 @@ export const tr = {
       pendingDeliveries: 'Bekleyen teslimat', pendingHint: (u: number) => `${u} adet bildirildi`,
       verifiedDeliveries: 'Doğrulanan teslimat', verifiedHint: (opened: string) => `${opened}’dan bu yana`,
       volunteers: 'Gönüllü', volunteersHint: (n: number) => `şu an ${n} nöbette`,
+      fulfilHint: (done: number, total: number) => `${total} ihtiyacın ${done} tanesi tamamlandı`,
+      pledgeHint: 'yolda / planlanan · kalanı azaltmaz',
       deliveryPoints: 'Teslim noktası', deliveryPointsHint: (opening: number) => (opening > 0 ? `${opening} bu akşam açılıyor` : 'hepsi teslim alıyor'),
+    },
+    // Şu anda en çok ihtiyaç duyulan destek (Faz 2).
+    featured: {
+      title: 'Şu anda en çok ihtiyaç duyulan destek',
+      manual: 'Bu kalemleri operasyonun koordinatörü öne çıkardı.',
+      // Otomatik seçim olduğunu SÖYLEMEK gerekiyor: bir koordinatörün kararıymış gibi
+      // okunursa, listede olmayan bir kalemin gerekmediği sanılır.
+      auto: 'Bu liste açık kritik ve acil kalemlerden otomatik seçildi.',
+    },
+    allNeeds: 'Tüm ihtiyaçlar',
+    noCriticalNeeds: 'Şu anda açık kritik ihtiyaç bulunmuyor. Diğer öncelikler ihtiyaçlar sayfasında listeleniyor.',
+    remainingWithUnit: (n: number, unit: string) => `${n} ${unit} kaldı`,
+    secondaryAmountsNote:
+      'Doğrulama bekleyen bildirimler ve teslim sözleri kalan miktarı azaltmaz; miktar yalnızca koordinatör doğrulaması ile düşer.',
+    situationNone: 'Bu operasyon için henüz bir durum özeti yazılmadı.',
+    situationStale: (days: number) =>
+      `Bu durum özeti ${days} günden uzun süredir güncellenmedi. Sahadaki durum değişmiş olabilir.`,
+    progress: {
+      title: 'Operasyon ilerlemesi',
+      published: 'Yayınlanan ihtiyaç',
+      completed: 'Tamamlanan',
+      active: 'Aktif',
+    },
+    photos: {
+      title: 'Sahadan fotoğraflar',
+      none: 'Henüz yayımlanmış saha fotoğrafı bulunmuyor.',
+      loading: 'Fotoğraflar hazırlanıyor…',
+      error: 'Fotoğraflar şu anda açılamadı. Sayfayı yenileyip yeniden deneyebilirsiniz.',
+      untitled: 'Saha fotoğrafı',
+      openAria: (t: string) => `${t} — tam ekran aç`,
+      prev: 'Önceki fotoğraf',
+      next: 'Sonraki fotoğraf',
+      by: (who: string) => `Paylaşan: ${who}`,
+      approved: 'Koordinatör onayından geçti',
+    },
+    lastVerified: {
+      title: 'Son doğrulanan teslimatlar',
+      none: 'Henüz doğrulanmış teslimat bulunmuyor.',
+    },
+    footer: {
+      title: 'Operasyon bilgileri',
+      opened: 'Açılış tarihi',
+      stage: 'Operasyon aşaması',
+      team: 'Koordinasyonu yürüten',
+      published: 'Yayınlanan ihtiyaç',
+      completed: 'Tamamlanan ihtiyaç',
+      updated: 'Son güncelleme',
     },
     situation: 'Durum',
     situationBody: 'Kuzey sırtındaki yangın cepheleri kontrol altında; dört mahalle hâlâ tahliye halinde. Sahada 168 gönüllü kayıtlı. Yardım girişi 08:00–22:00 arası kapalı pazar yerinden yapılıyor, bu akşam ikinci bir giriş noktası açılıyor.',
+    // Operasyon aşaması (migration 0036). Kanonik anahtarlar İngilizce, etiketler burada.
+    stage: {
+      label: 'Operasyon aşaması',
+      none: 'Belirtilmedi',
+      // Aşama yazılmamışsa boş bırakılmaz, olduğu gibi söylenir: bir varsayılan
+      // uydurmak koordinatörün söylemediği bir şeyi yazmak olurdu (rules/04 §Empty States).
+      noneHint: 'Koordinatör bu operasyon için bir aşama bildirmedi.',
+      updated: (t: string) => `${t} güncellendi`,
+      names: {
+        initial_response: 'İlk Müdahale',
+        intensive_response: 'Yoğun Müdahale',
+        evacuation: 'Tahliye',
+        cooling: 'Soğutma Çalışmaları',
+        recovery: 'İyileştirme',
+        monitoring: 'İzleme',
+        completed: 'Tamamlandı',
+      } as Record<string, string>,
+    },
+    // Saha güncellemeleri (migration 0038).
+    updates: {
+      title: 'Saha Güncellemeleri',
+      types: {
+        coordinator_update: 'Koordinatör Güncellemesi',
+        institution_update: 'Kurum Güncellemesi',
+        field_report: 'Saha Bildirimi',
+        delivery_update: 'Teslimat Güncellemesi',
+        need_update: 'İhtiyaç Güncellemesi',
+        safety_notice: 'Güvenlik Uyarısı',
+        public_comment: 'Kullanıcı Yorumu',
+        system_event: 'Sistem Kaydı',
+      } as Record<string, string>,
+      verified: 'Doğrulandı',
+      awaitingReview: 'Doğrulama bekliyor',
+      pinned: 'Sabitlenmiş',
+      none: 'Bu operasyon için henüz yayımlanmış saha güncellemesi bulunmuyor.',
+      relatedNeed: (n: string) => `İlgili ihtiyaç: ${n}`,
+      // Bu fazda yalnızca OKUMA var; gönderi ve moderasyon Faz 4'te.
+      previewNote: 'Yayımlanan son güncellemeler gösteriliyor.',
+      corrected: 'Bu bilgi düzeltildi',
+      moderationNotice: 'Gönderiniz alındı. Koordinatör incelemesinden sonra akışta görünecek.',
+      contactWarning: 'Metinde telefon numarası veya e-posta adresi görünüyor. Kişisel iletişim bilgisi paylaşmayın; gönderiniz incelemeye alınacak.',
+      emergencyNotice: 'Acil yardım çağrısı buraya yazılmaz. Hayati tehlike durumunda resmî acil yardım birimleriyle iletişime geçin.',
+    },
+    // Teslim sözü (migration 0037). "Teslim sözü" ile "bekleyen doğrulama" AYNI ŞEY
+    // DEĞİLDİR ve arayüzde asla aynı sayıda birleştirilmez (rules/01 §Transparency).
+    pledge: {
+      label: 'Teslim sözü',
+      planned: (n: number, unit: string) => `Yolda / planlanan: ${n} ${unit}`,
+      note: 'Teslim sözü kalan miktarı azaltmaz. Miktar yalnızca koordinatör teslimatı doğruladığında düşer.',
+      cancelled: 'Teslim planınız iptal edildi. İhtiyaç miktarı bu işlemden etkilenmedi.',
+      status: {
+        pledged: 'Teslim sözü verildi',
+        confirmed: 'Koordinatör not aldı',
+        in_transit: 'Yola çıktı',
+        delivered_reported: 'Teslimat bildirildi',
+        fulfilled: 'Teslimat doğrulandı',
+        cancelled: 'İptal edildi',
+        expired: 'Süresi geçti',
+      } as Record<string, string>,
+    },
     fulfilRate: 'Karşılama oranı',
+    // Hesap yöntemi ekranda AÇIKÇA yazılır: yüzdeyi görüp neyin oranı olduğunu
+    // bilmeyen kişi onu miktar oranı sanıyor.
+    fulfilRateHow: 'Karşılama oranı, tamamen karşılanan ihtiyaçların toplam ihtiyaçlara oranıdır.',
+    fulfilRateNone: 'Henüz yayınlanmış ihtiyaç yok.',
     awaitingVerification: 'Doğrulama bekliyor',
     units: (n: number) => `${n} adet`,
     criticalNeeds: 'Kritik ihtiyaçlar',

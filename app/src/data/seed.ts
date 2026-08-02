@@ -45,6 +45,12 @@ export const disasters: Disaster[] = [
     onShift: 24,
     openedByOrgId: null,
     demo: true,
+    // Örnek aşama. Gerçek bir operasyonda bunu koordinatör yazar; NULL bırakılan
+    // kayıtlar arayüzde "Belirtilmedi" olarak görünür ve tahmin edilmez.
+    operationStage: 'cooling',
+    operationStageNote:
+      'Aktif alevler kontrol altında. Ekipler yeniden tutuşma riskine karşı soğutma ve alan kontrolü yapıyor.',
+    operationStageSetAt: '1 saat önce',
   },
   {
     id: 'd2',
@@ -275,11 +281,21 @@ const rawNeeds: RawNeed[] = [
 
 const byId = new Map(disasters.map((d) => [d.id, d] as const));
 
+// Koordinatörün elle öne çıkardığı kalemler (migration 0036 `needs.featured_rank`).
+// Yalnızca örnek: gerçek bir operasyonda bu seçimi koordinatör panelden yapar.
+// Burada olması, otomatik yedek seçimin manuel seçimin ÖNÜNE GEÇMEDİĞİNİN yerel
+// modda da görülebilmesi içindir.
+const FEATURED: Record<string, number> = { n2: 1, n1: 2, n4: 3 };
+
 export const needs: Need[] = rawNeeds.map(([id, dId, name, cat, priority, required, verified, pending, unit, updated, loc]) => {
   const d = byId.get(dId)!;
   return {
     id, disasterId: dId, disasterName: d.name, disasterSlug: d.slug,
     name, cat, priority, required, verified, pending, unit, updated, loc,
+    featuredRank: FEATURED[id] ?? null,
+    // Teslim sözü toplamı yerel modda YOK: uydurulmuş bir "yolda 30 adet" sayısı,
+    // ekranın en kolay yanlış okunan satırını kurmaca ile doldururdu.
+    pledged: 0,
   };
 });
 
@@ -356,6 +372,55 @@ export const announcements: Announcement[] = [
   { id: 'a4', disasterId: 'd2', kind: 'Lojistik', accent: '#F97316', time: '40 dakika önce', author: 'Deniz Aksoy', title: 'İç yollar kapalı, teslimatı sahil yolundan yapın', body: 'Çukurbağ yönündeki yol müdahale ekiplerine ayrıldı. Kültür merkezine sahil yolundan ulaşın; giriş masası 21:00 civarında kapanıyor.', image: '' },
   { id: 'a5', disasterId: 'd3', kind: 'Kritik güncelleme', accent: '#D9363E', time: '2 saat önce', author: 'Burak Şen', title: 'Duman yerleşim yerine indi: maske ve göz damlası', body: 'Rüzgâr yön değiştirdi. Solunum ve göz şikâyeti artıyor; öncelik FFP2 maske, göz damlası ve serum fizyolojik.', image: '' },
   { id: 'a6', disasterId: 'd5', kind: 'Lojistik', accent: '#F97316', time: '3 saat önce', author: 'Aylin Doğan', title: 'Temizlik ve kurutma aşaması başladı', body: 'Su çekildi. Şu an en çok temizlik malzemesi, su motoru ve çizme gerekiyor. Gıda kolileri Bozkurt merkezine, yatak-battaniye İnebolu’ya bırakılmalı.', image: '' },
+];
+
+// ---------------------------------------------------------------------------
+// Saha güncellemeleri — ÖRNEK içerik (migration 0038).
+//
+// Yalnızca yerel/önizleme modu içindir; Supabase bağlıyken bu dizi hiç okunmaz.
+// `authorLabel` üretimdeki kuralın aynısını izliyor: kişi adı değil, rol ya da
+// doğrulanmış kurum adı. Taşıdıkları operasyonlar `demo: true` ve arayüz bunu
+// görünür biçimde işaretliyor (rules/07 §Seed Content).
+// ---------------------------------------------------------------------------
+export const operationUpdates: import('../types').OperationUpdate[] = [
+  {
+    id: 'u1', disasterId: 'd1', type: 'coordinator_update',
+    authorType: 'coordinator', authorLabel: 'Seydikemer Koordinasyon Ekibi', organizationId: null,
+    body: 'Soğutma çalışmaları kuzey hattında devam ediyor. Bölgeye yalnızca yönlendirilen gönüllüler kabul ediliyor.',
+    verified: true,
+    relatedNeedId: null, relatedNeedName: '', relatedLocationId: null, relatedLocationName: '',
+    approximateLocation: 'Kuzey hattı', pinned: true, correctsUpdateId: null, photoCount: 0,
+    publishedAt: '', time: '32 dakika önce',
+  },
+  {
+    id: 'u2', disasterId: 'd1', type: 'delivery_update',
+    authorType: 'coordinator', authorLabel: 'Seydikemer Koordinasyon Ekibi', organizationId: null,
+    body: '25 adet ventilli maske teslim noktasına ulaştı ve koordinatör doğrulaması tamamlandı.',
+    verified: true,
+    relatedNeedId: 'n2', relatedNeedName: 'FFP2 Maske', relatedLocationId: null,
+    relatedLocationName: 'Seydikemer Kapalı Pazar Yeri',
+    approximateLocation: '', pinned: false, correctsUpdateId: null, photoCount: 0,
+    publishedAt: '', time: '1 saat önce',
+  },
+  {
+    id: 'u3', disasterId: 'd1', type: 'field_report',
+    authorType: 'user', authorLabel: 'Doğrulanmış kullanıcı', organizationId: null,
+    body: 'Yeşilüzümlü Avcı Kulübesi çevresinde gönüllü yönlendirmesi devam ediyor.',
+    // Koordinatör doğrulaması YOK: arayüz bunu kesin bilgi gibi göstermemeli.
+    verified: false,
+    relatedNeedId: null, relatedNeedName: '', relatedLocationId: null, relatedLocationName: '',
+    approximateLocation: 'Yeşilüzümlü çevresi', pinned: false, correctsUpdateId: null, photoCount: 0,
+    publishedAt: '', time: '3 saat önce',
+  },
+  {
+    id: 'u4', disasterId: 'd5', type: 'safety_notice',
+    authorType: 'coordinator', authorLabel: 'Kastamonu Koordinasyon Ekibi', organizationId: null,
+    body: 'Bozkurt–İnebolu arasındaki alt yol çamur nedeniyle kapalı. Teslimatı sahil yolundan yapın.',
+    verified: true,
+    relatedNeedId: null, relatedNeedName: '', relatedLocationId: null, relatedLocationName: '',
+    approximateLocation: 'Bozkurt–İnebolu hattı', pinned: true, correctsUpdateId: null, photoCount: 0,
+    publishedAt: '', time: '2 saat önce',
+  },
 ];
 
 // ---------------------------------------------------------------------------

@@ -2,6 +2,10 @@
 -- Run once on a fresh project AFTER schema.sql. Documents delivery photos + avatars.
 
 -- ---- Columns ----------------------------------------------------------------
+-- Bu iki sütun artık `schema.sql` içinde tanımlı: `track_submission()` `photo_url`'i
+-- okuduğu için şema kendi başına uygulanamıyordu. Aşağıdakiler ETKİSİZ TEKRAR olarak
+-- bırakıldı — bu dosyayı eski bir kurulumda tek başına çalıştıran biri hâlâ doğru
+-- sonucu alsın diye.
 alter table submissions add column if not exists photo_url  text;
 alter table profiles    add column if not exists avatar_url text;
 

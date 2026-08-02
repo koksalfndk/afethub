@@ -28,3 +28,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Yerel (Supabase'siz) mod doğrulama derlemesi — scripts/overview-ui-checks.mjs
+dist-local

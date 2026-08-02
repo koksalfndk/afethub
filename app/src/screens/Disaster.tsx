@@ -10,6 +10,8 @@ import { detailPairs, categoryIcon } from '../needForm';
 import { LocationsMap } from '../components/LocationsMap';
 import { NeedFilterSheet, activeFilterCount } from '../components/NeedFilterSheet';
 import { NeedQuickView } from '../components/NeedQuickView';
+import { OperationOverview, OperationStageBlock, FeaturedNeeds } from '../components/OperationOverview';
+import { fulfilmentRate } from '../data';
 import { isToday, formatDate } from '../util';
 import type { Filter, Tab } from '../store';
 import type { Location } from '../types';
@@ -85,21 +87,43 @@ export function Disaster() {
   const pendingUnits = pendingSubs.reduce((x, s) => x + s.qty, 0);
   const activeNeeds = needs.filter((n) => n.remaining > 0).length;
   const completedNeeds = needs.length - activeNeeds;
-  const totalReq = needs.reduce((x, n) => x + n.required, 0);
-  const totalVer = needs.reduce((x, n) => x + n.verified, 0);
-  const fulfil = Math.round((totalVer / totalReq) * 100);
+  // Karşılama oranı KALEM SAYISI üzerinden — miktar üzerinden değil. Eski hesap
+  // (`toplam doğrulanan / toplam talep edilen`) adet, litre ve kilogramı tek bir
+  // bölmede topluyordu; farklı birimler toplanamaz (rules/05 §Quantities). Formül
+  // artık `fulfilmentRate()` içinde, tek bir yerde ve gerekçesiyle yazılı.
+  const fulfil = fulfilmentRate(activeNeeds, completedNeeds);
+  // Canlı teslim sözü toplamı. Doğrulanan ve bekleyen miktarlarla HİÇBİR toplamda
+  // birleşmez; kendi satırında durur (migration 0037).
+  const pledgedUnits = needs.reduce((x, n) => x + (n.pledged ?? 0), 0);
 
   // Volunteer and delivery-point figures come from the snapshot, not constants,
   // so the summary can never drift from what the disaster page actually lists.
   const openingSoon = a.snap.locations.filter((l) => l.statusTone === 'yellow').length;
-  const summary: { label: string; value: number; hint: string; accent: string; icon: IcoName }[] = [
-    { label: tr.disaster.summary.activeNeeds, value: activeNeeds, hint: tr.disaster.summary.activeHint, accent: C.navy, icon: 'need' },
-    { label: tr.disaster.summary.completedNeeds, value: completedNeeds, hint: tr.disaster.summary.completedHint, accent: C.success, icon: 'completed' },
+  // KPI hiyerarşisi (direktif §10): ilk üçü karar verdiren sayılar, kalanı
+  // bağlam. Eşit görsel ağırlık, ziyaretçiye "hepsi aynı derecede önemli" demek
+  // olurdu; `primary` bayrağı kartı büyütüyor.
+  type Kpi = { label: string; value: string | number; hint: string; accent: string; icon: IcoName; primary?: boolean };
+  const summary: Kpi[] = [
+    { label: tr.disaster.summary.activeNeeds, value: activeNeeds, hint: tr.disaster.summary.activeHint, accent: C.navy, icon: 'need', primary: true },
+    {
+      label: tr.disaster.fulfilRate,
+      // Yayınlanmış ihtiyaç yoksa yüzde YOK: %0 "hiçbir şey karşılanmadı" diye
+      // okunur, oysa ortada karşılanacak bir şey yok.
+      value: fulfil == null ? '—' : `%${fulfil}`,
+      hint: fulfil == null ? tr.disaster.fulfilRateNone : tr.disaster.summary.fulfilHint(completedNeeds, needs.length),
+      accent: C.success, icon: 'completed', primary: true,
+    },
+    { label: tr.disaster.summary.verifiedDeliveries, value: a.snap.verifiedTotal, hint: tr.disaster.summary.verifiedHint(formatDate(a.snap.disaster.openedAt)), accent: C.success, icon: 'verified', primary: true },
     { label: tr.disaster.summary.pendingDeliveries, value: pendingSubs.length, hint: tr.disaster.summary.pendingHint(pendingUnits), accent: C.warning, icon: 'pending' },
-    { label: tr.disaster.summary.verifiedDeliveries, value: a.snap.verifiedTotal, hint: tr.disaster.summary.verifiedHint(formatDate(a.snap.disaster.openedAt)), accent: C.success, icon: 'verified' },
-    { label: tr.disaster.summary.volunteers, value: a.snap.disaster.volunteers, hint: tr.disaster.summary.volunteersHint(a.snap.disaster.onShift), accent: C.teal, icon: 'people' },
+    { label: tr.disaster.pledge.label, value: pledgedUnits, hint: tr.disaster.summary.pledgeHint, accent: C.info, icon: 'pending' },
     { label: tr.disaster.summary.deliveryPoints, value: a.snap.locations.length, hint: tr.disaster.summary.deliveryPointsHint(openingSoon), accent: C.info, icon: 'pin' },
   ];
+  // Gönüllü sayısı YALNIZCA gerçek bir kayıt varsa gösterilir. Sıfır bir kart,
+  // "kimse yok" diye okunur; oysa çoğu operasyonda bu sayı henüz hiç girilmedi
+  // (direktif §10, rules/04 §Empty States).
+  if (a.snap.disaster.volunteers > 0) {
+    summary.push({ label: tr.disaster.summary.volunteers, value: a.snap.disaster.volunteers, hint: tr.disaster.summary.volunteersHint(a.snap.disaster.onShift), accent: C.teal, icon: 'people' });
+  }
 
   // Needs filtering: free-text search plus the secondary filters (category,
   // delivery point, critical-only, updated today). Every clause is additive.
@@ -121,7 +145,6 @@ export function Disaster() {
   // Count only the controls that live in the sheet, so the badge matches what is inside.
   const sheetCount = activeFilterCount(a);
   const anyFilter = a.filter !== 'All' || !!q || !!a.catFilter || !!a.locFilter || a.onlyCritical || a.updatedToday;
-  const criticalNeeds = needs.filter((n) => n.priority === 'Critical').slice(0, 3);
 
   const cardBase = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, position: 'relative' as const, overflow: 'hidden' as const };
   const sectionCount: Record<Tab, number> = {
@@ -223,7 +246,9 @@ export function Disaster() {
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
       <div>
-        <button onClick={() => a.go('home')} style={{ background: 'none', border: 0, padding: 0, fontSize: 13, fontWeight: 600, color: C.muted, cursor: 'pointer' }}>{tr.disaster.allDisasters}</button>
+        {/* Dokunma hedefi: 13px'lik bir metin bağlantısı telefonda 15 piksel yüksekliğinde
+            kalıyordu. Görsel boyut aynı, tıklanabilir alan büyütüldü (rules/04 §Accessibility). */}
+        <button onClick={() => a.go('home')} style={{ background: 'none', border: 0, padding: '12px 6px', margin: '-12px -6px', fontSize: 13, fontWeight: 600, color: C.muted, cursor: 'pointer', minHeight: 44 }}>{tr.disaster.allDisasters}</button>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginTop: 8 }}>
           <div>
             <h1 style={{ fontSize: L.h2, fontWeight: 700, letterSpacing: '-.02em', margin: 0, color: C.navy }}>{a.snap.disaster.name}</h1>
@@ -257,15 +282,25 @@ export function Disaster() {
               </div>
             )}
           </div>
+          {/* Ana KAYIT durumu. Sahanın durumunu aşağıdaki aşama bloğu anlatıyor;
+              bu rozet operasyon kaydının açık olduğunu söyler, o kadar. */}
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#FEF3F2', color: C.emergency, border: '1px solid #F6C9C9', borderRadius: 20, padding: '5px 11px', fontSize: 12.5, fontWeight: 700 }}>
             <LiveDot size={6} />{tr.disaster.active}
           </span>
         </div>
+        {/* Operasyon aşaması — "Aktif" etiketinden DAHA GÖRÜNÜR, çünkü ziyaretçinin
+            ilk sorusunu o cevaplıyor. Her sekmede duruyor: telefonda sayfanın en
+            üstündeki bilgi bu olmalı (direktif §8, §20). */}
+        <OperationStageBlock compact={mob} />
       </div>
+
+      {/* Öne çıkan ihtiyaçlar, metriklerin ÜSTÜNDE: "ben nasıl destek olabilirim"
+          sorusu, "operasyon ne kadar ilerledi" sorusundan önce gelir. */}
+      {a.tab === 'overview' && <FeaturedNeeds needs={needs} />}
 
       <div style={{ display: 'grid', gap: 10, gridTemplateColumns: L.stat }}>
         {summary.map((c) => (
-          <StatCard key={c.label} accent={c.accent} icon={c.icon} label={c.label} value={c.value} hint={c.hint} />
+          <StatCard key={c.label} accent={c.accent} icon={c.icon} label={c.label} value={c.value} hint={c.hint} primary={c.primary} />
         ))}
       </div>
 
@@ -294,40 +329,7 @@ export function Disaster() {
         </>
       ) : null}
 
-      {a.tab === 'overview' && (
-        <div style={{ display: 'grid', gap: 14, gridTemplateColumns: L.two }}>
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 }}>
-            <h3 style={{ fontSize: 15.5, fontWeight: 700, margin: '0 0 8px' }}>{tr.disaster.situation}</h3>
-            <p style={{ fontSize: 14, color: C.text, margin: 0 }}>{a.snap.disaster.situation}</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 10, marginTop: 16 }}>
-              <div style={{ border: `1px solid ${C.border}`, borderRadius: 9, padding: 12, background: C.canvas }}>
-                <div style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>{tr.disaster.fulfilRate}</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: C.success }}>{fulfil}%</div>
-              </div>
-              <div style={{ border: `1px solid ${C.border}`, borderRadius: 9, padding: 12, background: C.canvas }}>
-                <div style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>{tr.disaster.awaitingVerification}</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: C.warning }}>{tr.disaster.units(pendingUnits)}</div>
-              </div>
-            </div>
-          </div>
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 }}>
-            <h3 style={{ fontSize: 15.5, fontWeight: 700, margin: '0 0 12px' }}>{tr.disaster.criticalNeeds}</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {criticalNeeds.map((n) => (
-                <div key={n.id} style={{ border: '1px solid #F6C9C9', background: '#FEF7F7', borderRadius: 10, padding: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0, fontSize: 14.5, fontWeight: 700, color: C.navy }}>
-                      <Ico n={categoryIcon(n.cat)} size={15} color={C.emergency} />{n.name}
-                    </span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: C.emergency }}>{tr.disaster.left(n.remaining)}</span>
-                  </div>
-                  <div style={{ marginTop: 10 }}><ProgressBar pct={n.pctVal} color={C.emergency} height={6} track="#F1D6D6" /></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {a.tab === 'overview' && <OperationOverview needs={needs} mob={mob} twoCol={L.two} />}
 
       {a.tab === 'needs' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

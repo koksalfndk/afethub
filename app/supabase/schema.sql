@@ -124,8 +124,18 @@ create table if not exists submissions (
   status            submission_status not null default 'Pending verification',
   verified_qty      integer,
   note              text not null default '',
-  submitted_at      timestamptz not null default now()
+  submitted_at      timestamptz not null default now(),
+  -- Teslimat fotoğrafı. Bu sütun BURADA duruyor çünkü aşağıdaki `track_submission()`
+  -- onu okuyor: `storage.sql` içinde eklendiği sürece `schema.sql` temiz bir
+  -- veritabanına tek başına uygulanamıyordu ("column s.photo_url does not exist",
+  -- satır ~334) ve dosyanın geri kalanı sessizce çalışmadan kalıyordu. `storage.sql`
+  -- aynı sütunu `add column if not exists` ile eklemeye devam ediyor; orası artık
+  -- etkisiz bir tekrar ve mevcut kurulumları bozmuyor.
+  photo_url         text
 );
+-- Aynı gerekçeyle: profil avatarı da burada tanımlı. `storage.sql` kovaları ve
+-- politikaları kurar; SÜTUNLAR şemanın parçasıdır ve şema kendi kendine yeterli olmalı.
+alter table profiles add column if not exists avatar_url text;
 create index if not exists submissions_code_idx on submissions (upper(code));
 create index if not exists submissions_status_idx on submissions (status);
 

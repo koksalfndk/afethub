@@ -8,6 +8,7 @@ import type {
   OrganizationSave, OrgStatus, VolunteerInput, VolunteerApplication, VolunteerStatus,
   AnnouncementInput, LocationInput,
   StaffMember, StaffRole, RoleInvite,
+  OperationStage, PledgeStatus, OperationUpdateType, OperationUpdate, OperationMedia,
 } from '../types';
 import type { NeedPayload } from '../needForm';
 
@@ -23,6 +24,13 @@ export interface Snapshot {
   log: LogEntry[];
   announcements: Announcement[];
   verifiedTotal: number;
+  // Yayınlanmış ve moderasyondan geçmiş saha güncellemeleri, en yenisi önce
+  // (migration 0038). Yerel modda tohum içeriğidir ve operasyon `demo: true`
+  // olduğu için ekranda örnek veri olarak işaretlenir.
+  updates: OperationUpdate[];
+  // Onaylanmış saha fotoğrafları. `storagePath` ÖZEL kovadaki nesne yoludur ve tek
+  // başına görüntü vermez — `signMedia()` kısa ömürlü bir bağlantı üretir.
+  media: OperationMedia[];
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +163,11 @@ export interface CreateDeliveryResult {
 export interface Repo {
   readonly kind: 'local' | 'supabase';
   getSnapshot(slug?: string): Promise<Snapshot>;
+  // Onaylanmış saha fotoğrafları için kısa ömürlü görüntüleme bağlantısı. Kova ÖZEL:
+  // yol herkese açık yanıtta görünse bile tek başına bir şey açmıyor, imza gerekiyor
+  // (migration 0038 §Depolama). Bağlantı üretilemeyen yol sonuçta YER ALMAZ — boş bir
+  // çerçeve göstermektense fotoğrafı hiç göstermemek doğru.
+  signMedia(paths: string[]): Promise<Record<string, string>>;
   // National dashboard data (home page).
   getOverview(): Promise<Overview>;
   // Koordinatör paneli: tüm afetler tek çağrıda. Yedi operasyon için yedi ayrı
@@ -320,6 +333,98 @@ export function splitDistricts(value: string): string[] {
     .filter(Boolean);
 }
 
+// ---------------------------------------------------------------------------
+// Operasyon aşaması, teslim sözü ve saha güncellemeleri — paylaşılan alan kuralları
+// (migration 0036 / 0037 / 0038). Bu sabitler SQL'deki karşılıklarıyla birlikte
+// değişmelidir; arayüz bir sınır vaat edip veritabanı başka bir sınır uygularsa
+// kullanıcı formu doldurduktan sonra reddedilir.
+// ---------------------------------------------------------------------------
+
+// Müdahaleden izlemeye doğru sıralı. Sıra bir İLERLEME değildir: bir operasyon
+// tahliyeden yoğun müdahaleye geri dönebilir; liste yalnızca seçicinin sırasını verir.
+export const OPERATION_STAGES: OperationStage[] = [
+  'initial_response', 'intensive_response', 'evacuation', 'cooling',
+  'recovery', 'monitoring', 'completed',
+];
+
+// Karşılama oranı — KALEM SAYISI üzerinden, miktar üzerinden değil.
+//
+// Miktar bazlı tek bir yüzde üretmek cazip ama yanıltıcı: bir operasyonda 500 adet
+// maske, 2.000 litre su ve 300 kilogram gıda talebi bir arada olabiliyor ve bunları
+// tek bir toplamda birleştirip yüzdesini almak, farklı birimleri toplamak demek
+// (rules/05 §Quantities). Sayı bazlı oran ise tek bir cümleyle dürüstçe
+// açıklanabiliyor: "tamamen karşılanan ihtiyaçların toplam ihtiyaçlara oranı".
+//
+// Miktar bilgisi kaybolmuyor; kalem kartında ve teslim toplamlarında kendi birimiyle
+// ayrı ayrı duruyor.
+export function fulfilmentRate(activeNeeds: number, completedNeeds: number): number | null {
+  const total = activeNeeds + completedNeeds;
+  if (total <= 0) return null;   // null = "henüz ihtiyaç yayınlanmadı", %0 DEĞİL
+  return Math.round((completedNeeds / total) * 100);
+}
+
+// Canlı bir söz: hâlâ gelmesi bekleniyor. `delivered_reported` ve `fulfilled` YOK —
+// o miktar artık `submissions` üzerinden "doğrulama bekliyor" ya da "doğrulandı"
+// olarak sayılıyor ve ikisini birden saymak aynı kutuyu iki kere göstermek olurdu.
+// `need_pledge_totals` görünümüyle aynı liste (migration 0037).
+export const PLEDGE_LIVE_STATUSES: PledgeStatus[] = ['pledged', 'confirmed', 'in_transit'];
+
+export const isLivePledge = (s: PledgeStatus): boolean => PLEDGE_LIVE_STATUSES.includes(s);
+
+// Sunucudaki check constraint'lerin ve RPC doğrulamalarının karşılıkları.
+export const UPDATE_BODY_MAX = 1200;
+export const UPDATE_LOCATION_MAX = 120;
+export const PLEDGE_NOTE_MAX = 500;
+export const MAX_FEATURED_NEEDS = 4;
+export const MAX_PINNED_UPDATES = 3;
+export const MAX_UPDATE_PHOTOS = 4;
+// Sözün en geç ne kadar ileriye verilebileceği. Bir afet operasyonunda 90 günden
+// uzak bir tarih plan değil, veri hatasıdır.
+export const PLEDGE_MAX_DAYS_AHEAD = 90;
+
+// Metinde telefon numarası ya da e-posta adresi var mı. `operation_update_pii_flag()`
+// ile aynı soruyu soruyor ama YETKİ DEĞİL: bu kopya yalnızca kullanıcıya form
+// gönderilmeden önce uyarı gösterebilmek için. Kararı sunucu veriyor —
+// bayraklanan metin doğrudan yayına çıkmıyor (rules/03 §Input Validation).
+export function looksLikeContactDetails(text: string): boolean {
+  const v = text ?? '';
+  if (/[\w.%+-]+@[\w.-]+\.[a-z]{2,}/i.test(v)) return true;
+  if (/(^|\D)(\+?90[ .-]?)?0?5\d{2}[ .-]?\d{3}[ .-]?\d{2}[ .-]?\d{2}(\D|$)/.test(v)) return true;
+  return v.replace(/\D/g, '').length >= 11;
+}
+
+// Durum özeti kaç gün sonra "uzun süredir güncellenmedi" sayılır. Tek bir yerde,
+// çünkü eşiği ekran da yazıyor: iki farklı sayı, uyarının anlamını belirsizleştirir.
+// 3 gün: bir afet operasyonunda durum günlerce aynı kalabilir, ama üç gün boyunca
+// hiç dokunulmamış bir özet artık sahayı anlatmıyor olabilir (rules/01 §Freshness).
+export const SITUATION_STALE_DAYS = 3;
+
+// "Şu anda en çok ihtiyaç duyulan destek" için güvenli yedek seçim.
+//
+// Koordinatör elle seçim yaptıysa (featuredRank) O KAZANIR — otomatik seçim asla
+// manuel kararın önüne geçmez. Seçim yoksa yalnızca gerçekten açık ve gerçekten
+// öncelikli kalemler gösterilir; "en acil" diye tamamlanmış bir kalem yazmak, sayfanın
+// tek işini bozardı.
+export function pickFeaturedNeeds<T extends {
+  featuredRank?: number | null; remaining: number; priority: PriorityKey;
+}>(all: T[]): { items: T[]; manual: boolean } {
+  const manual = all.filter((n) => n.featuredRank != null)
+    .sort((a, b) => (a.featuredRank as number) - (b.featuredRank as number))
+    .slice(0, MAX_FEATURED_NEEDS);
+  if (manual.length > 0) return { items: manual, manual: true };
+  const order: Record<string, number> = { Critical: 0, Urgent: 1 };
+  const auto = all
+    .filter((n) => n.remaining > 0 && (n.priority === 'Critical' || n.priority === 'Urgent'))
+    .sort((a, b) => (order[a.priority] ?? 9) - (order[b.priority] ?? 9) || b.remaining - a.remaining)
+    .slice(0, MAX_FEATURED_NEEDS);
+  return { items: auto, manual: false };
+}
+
+// Which public update types a visitor without a coordinator account may send. The
+// server enforces the same list (submit_operation_update); this copy exists so the form
+// does not offer a choice that will be refused.
+export const PUBLIC_UPDATE_TYPES: OperationUpdateType[] = ['field_report', 'public_comment'];
+
 // Shared, pure domain helpers — the invariant lives here and in schema.sql.
 export const remaining = (n: Need): number => Math.max(0, n.required - n.verified);
 export const pct = (n: Need): number => Math.min(100, Math.round((n.verified / n.required) * 100));
@@ -419,6 +524,10 @@ const PUBLIC_AUDIT_ACTIONS = new Set([
   'Topluluk afeti oluşturuldu', 'Topluluk afeti doğrulandı',
   'Kurum eklendi', 'Kurum doğrulandı',
   'Afet bildirimi gönderildi', 'Afet bildirimi birleştirildi', 'Afet bildirimi doğrulandı',
+  // migration 0036 / 0038. Teslim sözü ve moderasyon kayıtları BİLEREK yok: biri kişiye
+  // bağlanabilir bir niyet, diğeri adı geçen kişi hakkında bir moderasyon kararı.
+  'Operasyon aşaması güncellendi',
+  'Saha güncellemesi yayınlandı', 'Saha güncellemesi düzeltildi', 'Saha güncellemesi sabitlendi',
 ]);
 
 export const isPublicAuditAction = (action: string): boolean => PUBLIC_AUDIT_ACTIONS.has(action);

@@ -9,7 +9,8 @@ import type {
   OrgEditRequestInput, OrgEditRequest, OrgEditable, EditRequestStatus, DisasterInput,
   OrganizationSave, VolunteerInput, VolunteerApplication, VolunteerStatus,
   AnnouncementInput, LocationInput,
-  StaffMember, StaffRole, RoleInvite,
+  StaffMember, StaffRole, RoleInvite, OperationStage,
+  OperationUpdate, OperationUpdateType, OperationMedia,
 } from '../types';
 import type {
   Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed,
@@ -40,8 +41,21 @@ export class SupabaseRepo implements Repo {
   private db: SupabaseClient;
   constructor(db: SupabaseClient) { this.db = db; }
 
+  // Kısa ömürlü görüntüleme bağlantısı. Üretilemeyen yol sonuçta yer almaz: kırık bir
+  // çerçeve göstermektense fotoğrafı hiç göstermemek doğru (rules/04 §Empty States).
+  async signMedia(paths: string[]): Promise<Record<string, string>> {
+    if (paths.length === 0) return {};
+    const { data, error } = await this.db.storage.from('operation-media').createSignedUrls(paths, 600);
+    if (error) throw error;
+    const out: Record<string, string> = {};
+    for (const row of data ?? []) {
+      if (row.signedUrl && row.path) out[row.path] = row.signedUrl;
+    }
+    return out;
+  }
+
   async getSnapshot(slug?: string): Promise<Snapshot> {
-    const [ds, loc, ne, su, lg, an] = await Promise.all([
+    const [ds, loc, ne, su, lg, an, pl, up, md] = await Promise.all([
       // The overview view, not the table: volunteer figures are derived there from real
       // approved applications (migration 0017). Reading `disasters` directly would show
       // the stale typed-in numbers the table still carries.
@@ -53,7 +67,25 @@ export class SupabaseRepo implements Repo {
       // admin, so a visitor's request no longer carries anyone's surname (migration 0024).
       this.db.from('audit_log_public').select('*').order('created_at', { ascending: false }),
       this.db.from('announcements').select('*').order('created_at', { ascending: false }),
+      // Kişiye bağlanamayan söz toplamı. Tablonun kendisi herkese açık okunmuyor;
+      // bu görünüm yalnızca sayı taşıyor (migration 0037).
+      this.db.from('need_pledge_totals').select('need_id, pledged_qty'),
+      // Yalnızca yayınlanmış ve moderasyondan geçmiş kayıtlar; görünümün kendisi
+      // filtreliyor ve kişisel veri taşımıyor (migration 0038). Sınırlı: akışın
+      // tamamını her sayfa açılışında indirmek gereksiz (rules/06 §Unbounded queries).
+      this.db.from('operation_updates_public').select('*')
+        .order('published_at', { ascending: false }).limit(60),
+      this.db.from('operation_media_public').select('*')
+        .order('published_at', { ascending: false }).limit(40),
     ]);
+
+    // Görünüm henüz uygulanmamış bir veritabanında sorgu hata döndürür; bu durumda
+    // söz toplamı sıfır kabul edilir ve sayfa yine açılır. Sessiz bir catch değil:
+    // eksik olan bilgi ekranda "0" olarak değil, hiç gösterilmeyerek karşılık bulur.
+    const pledgeByNeed = new Map<string, number>(
+      (pl.error ? [] : (pl.data ?? [])).map((r: Record<string, unknown>) =>
+        [String(r.need_id), Number(r.pledged_qty ?? 0)] as const),
+    );
 
     const mapDisaster = (r: Record<string, unknown>): Disaster => ({
       id: String(r.id), slug: String(r.slug ?? ''),
@@ -69,6 +101,11 @@ export class SupabaseRepo implements Repo {
       openedByOrgId: r.opened_by_org_id ? String(r.opened_by_org_id) : null,
       openedByCommunity: r.opened_by_community === true,
       communityConfirmed: r.community_confirmed_at != null,
+      // Aşama YOKSA null kalır ve ekranda "belirtilmedi" diye okunur; bir varsayılan
+      // atamak koordinatörün söylemediği bir şeyi yazmak olurdu (migration 0036).
+      operationStage: (r.operation_stage as OperationStage | null) ?? null,
+      operationStageNote: String(r.operation_stage_note ?? ''),
+      operationStageSetAt: r.operation_stage_set_at ? rel(String(r.operation_stage_set_at)) : '',
     });
     const disasters: Disaster[] = (ds.data ?? []).map(mapDisaster);
     const disaster = disasters.find((x) => x.slug === slug)
@@ -101,6 +138,10 @@ export class SupabaseRepo implements Repo {
       verified: Number(r.verified_qty), pending: Number(r.pending_qty), unit: String(r.unit),
       updated: rel(String(r.updated_at)), loc: String(r.location_name),
       details: (r.details as Record<string, string>) ?? {},
+      featuredRank: r.featured_rank == null ? null : Number(r.featured_rank),
+      // Teslim sözü toplamı AYRI bir görünümden geliyor ve `verified` / `pending` ile
+      // hiçbir aritmetiğe girmiyor: bir söz kalan miktarı azaltmaz (migration 0037).
+      pledged: Number(pledgeByNeed.get(String(r.id)) ?? 0),
     }));
 
     const subs: Submission[] = (su.data ?? []).filter((r: Record<string, unknown>) => String(r.disaster_id) === disaster.id).map((r: Record<string, unknown>) => ({
@@ -138,7 +179,49 @@ export class SupabaseRepo implements Repo {
     }));
 
     const verifiedTotal = subs.filter((s) => s.status === 'Verified' || s.status === 'Partially verified').length;
-    return { disaster, disasters, locations, needs, subs, log, announcements, verifiedTotal };
+
+    // Görünümler henüz uygulanmamışsa (`up.error` / `md.error`) bölüm BOŞ kalır ve
+    // ekran "henüz yayımlanmış içerik yok" der. Sessiz bir catch değil: eksik olan
+    // içerik uydurulmuyor, yokluğu söyleniyor.
+    const updates: OperationUpdate[] = (up.error ? [] : (up.data ?? []))
+      .filter((r: Record<string, unknown>) => String(r.disaster_id) === disaster.id)
+      .map((r: Record<string, unknown>) => ({
+        id: String(r.id), disasterId: String(r.disaster_id),
+        type: r.update_type as OperationUpdateType,
+        authorType: r.author_type as OperationUpdate['authorType'],
+        authorLabel: String(r.author_label ?? ''),
+        organizationId: r.organization_id ? String(r.organization_id) : null,
+        body: String(r.body ?? ''),
+        verified: r.verification_status === 'coordinator_verified',
+        relatedNeedId: r.related_need_id ? String(r.related_need_id) : null,
+        relatedNeedName: String(r.related_need_name ?? ''),
+        relatedLocationId: r.related_delivery_location_id ? String(r.related_delivery_location_id) : null,
+        relatedLocationName: String(r.related_location_name ?? ''),
+        approximateLocation: String(r.approximate_location ?? ''),
+        pinned: r.is_pinned === true,
+        correctsUpdateId: r.corrects_update_id ? String(r.corrects_update_id) : null,
+        photoCount: Number(r.photo_count ?? 0),
+        publishedAt: String(r.published_at ?? r.created_at ?? ''),
+        time: rel(String(r.published_at ?? r.created_at ?? new Date().toISOString())),
+      }));
+
+    const media: OperationMedia[] = (md.error ? [] : (md.data ?? []))
+      .filter((r: Record<string, unknown>) => String(r.disaster_id) === disaster.id)
+      .map((r: Record<string, unknown>) => ({
+        id: String(r.id), disasterId: String(r.disaster_id),
+        updateId: String(r.operation_update_id),
+        storagePath: String(r.storage_path), fileType: String(r.file_type ?? ''),
+        width: r.width == null ? null : Number(r.width),
+        height: r.height == null ? null : Number(r.height),
+        caption: String(r.caption ?? ''),
+        capturedAt: String(r.captured_at ?? ''),
+        locationText: String(r.public_location_text ?? ''),
+        authorLabel: String(r.author_label ?? ''),
+        updateType: r.update_type as OperationUpdateType,
+        publishedAt: String(r.published_at ?? ''),
+      }));
+
+    return { disaster, disasters, locations, needs, subs, log, announcements, verifiedTotal, updates, media };
   }
 
   // Reads the `disaster_overview` view (migration 0002) so the national counters
@@ -166,6 +249,11 @@ export class SupabaseRepo implements Repo {
       openedByOrgId: r.opened_by_org_id ? String(r.opened_by_org_id) : null,
       openedByCommunity: r.opened_by_community === true,
       communityConfirmed: r.community_confirmed_at != null,
+      // Aşama YOKSA null kalır ve ekranda "belirtilmedi" diye okunur; bir varsayılan
+      // atamak koordinatörün söylemediği bir şeyi yazmak olurdu (migration 0036).
+      operationStage: (r.operation_stage as OperationStage | null) ?? null,
+      operationStageNote: String(r.operation_stage_note ?? ''),
+      operationStageSetAt: r.operation_stage_set_at ? rel(String(r.operation_stage_set_at)) : '',
     });
 
     const disasters: Disaster[] = (rows ?? ds.data ?? []).map(mapDisaster);
