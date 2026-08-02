@@ -166,7 +166,7 @@ export function CoordOperationStatus({ d }: { d: Disaster }) {
       )}
 
       {!open ? (
-        <button ref={triggerRef} onClick={() => setOpen(true)} style={{ ...BTN_PRIMARY, marginTop: 14 }}>
+        <button type="button" ref={triggerRef} onClick={() => setOpen(true)} style={{ ...BTN_PRIMARY, marginTop: 14 }}>
           {d.operationStage ? tr.coordOps2.updateStage : tr.coordOps2.setStage}
         </button>
       ) : (
@@ -215,10 +215,10 @@ export function CoordOperationStatus({ d }: { d: Disaster }) {
           <DemoNote />
 
           <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-            <button onClick={submit} style={BTN_PRIMARY}>
+            <button type="button" onClick={submit} style={BTN_PRIMARY}>
               {busy ? tr.coordOps2.saving : tr.coordOps2.updateStage}
             </button>
-            <button onClick={() => { setOpen(false); setErr(''); }} style={BTN_QUIET}>{tr.coordOps2.cancel}</button>
+            <button type="button" onClick={() => { setOpen(false); setErr(''); }} style={BTN_QUIET}>{tr.coordOps2.cancel}</button>
           </div>
         </fieldset>
       )}
@@ -295,7 +295,7 @@ export function CoordSituationSummary({ d }: { d: Disaster }) {
       {err ? <FieldError id={`${uid}-e`} text={err} /> : null}
       <DemoNote />
 
-      <button onClick={save} disabled={busy} style={{ ...BTN_PRIMARY, marginTop: 14 }}>
+      <button type="button" onClick={save} disabled={busy} style={{ ...BTN_PRIMARY, marginTop: 14 }}>
         {busy ? tr.coordOps2.saving : tr.coordOps2.summarySave}
       </button>
     </section>
@@ -381,9 +381,9 @@ export function CoordFeaturedNeeds({ d }: { d: Disaster }) {
                 </span>
                 {/* Sürükle-bırak yok: yukarı/aşağı düğmeleri klavye ve ekran okuyucuyla
                     çalışır ve tek elle kullanılabilir (rules/01 §Emergency First). */}
-                <button onClick={() => move(i, -1)} disabled={i === 0} aria-label={`${tr.coordOps2.featuredUp}: ${n?.name ?? ''}`} style={BTN_TINY}>↑</button>
-                <button onClick={() => move(i, 1)} disabled={i === picked.length - 1} aria-label={`${tr.coordOps2.featuredDown}: ${n?.name ?? ''}`} style={BTN_TINY}>↓</button>
-                <button onClick={() => setPicked(picked.filter((x) => x !== id))} aria-label={`${tr.coordOps2.featuredRemove}: ${n?.name ?? ''}`} style={BTN_TINY}>×</button>
+                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`${tr.coordOps2.featuredUp}: ${n?.name ?? ''}`} style={BTN_TINY}>↑</button>
+                <button type="button" onClick={() => move(i, 1)} disabled={i === picked.length - 1} aria-label={`${tr.coordOps2.featuredDown}: ${n?.name ?? ''}`} style={BTN_TINY}>↓</button>
+                <button type="button" onClick={() => setPicked(picked.filter((x) => x !== id))} aria-label={`${tr.coordOps2.featuredRemove}: ${n?.name ?? ''}`} style={BTN_TINY}>×</button>
               </li>
             );
           })}
@@ -442,11 +442,11 @@ export function CoordFeaturedNeeds({ d }: { d: Disaster }) {
       <DemoNote />
 
       <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-        <button onClick={() => save(picked)} disabled={busy || !dirty} style={BTN_PRIMARY}>
+        <button type="button" onClick={() => save(picked)} disabled={busy || !dirty} style={BTN_PRIMARY}>
           {busy ? tr.coordOps2.saving : tr.coordOps2.featuredSave}
         </button>
         {saved.length > 0 && (
-          <button onClick={() => { setPicked([]); void save([]); }} disabled={busy} style={BTN_QUIET}>
+          <button type="button" onClick={() => { setPicked([]); void save([]); }} disabled={busy} style={BTN_QUIET}>
             {tr.coordOps2.featuredClear}
           </button>
         )}
