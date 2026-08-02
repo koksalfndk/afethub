@@ -7,7 +7,7 @@ import type {
   OrganizationSave, OrgStatus, VolunteerInput, VolunteerApplication, VolunteerStatus,
   AnnouncementInput, LocationInput,
   StaffMember, StaffRole, RoleInvite, LogEntry,
-  ContactInput, ContactMessage, ContactStatus, ContactAttachment,
+  ContactInput, ContactMessage, ContactStatus, ContactAttachment, OperationStage,
 } from './types';
 import type { NeedPayload } from './needForm';
 import { tr } from './i18n/strings';
@@ -276,6 +276,10 @@ export interface AppApi {
   openDisasterForm: () => void; closeDisasterForm: () => void;
   openDelivery: () => void; closeDelivery: () => void;
   saveDisaster: (id: string | null, input: DisasterInput) => Promise<boolean>;
+  // Faz 3-A koordinatör araçları. İkisi de sunucu tarafındaki RPC'yi çağırır; yetki
+  // ve denetim kaydı orada (migration 0036).
+  setOperationStage: (disasterId: string, stage: OperationStage | null, note: string, reason: string) => Promise<boolean>;
+  setFeaturedNeeds: (disasterId: string, needIds: string[]) => Promise<boolean>;
   publishNeed: (p: NeedPayload) => Promise<boolean>;
   requestNeed: (p: NeedPayload, contact: { name: string; email: string; phone: string; city: string }) => Promise<string | null>;
   bumpNeed: (id: string) => void; togglePause: (id: string) => void;
@@ -817,6 +821,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
         showToast(id ? tr.coordDisasters.savedEdit : tr.coordDisasters.savedNew);
         return true;
       } catch { showToast(tr.coordDisasters.saveFailed); return false; }
+    },
+    setOperationStage: async (disasterId, stage, note, reason) => {
+      if (unverified) { showToast(tr.auth.verifyFirst); return false; }
+      try {
+        setSnap(await withTimeout(repo.setOperationStage(disasterId, stage, note, reason)));
+        // Ana sayfa kartları da aşamayı okuyor; tek ekranı tazelemek ikisini ayrıştırırdı.
+        setOverview(await withTimeout(repo.getOverview()));
+        showToast(stage ? tr.coordOps2.stageSaved(tr.disaster.stage.names[stage]) : tr.coordOps2.stageCleared);
+        return true;
+      } catch { showToast(tr.coordOps2.stageFailed); return false; }
+    },
+    setFeaturedNeeds: async (disasterId, needIds) => {
+      if (unverified) { showToast(tr.auth.verifyFirst); return false; }
+      try {
+        setSnap(await withTimeout(repo.setFeaturedNeeds(disasterId, needIds)));
+        showToast(needIds.length === 0 ? tr.coordOps2.featuredCleared : tr.coordOps2.featuredSaved);
+        return true;
+      } catch { showToast(tr.coordOps2.featuredFailed); return false; }
     },
     publishNeed: async (p) => {
       if (unverified) { showToast(tr.auth.verifyFirst); return false; }

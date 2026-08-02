@@ -7,6 +7,7 @@ import { ProgressBar, StatusBadge, PriorityBadge, Ico, DISASTER_ICON } from '../
 import type { CoordDisasterRow } from '../data';
 import { DistrictMap } from '../components/DistrictMap';
 import { DisasterFormDrawer } from '../components/DisasterFormDrawer';
+import { CoordOperationTools } from '../components/CoordOperationTools';
 import { plateOf } from '../trProvinces';
 
 // Tek bir operasyonun koordinasyon sayfası (/koordinasyon/afet/<slug>).
@@ -263,6 +264,11 @@ export function CoordDisaster() {
           </div>
         )}
       </section>
+
+      {/* ---- Faz 3-A: operasyon durumu, durum özeti, öne çıkan ihtiyaçlar ----
+          Başlık ve KPI'lardan HEMEN SONRA: koordinatörün ilk kararı "sahada ne
+          oluyor ve ziyaretçi ne görüyor", iş kuyruğu ondan sonra gelir. */}
+      {a.snap && <CoordOperationTools d={a.snap.disaster} />}
 
       {/* ---- Bugünkü iş kuyruğu ------------------------------------------- */}
       <section style={panel}>

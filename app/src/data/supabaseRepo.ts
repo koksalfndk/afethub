@@ -1028,6 +1028,24 @@ export class SupabaseRepo implements Repo {
     return { snapshot: await this.getSnapshot(), code };
   }
 
+  // Yetki ve denetim kaydı RPC'nin içinde (migration 0036). Arayüz İKİNCİ bir audit
+  // satırı yazmaz: aynı olayın iki kaydı, kaydın kendisini şüpheli hâle getirir.
+  async setOperationStage(disasterId: string, stage: OperationStage | null, note: string, reason: string): Promise<Snapshot> {
+    const { error } = await this.db.rpc('set_operation_stage', {
+      p_disaster: disasterId, p_stage: stage, p_note: note, p_reason: reason,
+    });
+    if (error) throw error;
+    return this.snapOf(disasterId);
+  }
+
+  async setFeaturedNeeds(disasterId: string, needIds: string[]): Promise<Snapshot> {
+    const { error } = await this.db.rpc('set_featured_needs', {
+      p_disaster: disasterId, p_need_ids: needIds,
+    });
+    if (error) throw error;
+    return this.snapOf(disasterId);
+  }
+
   async verifySubmission(subId: string, kind: VerifyKind, qty: number, reason: string): Promise<Snapshot> {
     // `rpc()` HATA FIRLATMAZ; `{ data, error }` döndürür. Bu satırda `error`
     // okunmuyordu: RLS reddettiğinde ya da fonksiyon hata verdiğinde çağrı sessizce

@@ -5,13 +5,13 @@ import type {
   BannerSlide, BannerSlideInput, OrgEditRequestInput,
   OrgEditRequest, Disaster, DisasterInput, OrganizationSave, OrgStatus,
   VolunteerInput, VolunteerApplication, VolunteerStatus, StaffMember, StaffRole, RoleInvite,
-  Announcement, AnnouncementInput, Location, LocationInput, OperationUpdate,
+  Announcement, AnnouncementInput, Location, LocationInput, OperationUpdate, OperationStage,
 } from '../types';
 import type {
   Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed,
   CoordOverview, CoordDisasterRow, CoordQueueItem,
 } from './repo';
-import { genCode, genNrq, remaining, isSameEvent, SLA_HOURS, urgencyScore, splitDistricts, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS, COMMUNITY_THRESHOLD, isPublicAuditAction } from './repo';
+import { genCode, genNrq, remaining, isSameEvent, SLA_HOURS, urgencyScore, splitDistricts, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS, COMMUNITY_THRESHOLD, isPublicAuditAction, MAX_FEATURED_NEEDS } from './repo';
 import { disasterTypeLabel } from '../i18n/strings';
 import { agoMinutes } from '../util';
 import { PRI } from '../theme';
@@ -1109,6 +1109,37 @@ export class LocalRepo implements Repo {
 
   // Seed disasters live in a module-level array; a coordinator edit mutates that copy.
   // In local mode this resets on reload, which the panel states.
+  // YEREL MOD — gerçek yetkilendirme ve denetim kaydı YOK.
+  //
+  // Supabase yolunda bu iki işlem `set_operation_stage()` / `set_featured_needs()`
+  // içinde çalışır: yetki `is_coordinator()` ile sunucuda kontrol edilir ve denetim
+  // satırı orada yazılır. Burada ikisi de yapılamaz — bellekteki bir dizide
+  // "yetkilendirme" taklidi yapmak, olmayan bir güvenceyi varmış gibi göstermek
+  // olurdu (CLAUDE.md §No Fabricated Completion). Bu yüzden yalnızca durum
+  // güncelleniyor ve kayıtlar zaten `demo: true` işaretli.
+  async setOperationStage(disasterId: string, stage: OperationStage | null, note: string, _reason: string): Promise<Snapshot> {
+    void _reason;   // gerekçe yalnızca sunucu tarafındaki denetim kaydına gider
+    const d = seed.disasters.find((x) => x.id === disasterId);
+    if (!d) throw new Error(`unknown disaster: ${disasterId}`);
+    d.operationStage = stage;
+    d.operationStageNote = stage ? note.trim() : '';
+    d.operationStageSetAt = NOW;
+    return snap(d.slug);
+  }
+
+  async setFeaturedNeeds(disasterId: string, needIds: string[]): Promise<Snapshot> {
+    const d = seed.disasters.find((x) => x.id === disasterId);
+    if (!d) throw new Error(`unknown disaster: ${disasterId}`);
+    const mine = new Set(needs.filter((n) => n.disasterId === disasterId).map((n) => n.id));
+    // Sunucudaki kuralın aynısı: başka operasyona ait kalem reddedilir, en fazla dört.
+    const picked = needIds.filter((id) => mine.has(id)).slice(0, MAX_FEATURED_NEEDS);
+    if (picked.length !== needIds.length) throw new Error('need does not belong to this operation');
+    needs = needs.map((n) => (n.disasterId === disasterId
+      ? { ...n, featuredRank: picked.indexOf(n.id) >= 0 ? picked.indexOf(n.id) + 1 : null }
+      : n));
+    return snap(d.slug);
+  }
+
   async saveDisaster(id: string | null, input: DisasterInput): Promise<Snapshot> {
     const region = [input.district, input.province].filter(Boolean).join(', ') + ' · Türkiye';
     if (id) {

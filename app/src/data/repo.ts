@@ -170,6 +170,13 @@ export interface Repo {
   signMedia(paths: string[]): Promise<Record<string, string>>;
   // National dashboard data (home page).
   getOverview(): Promise<Overview>;
+  // Halka açık operasyon aşaması (migration 0036). Gerekçe SUNUCUYA gider ve yalnızca
+  // denetim kaydına yazılır — herkese açık hiçbir yüzeye çıkmaz. `stage: null`
+  // aşamayı "belirtilmedi"ye döndürür; yanlış girilen bir aşama geri alınabilmeli.
+  setOperationStage(disasterId: string, stage: OperationStage | null, note: string, reason: string): Promise<Snapshot>;
+  // Öne çıkan ihtiyaçlar, sırasıyla (en fazla 4). Boş dizi manuel seçimi temizler ve
+  // herkese açık sayfa otomatik yedeğe döner.
+  setFeaturedNeeds(disasterId: string, needIds: string[]): Promise<Snapshot>;
   // Koordinatör paneli: tüm afetler tek çağrıda. Yedi operasyon için yedi ayrı
   // snapshot çağrısı panelin açılışını yavaşlatırdı (rules/05 §Performance).
   getCoordOverview(): Promise<CoordOverview>;

@@ -79,7 +79,11 @@ export function Header() {
       style={{
         display: 'flex', alignItems: 'center', gap: 7, background: '#F4F7FA',
         border: `1px solid ${C.borderFaint}`, borderRadius: 20, padding: '0 12px',
-        height: 38, flex: '0 1 210px', minWidth: 140,
+        // 768 pikselde (tablet) sağdaki grup sığmıyordu ve profil düğmesi belgeyi
+        // 6 piksel taşırıyordu — ölçüldü, kaynağı bu satırdaki alt sınırdı. Arama
+        // kutusu artık daha çok daralabiliyor; ikon ve birkaç karakter hâlâ görünür.
+        // Global `overflow-x: hidden` eklenmedi: o, taşmayı gizlemek olurdu.
+        height: 38, flex: '0 1 210px', minWidth: 96,
       }}
     >
       <Ico n="search" size={15} color={C.muted2} />
