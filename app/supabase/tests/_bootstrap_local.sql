@@ -8,9 +8,17 @@ do $$ begin create role authenticator noinherit login; exception when duplicate_
 grant anon, authenticated, service_role to authenticator;
 grant anon, authenticated, service_role to postgres;
 
+-- Supabase `public` şeması üzerinde bu izni kurulumda veriyor. Yerel iskelette
+-- açıkça yazılması gerekiyor: PostgreSQL 15'ten beri yeni oluşturulan bir şema
+-- yalnızca sahibine açık, ve testler şemayı sıfırlayıp yeniden kuruyor. İzin
+-- olmadan `set local role anon` altındaki her sorgu
+-- "permission denied for schema public" ile düşüyor — tablo yokmuş gibi görünür.
+grant usage on schema public to anon, authenticated, service_role;
+
 create schema if not exists auth;
 create schema if not exists storage;
 create schema if not exists extensions;
+grant usage on schema auth, storage to anon, authenticated, service_role;
 create extension if not exists pgcrypto with schema public;
 
 create table if not exists auth.users (
