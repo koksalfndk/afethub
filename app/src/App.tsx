@@ -50,6 +50,9 @@ const CoordContact = lazy(() => import('./screens/CoordContact').then((m) => ({ 
 const CoordHome = lazy(() => import('./screens/CoordHome').then((m) => ({ default: m.CoordHome })));
 const CoordDisaster = lazy(() => import('./screens/CoordDisaster').then((m) => ({ default: m.CoordDisaster })));
 const CoordQueue = lazy(() => import('./screens/CoordQueue').then((m) => ({ default: m.CoordQueue })));
+// Teslim sözleri çalışma alanı: herkese açık ilk paketin İÇİNDE DEĞİL. Ziyaretçi
+// bu ekranı hiç görmüyor (rules/09 §8).
+const CoordPledges = lazy(() => import('./screens/CoordPledges').then((m) => ({ default: m.CoordPledges })));
 const CoordNeeds = lazy(() => import('./screens/CoordNeeds').then((m) => ({ default: m.CoordNeeds })));
 const CoordLog = lazy(() => import('./screens/CoordLog').then((m) => ({ default: m.CoordLog })));
 const Components = lazy(() => import('./screens/Components').then((m) => ({ default: m.Components })));
@@ -93,7 +96,7 @@ export function App() {
 
   const screens: Record<string, ComponentType> = {
     home: Home, disasters: Disasters, disaster: Disaster, track: Track, needReq: NeedRequest, orgs: Organizations, reportDisaster: ReportDisaster, about: About, howItWorks: HowItWorks, account: Account, volunteer: Volunteer, contact: Contact,
-    coordHome: CoordHome, coordQueue: CoordQueue, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider, coordDisasters: CoordDisasters, coordOrgEdits: CoordOrgEdits, coordOrgs: CoordOrgs, coordStaff: CoordStaff, coordOps: CoordOps, coordReports: CoordReports, coordDisaster: CoordDisaster, coordContact: CoordContact,
+    coordHome: CoordHome, coordQueue: CoordQueue, coordPledges: CoordPledges, coordNeeds: CoordNeeds, coordLog: CoordLog, coordSlider: CoordSlider, coordDisasters: CoordDisasters, coordOrgEdits: CoordOrgEdits, coordOrgs: CoordOrgs, coordStaff: CoordStaff, coordOps: CoordOps, coordReports: CoordReports, coordDisaster: CoordDisaster, coordContact: CoordContact,
     components: Components, system: System,
   };
   const isReport = a.route === 'report';

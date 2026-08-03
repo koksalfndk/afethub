@@ -7,12 +7,14 @@ import type {
   VolunteerInput, VolunteerApplication, VolunteerStatus, StaffMember, StaffRole, RoleInvite,
   Announcement, AnnouncementInput, Location, LocationInput, OperationUpdate, OperationStage,
   DeliveryPledgeInput, DeliveryPledgeTracking, PledgeStatus,
+  CoordPledgeRow, CoordPledgePage, CoordPledgeDetail, PledgeContact, PledgeSummary,
+  PledgeFilter, PledgeView, PledgeSort, LinkableSubmission,
 } from '../types';
 import type {
   Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed,
   CoordOverview, CoordDisasterRow, CoordQueueItem,
 } from './repo';
-import { genCode, genNrq, remaining, isSameEvent, SLA_HOURS, urgencyScore, splitDistricts, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS, COMMUNITY_THRESHOLD, isPublicAuditAction, MAX_FEATURED_NEEDS, isLivePledge } from './repo';
+import { PLEDGE_PAGE_SIZE, PLEDGE_TRANSITIONS, genCode, genNrq, remaining, isSameEvent, SLA_HOURS, urgencyScore, splitDistricts, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS, COMMUNITY_THRESHOLD, isPublicAuditAction, MAX_FEATURED_NEEDS, isLivePledge } from './repo';
 import { disasterTypeLabel } from '../i18n/strings';
 import { agoMinutes } from '../util';
 import { PRI } from '../theme';
@@ -41,10 +43,110 @@ let announcements: Announcement[] = seed.announcements.map((x) => ({ ...x }));
 const updates: OperationUpdate[] = seed.operationUpdates.map((x) => ({ ...x }));
 // Yerel teslim sözü deposu. Sayfa yenilenince sıfırlanır — kalıcı bir kayıt değil.
 type LocalPledge = {
+  id: string;
   code: string; email: string; needId: string; qty: number; unit: string; needName: string;
   locationName: string; eta: string; notes: string; status: PledgeStatus; createdAt: string;
+  // Koordinatör ekranının ihtiyaç duyduğu alanlar. Canlıda bunlar tabloda zaten var;
+  // yerel mod da aynı şekli taşımalı ki ekran iki modda farklı davranmasın.
+  name: string; phone: string; city: string; disasterId: string;
+  submissionId?: string; cancelledAt?: string; cancelReason?: string; updatedAt: string;
 };
 const pledges: LocalPledge[] = [];
+
+// Canlı (hâlâ beklenen) durumlar — sunucudaki `need_pledge_totals` ile aynı liste.
+const LIVE: PledgeStatus[] = ['pledged', 'confirmed', 'in_transit'];
+
+// Yerel kayıtlar için basit bir kimlik. Takip kodundan AYRI: kod kişiye gösterilen
+// şey, kimlik ekranın satırı tanıması için.
+let localSeq = 0;
+const localId = () => `local-${(localSeq += 1)}`;
+
+// Maskeleme: sunucudaki `mask_*` fonksiyonlarının yerel karşılığı.
+const maskPerson = (v: string) =>
+  v.trim().split(/\s+/).filter(Boolean).map((w) => w[0] + '***').join(' ');
+const maskEmail = (v: string) =>
+  !v ? '' : v.includes('@') ? `${v[0]}***@${v.split('@')[1]}` : `${v[0]}***`;
+const maskPhone = (v: string) => {
+  const d = v.replace(/\D/g, '');
+  return d.length < 4 ? '' : `••• ••• ${d.slice(-4)}`;
+};
+
+// Gecikme yerel modda da SAAT ÜZERİNDEN hesaplanıyor; ekran kendi hesabını yapmıyor.
+function overdueMinutesOf(p: LocalPledge): number | null {
+  if (!LIVE.includes(p.status) || !p.eta) return null;
+  const diff = Date.now() - new Date(p.eta).getTime();
+  return diff > 0 ? Math.floor(diff / 60000) : null;
+}
+
+function toCoordRow(p: LocalPledge): CoordPledgeRow {
+  const need = needs.find((n) => n.id === p.needId);
+  const dis = seed.disasters.find((d) => d.id === p.disasterId);
+  return {
+    id: p.id, code: p.code,
+    disasterId: p.disasterId, disasterName: dis?.name ?? '',
+    needId: p.needId, needName: p.needName,
+    needPriority: need?.priority ?? 'Normal',
+    qty: p.qty, unit: p.unit, locationName: p.locationName,
+    estimatedAt: p.eta, status: p.status,
+    overdueMinutes: overdueMinutesOf(p),
+    contactMasked: maskPerson(p.name), emailMasked: maskEmail(p.email),
+    phoneMasked: maskPhone(p.phone), city: p.city,
+    hasPhone: p.phone.replace(/\D/g, '').length >= 7,
+    submissionId: p.submissionId ?? null,
+    submissionCode: subs.find((s) => s.id === p.submissionId)?.code ?? '',
+    createdAt: p.createdAt, updatedAt: p.updatedAt,
+  };
+}
+
+// Görünüm filtreleri sunucudakiyle aynı tanımlar. Türkiye saatine göre "bugün":
+// operasyonun saat dilimi tek yerde (sunucuda `Europe/Istanbul`).
+function istanbulDay(iso: string): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Europe/Istanbul' });
+}
+function matchesPledgeView(r: CoordPledgeRow, view: PledgeView): boolean {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Istanbul' });
+  const day = istanbulDay(r.estimatedAt);
+  switch (view) {
+    case 'today':    return LIVE.includes(r.status) && day === today;
+    case 'upcoming': {
+      if (!LIVE.includes(r.status) || !day) return false;
+      const d = new Date(`${day}T00:00:00Z`).getTime();
+      const t0 = new Date(`${today}T00:00:00Z`).getTime();
+      return d > t0 && d <= t0 + 7 * 86400000;
+    }
+    case 'overdue':   return r.overdueMinutes != null;
+    case 'transit':   return r.status === 'in_transit';
+    case 'reported':  return r.status === 'delivered_reported';
+    case 'done':      return r.status === 'fulfilled';
+    case 'cancelled': return r.status === 'cancelled';
+    case 'expired':   return r.status === 'expired';
+    default:          return true;
+  }
+}
+
+const PRI_RANK: Record<string, number> = { Critical: 1, Urgent: 2, Normal: 3, Paused: 4, Completed: 5 };
+function sortCoordRows(rows: CoordPledgeRow[], sort: PledgeSort): CoordPledgeRow[] {
+  const byDue = (a: CoordPledgeRow, b: CoordPledgeRow) =>
+    (a.estimatedAt || '9999').localeCompare(b.estimatedAt || '9999');
+  const copy = rows.slice();
+  switch (sort) {
+    case 'due_asc':     return copy.sort(byDue);
+    case 'overdue':     return copy.sort((a, b) => (b.overdueMinutes ?? -1) - (a.overdueMinutes ?? -1));
+    case 'created_asc': return copy.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    case 'created_desc':return copy.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    case 'qty':         return copy.sort((a, b) => b.qty - a.qty);
+    case 'priority':    return copy.sort((a, b) => (PRI_RANK[a.needPriority] ?? 9) - (PRI_RANK[b.needPriority] ?? 9));
+    default:
+      // Operasyonel sıra: önce en çok geciken, sonra en yakın teslim zamanı.
+      return copy.sort((a, b) => {
+        const ao = a.overdueMinutes != null, bo = b.overdueMinutes != null;
+        if (ao !== bo) return ao ? -1 : 1;
+        if (ao && bo) return (b.overdueMinutes ?? 0) - (a.overdueMinutes ?? 0);
+        return byDue(a, b);
+      });
+  }
+}
 let locations: Location[] = seed.locations.map((x) => ({ ...x }));
 // Volunteer applications and staff both start empty on purpose: an invented "pending
 // volunteer" would be a named person who never applied, and a fake coordinator list
@@ -1265,12 +1367,14 @@ export class LocalRepo implements Repo {
       && p.qty === f.qty && p.status === 'pledged');
     if (dup) return dup.code;
     const code = 'DEMO-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+    const now = new Date().toISOString();
     pledges.push({
-      code, email: f.email.trim().toLowerCase(), needId: f.needId, qty: f.qty,
+      id: localId(), code, email: f.email.trim().toLowerCase(), needId: f.needId, qty: f.qty,
       unit: f.unit || need.unit, needName: need.name,
       locationName: locations.find((l) => l.id === f.locationId)?.name ?? '',
       eta: f.estimatedDeliveryAt, notes: f.notes, status: 'pledged',
-      createdAt: new Date().toISOString(),
+      createdAt: now, updatedAt: now,
+      name: f.name, phone: f.phone, city: f.city, disasterId: need.disasterId,
     });
     return code;
   }
@@ -1304,4 +1408,126 @@ export class LocalRepo implements Repo {
     const c = (code || '').trim().toUpperCase();
     return subs.find((s) => s.code.toUpperCase() === c) ?? null;
   }
+
+  // ---- Faz 3-C: koordinatör teslim sözü operasyonu ---------------------------
+  // Yerel mod sunucunun davranışını taklit ediyor: aynı görünüm filtreleri, aynı
+  // durum makinesi, aynı maskeleme, aynı "bağlama miktarı değiştirmez" kuralı.
+  // Amaç Supabase'siz önizlemede ekranın gerçekten denenebilmesi.
+
+  async listCoordPledges(f: PledgeFilter): Promise<CoordPledgePage> {
+    const all = pledges.map(toCoordRow).filter((r) => {
+      if (f.disasterId && r.disasterId !== f.disasterId) return false;
+      if (f.needId && r.needId !== f.needId) return false;
+      if (f.city && !r.city.toLocaleLowerCase('tr').includes(f.city.toLocaleLowerCase('tr'))) return false;
+      const q = f.search.trim().toLocaleLowerCase('tr');
+      if (q.length >= 3) {
+        const hay = `${r.code} ${r.needName} ${r.locationName} ${r.city}`.toLocaleLowerCase('tr');
+        if (!hay.includes(q)) return false;
+      }
+      return matchesPledgeView(r, f.view);
+    });
+    const sorted = sortCoordRows(all, f.sort);
+    const from = f.page * PLEDGE_PAGE_SIZE;
+    return { rows: sorted.slice(from, from + PLEDGE_PAGE_SIZE), total: sorted.length };
+  }
+
+  async pledgeSummary(disasterId?: string): Promise<PledgeSummary> {
+    const rows = pledges.map(toCoordRow).filter((r) => !disasterId || r.disasterId === disasterId);
+    const live = (r: CoordPledgeRow) => LIVE.includes(r.status);
+    return {
+      today: rows.filter((r) => live(r) && matchesPledgeView(r, 'today')).length,
+      transit: rows.filter((r) => r.status === 'in_transit').length,
+      overdue: rows.filter((r) => r.overdueMinutes != null).length,
+      reported: rows.filter((r) => r.status === 'delivered_reported').length,
+      cancelled: rows.filter((r) => r.status === 'cancelled').length,
+      upcoming: rows.filter((r) => live(r) && matchesPledgeView(r, 'upcoming')).length,
+      active: rows.filter((r) => [...LIVE, 'delivered_reported'].includes(r.status)).length,
+    };
+  }
+
+  async pledgeDetail(id: string): Promise<CoordPledgeDetail | null> {
+    const p = pledges.find((x) => x.code === id || x.id === id);
+    if (!p) return null;
+    const need = needs.find((n) => n.id === p.needId);
+    const row = toCoordRow(p);
+    const sub = subs.find((s) => s.id === p.submissionId);
+    return {
+      ...row,
+      disasterSlug: seed.disasters.find((d) => d.id === row.disasterId)?.slug ?? '',
+      needUnit: need?.unit ?? p.unit,
+      needRequired: need?.required ?? 0,
+      needVerified: need?.verified ?? 0,
+      needRemaining: need ? remaining(need) : 0,
+      notes: p.notes,
+      cancelReason: p.cancelReason ?? '',
+      cancelledAt: p.cancelledAt ?? '',
+      submissionStatus: sub?.status ?? '',
+      submissionQty: sub?.qty ?? null,
+      submissionVerified: sub?.verifiedQty ?? null,
+    };
+  }
+
+  async pledgeContact(id: string, purpose: string): Promise<PledgeContact> {
+    if (purpose.trim().length < 3) throw new Error('Kullanım amacı gerekli');
+    const p = pledges.find((x) => x.id === id || x.code === id);
+    if (!p) throw new Error('Pledge not found');
+    // Denetim kaydı yerel modda da yazılıyor: ekran "kayıt oluştu" diyorsa
+    // gerçekten bir satır olmalı.
+    const dis = seed.disasters.find((d) => d.id === p.disasterId);
+    log.unshift({
+      id: localId(), disasterId: p.disasterId,
+      disasterName: dis?.name ?? '', disasterSlug: dis?.slug ?? '',
+      time: 'az önce', user: 'Koordinatör',
+      action: 'Teslim sözü iletişim bilgisi görüntülendi',
+      detail: p.code, oldValue: '—', newValue: purpose.slice(0, 200), color: '#8A94A6',
+    });
+    return { fullName: p.name, email: p.email, phone: p.phone, city: p.city };
+  }
+
+  async setPledgeStatus(id: string, status: PledgeStatus, reason: string): Promise<PledgeStatus> {
+    const p = pledges.find((x) => x.id === id || x.code === id);
+    if (!p) throw new Error('Pledge not found');
+    if (status === 'fulfilled') throw new Error('fulfilled elle yazılamaz');
+    if (p.status === status) return p.status;
+    if (!(PLEDGE_TRANSITIONS[p.status] ?? []).includes(status)) {
+      throw new Error(`Bu geçişe izin verilmiyor: ${p.status} -> ${status}`);
+    }
+    p.status = status;
+    if (status === 'cancelled') {
+      p.cancelledAt = new Date().toISOString();
+      p.cancelReason = reason.slice(0, 300);
+    }
+    return status;
+  }
+
+  async linkableSubmissions(id: string): Promise<LinkableSubmission[]> {
+    const p = pledges.find((x) => x.id === id || x.code === id);
+    if (!p) throw new Error('Pledge not found');
+    return subs
+      .filter((s) => s.needId === p.needId && s.status !== 'Rejected'
+        && !pledges.some((q) => q.submissionId === s.id && q.id !== p.id))
+      .map((s) => ({
+        id: s.id, code: s.code, qty: s.qty, unit: s.unit,
+        locationName: s.loc, submittedAt: s.submitted, status: s.status,
+        contributorMasked: maskPerson(s.contributor),
+        qtyMatches: s.qty === p.qty && s.unit.toLowerCase() === p.unit.toLowerCase(),
+      }));
+  }
+
+  async linkPledgeToSubmission(pledgeId: string, submissionId: string): Promise<PledgeStatus> {
+    const p = pledges.find((x) => x.id === pledgeId || x.code === pledgeId);
+    if (!p) throw new Error('Pledge not found');
+    const s = subs.find((x) => x.id === submissionId);
+    if (!s) throw new Error('Delivery report not found');
+    if (p.submissionId === s.id) return p.status;          // tekrar: yan etkisiz
+    if (p.submissionId) throw new Error('Bu teslim sözü zaten bağlı');
+    if (pledges.some((q) => q.submissionId === s.id)) throw new Error('Bu bildirim zaten bağlı');
+    if (s.needId !== p.needId) throw new Error('Farklı ihtiyaç');
+    if (s.unit.toLowerCase() !== p.unit.toLowerCase()) throw new Error('Birim uyuşmuyor');
+    p.submissionId = s.id;
+    p.status = 'delivered_reported';
+    // MİKTARA DOKUNULMUYOR — sunucudaki kuralın aynısı.
+    return 'delivered_reported';
+  }
+
 }

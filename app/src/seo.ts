@@ -100,6 +100,7 @@ const ROUTE_META: Record<Route, RouteMeta> = {
     index: true,
   },
   coordHome: { title: 'Koordinasyon paneli', index: false },
+  coordPledges: { title: 'Teslim sözleri', index: false },
   coordQueue: { title: 'İnceleme kuyruğu', index: false },
   coordNeeds: { title: 'İhtiyaç yönetimi', index: false },
   coordLog: { title: 'Denetim kaydı', index: false },

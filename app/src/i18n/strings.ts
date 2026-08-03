@@ -131,6 +131,10 @@ export const tr = {
 
   // Menu labels are Title Case (each word capitalised).
   nav: {
+    // Menü etiketi burada kalıyor: kenar çubuğu herkese açık pakette ve
+    // koordinatör metinlerinin tamamını buraya koymak, o metinleri her ziyaretçiye
+    // indirtmek olurdu (rules/09 §8).
+    pledges: 'Teslim Sözleri',
     activeDisasters: 'Aktif Afetler',
     needs: 'İhtiyaçlar',
     deliveryLocations: 'Teslim Noktaları',
@@ -2266,6 +2270,20 @@ export const tr = {
     // yalnızca ihtiyaç, birim, teslim noktası ve e-posta geçiyor.
     reportDeliveryNote: 'Bu, teslim sözünüzden AYRI bir teslimat bildirimi oluşturur. İhtiyaç, teslim noktası ve e-posta adresiniz forma taşınır; iletişim bilgilerinizi formda tamamlamanız gerekir.',
     demoNote: 'Yerel önizleme modu: takip kodu “DEMO-” ile başlar ve sunucuda bir kayıt oluşmaz.',
+  },
+
+
+  // Teslim sözü işlemlerinin bildirim metinleri. Ekran metinleri
+  // `i18n/coordPledges.ts` içinde ve tembel iniyor; bunlar `store.tsx` içinden
+  // çağrıldığı için burada kalmak zorunda — toplamı birkaç yüz bayt.
+  pledgeToast: {
+    loadFailed: 'Teslim sözleri yüklenemedi. Filtreleriniz korunuyor; tekrar deneyin.',
+    contactFailed: 'İletişim bilgisi alınamadı. Kullanım amacı yazdığınızdan emin olun.',
+    statusSaved: 'Teslim sözünün durumu güncellendi.',
+    statusFailed: 'Durum güncellenemedi. Lütfen tekrar deneyin.',
+    statusRejected: 'Bu geçişe izin verilmiyor. Kayıt olduğu gibi kaldı.',
+    linkSaved: 'Teslim sözü fiziksel teslimata bağlandı.',
+    linkFailed: 'Bağlama yapılamadı. Kayıtların aynı ihtiyaca ait olduğundan emin olun.',
   },
 
   // ---- Faz 3-A: koordinatör operasyon araçları -------------------------------

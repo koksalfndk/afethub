@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { repo, fallbackToLocal, type Snapshot, type Overview, type CoordOverview, type CoordQueueItem } from './data';
+import { repo, fallbackToLocal, EMPTY_PLEDGE_FILTER, type Snapshot, type Overview, type CoordOverview, type CoordQueueItem } from './data';
 import type {
   Submission, VerifyKind, Organization, OrganizationInput, DisasterReport, DisasterReportInput,
   ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
@@ -8,6 +8,8 @@ import type {
   AnnouncementInput, LocationInput,
   StaffMember, StaffRole, RoleInvite, LogEntry,
   ContactInput, ContactMessage, ContactStatus, ContactAttachment, OperationStage,
+  CoordPledgeRow, CoordPledgeDetail, PledgeContact, PledgeSummary, PledgeFilter,
+  PledgeStatus, LinkableSubmission,
   DeliveryPledgeInput, DeliveryPledgeTracking,
 } from './types';
 import type { NeedPayload } from './needForm';
@@ -35,7 +37,7 @@ import { uploadContactFiles, type PreparedContactFile } from './contactFiles';
 
 export type Route =
   | 'home' | 'disasters' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
-  | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordLog' | 'coordSlider' | 'coordDisasters' | 'coordDisaster'
+  | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordPledges' | 'coordLog' | 'coordSlider' | 'coordDisasters' | 'coordDisaster'
   | 'coordOrgEdits' | 'coordOrgs' | 'coordStaff' | 'volunteer' | 'coordOps' | 'coordReports'
   | 'components' | 'system' | 'contact' | 'coordContact';
 export type Tab = 'overview' | 'needs' | 'locations' | 'announcements' | 'activity';
@@ -124,7 +126,9 @@ function fromPath(pathname: string): ParsedPath {
     case 'koordinasyon': {
       const s = parts[1];
       if (s === 'afet' && parts[2]) return { route: 'coordDisaster', slug: parts[2], role: 'coordinator' };
-      const r: Route = s === 'kuyruk' ? 'coordQueue' : s === 'ihtiyaclar' ? 'coordNeeds'
+      const r: Route = s === 'kuyruk' ? 'coordQueue'
+        : s === 'teslim-sozleri' ? 'coordPledges'
+        : s === 'ihtiyaclar' ? 'coordNeeds'
         : s === 'kayit' ? 'coordLog' : s === 'slider' ? 'coordSlider'
         : s === 'afetler' ? 'coordDisasters'
         : s === 'kurum-duzeltmeleri' ? 'coordOrgEdits'
@@ -172,6 +176,34 @@ export interface AppApi {
   coordOverviewError: string;
   coordQueue: CoordQueueItem[];
   coordQueueLoading: boolean;
+  // ---- Faz 3-C: teslim sözleri çalışma alanı --------------------------------
+  // Filtre URL'de yaşıyor (`pledgeFilter`), veri sunucudan sayfalanmış geliyor.
+  // Sayfa yenilendiğinde koordinatör aynı görünüme dönüyor.
+  pledgeFilter: PledgeFilter;
+  setPledgeFilter: (patch: Partial<PledgeFilter>) => void;
+  pledgeRows: CoordPledgeRow[];
+  pledgeTotal: number;
+  pledgeLoading: boolean;
+  pledgeError: string;
+  pledgeSummary: PledgeSummary | null;
+  // Rozet sayısı. Ekran açılmadan ÖNCE de doğru olmalı, o yüzden ayrı ve hafif bir
+  // sorgudan geliyor. null = henüz bilinmiyor → rozet GÖSTERİLMİYOR (direktif §4).
+  pledgeBadge: number | null;
+  reloadPledges: () => void;
+  // Detay çekmecesi: açık olan kaydın kimliği. null = kapalı.
+  pledgeOpenId: string | null;
+  openPledge: (id: string | null) => void;
+  pledgeDetail: CoordPledgeDetail | null;
+  pledgeDetailLoading: boolean;
+  loadPledgeDetail: (id: string) => void;
+  // Tam iletişim ayrı çağrı, gerekçeli ve denetimli. Çekmece kapanınca DÜŞER.
+  pledgeContact: PledgeContact | null;
+  revealPledgeContact: (id: string, purpose: string) => Promise<boolean>;
+  clearPledgeContact: () => void;
+  changePledgeStatus: (id: string, status: PledgeStatus, reason: string) => Promise<boolean>;
+  linkCandidates: LinkableSubmission[];
+  loadLinkCandidates: (id: string) => void;
+  linkPledge: (pledgeId: string, submissionId: string) => Promise<boolean>;
   reloadCoordDashboard: () => void;
   // Teslim noktası doluluğu. null gönderildiğinde ölçüm "bilinmiyor"a döner.
   setLocationCapacity: (locationId: string, pct: number | null, note: string) => Promise<boolean>;
@@ -345,6 +377,52 @@ export const useApp = () => {
   return v;
 };
 
+
+// ---------------------------------------------------------------------------
+// Teslim sözü filtresi URL'de yaşıyor (direktif §17)
+// ---------------------------------------------------------------------------
+// Neden: koordinatör "geciken teslimatlar" görünümünü açıp sayfayı yenilediğinde ya
+// da bağlantıyı bir ekip arkadaşına gönderdiğinde aynı ekranı görmeli. Filtreyi
+// yalnızca bellekte tutmak, her yenilemede baştan kurmak demekti.
+function readPledgeFilterFromUrl(): PledgeFilter {
+  const q = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
+  const view = (q.get('view') ?? 'all') as PledgeFilter['view'];
+  const sort = (q.get('sort') ?? 'operational') as PledgeFilter['sort'];
+  return {
+    ...EMPTY_PLEDGE_FILTER,
+    view: (['all','today','upcoming','overdue','transit','reported','done','cancelled','expired'] as string[])
+      .includes(view) ? view : 'all',
+    sort: (['operational','due_asc','overdue','created_asc','created_desc','qty','priority'] as string[])
+      .includes(sort) ? sort : 'operational',
+    disasterId: q.get('afet') ?? '',
+    needId: q.get('ihtiyac') ?? '',
+    locationId: q.get('nokta') ?? '',
+    city: q.get('sehir') ?? '',
+    search: q.get('q') ?? '',
+    from: q.get('baslangic') ?? '',
+    to: q.get('bitis') ?? '',
+    page: Math.max(0, Number(q.get('sayfa') ?? 0) || 0),
+  };
+}
+
+function writePledgeFilterToUrl(f: PledgeFilter): void {
+  if (typeof window === 'undefined') return;
+  const q = new URLSearchParams();
+  if (f.view !== 'all') q.set('view', f.view);
+  if (f.sort !== 'operational') q.set('sort', f.sort);
+  if (f.disasterId) q.set('afet', f.disasterId);
+  if (f.needId) q.set('ihtiyac', f.needId);
+  if (f.locationId) q.set('nokta', f.locationId);
+  if (f.city) q.set('sehir', f.city);
+  if (f.search) q.set('q', f.search);
+  if (f.from) q.set('baslangic', f.from);
+  if (f.to) q.set('bitis', f.to);
+  if (f.page > 0) q.set('sayfa', String(f.page));
+  const qs = q.toString();
+  // `replaceState`: filtre değişimi geri düğmesini kirletmemeli.
+  window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? `?${qs}` : ''));
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const initial = fromPath(typeof window !== 'undefined' ? window.location.pathname : '/');
   const [snap, setSnap] = useState<Snapshot | null>(null);
@@ -354,6 +432,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [coordOverviewError, setCoordOverviewError] = useState('');
   const [coordQueue, setCoordQueue] = useState<CoordQueueItem[]>([]);
   const [coordQueueLoading, setCoordQueueLoading] = useState(false);
+  const [pledgeFilter, setPledgeFilterState] = useState<PledgeFilter>(() => readPledgeFilterFromUrl());
+  const [pledgeRows, setPledgeRows] = useState<CoordPledgeRow[]>([]);
+  const [pledgeTotal, setPledgeTotal] = useState(0);
+  const [pledgeLoading, setPledgeLoading] = useState(false);
+  const [pledgeError, setPledgeError] = useState('');
+  const [pledgeSummary, setPledgeSummary] = useState<PledgeSummary | null>(null);
+  const [pledgeOpenId, setPledgeOpenId] = useState<string | null>(null);
+  const [pledgeDetail, setPledgeDetail] = useState<CoordPledgeDetail | null>(null);
+  const [pledgeDetailLoading, setPledgeDetailLoading] = useState(false);
+  const [pledgeContact, setPledgeContact] = useState<PledgeContact | null>(null);
+  const [linkCandidates, setLinkCandidates] = useState<LinkableSubmission[]>([]);
+  // Yenileme sayacı: filtre değişimi ve durum güncellemesi aynı efekti tetikliyor.
+  const pledgeReloadRef = useRef(0);
+  const [pledgeTick, setPledgeTick] = useState(0);
+  const [pledgeBadge, setPledgeBadge] = useState<number | null>(null);
   const [loadError, setLoadError] = useState('');
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [slides, setSlides] = useState<BannerSlide[]>([]);
@@ -711,6 +804,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toastTimer.current = setTimeout(() => setToast(null), 3200);
   };
 
+  // Rozet: koordinatör moduna geçildiğinde bir kez, sonra her durum değişiminde.
+  // İptal ve süresi dolmuş kayıtlar bu sayıya GİRMİYOR — sunucudaki `active_count`.
+  useEffect(() => {
+    if (role !== 'coordinator') { setPledgeBadge(null); return; }
+    let alive = true;
+    repo.pledgeSummary()
+      .then((s) => { if (alive) setPledgeBadge(s.active); })
+      .catch(() => { if (alive) setPledgeBadge(null); });
+    return () => { alive = false; };
+  }, [role, pledgeTick]);
+
+  // Teslim sözleri YALNIZCA ekran açıkken yükleniyor: bir koordinatör başka bir
+  // sayfadayken bu sorguyu çalıştırmanın karşılığı yok.
+  useEffect(() => {
+    if (route !== 'coordPledges' || role !== 'coordinator') return;
+    let alive = true;
+    setPledgeLoading(true); setPledgeError('');
+    Promise.all([
+      repo.listCoordPledges(pledgeFilter),
+      repo.pledgeSummary(pledgeFilter.disasterId || undefined),
+    ])
+      .then(([page, sum]) => {
+        if (!alive) return;
+        setPledgeRows(page.rows); setPledgeTotal(page.total); setPledgeSummary(sum);
+      })
+      .catch(() => {
+        if (!alive) return;
+        // Filtreler KORUNUYOR; ekranın tamamı çökmüyor (rules/04 §Error States).
+        setPledgeError(tr.pledgeToast.loadFailed);
+      })
+      .finally(() => { if (alive) setPledgeLoading(false); });
+    return () => { alive = false; };
+  }, [route, role, pledgeFilter, pledgeTick]);
+
   const api: AppApi = useMemo(() => ({
     snap, loadError, retryLoad, overview, orgs, slides, backend: repo.kind,
     coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading,
@@ -851,6 +978,78 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return true;
       } catch { showToast(tr.coordOps2.featuredFailed); return false; }
     },
+    // ---- Faz 3-C ------------------------------------------------------------
+    pledgeFilter, pledgeRows, pledgeTotal, pledgeLoading, pledgeError, pledgeSummary,
+    pledgeOpenId, pledgeDetail, pledgeDetailLoading, pledgeContact, linkCandidates, pledgeBadge,
+    setPledgeFilter: (patch) => {
+      setPledgeFilterState((prev) => {
+        // Filtre değişince sayfa başa dönüyor — 4. sayfadayken görünüm değiştirip
+        // boş liste görmek, veri yokmuş gibi okunuyordu.
+        const resetsPage = Object.keys(patch).some((k) => k !== 'page');
+        const next = { ...prev, ...patch, ...(resetsPage && patch.page === undefined ? { page: 0 } : {}) };
+        writePledgeFilterToUrl(next);
+        return next;
+      });
+    },
+    reloadPledges: () => { pledgeReloadRef.current += 1; setPledgeTick((n) => n + 1); },
+    openPledge: (id) => {
+      setPledgeOpenId(id);
+      // İletişim verisi çekmeceyle birlikte DÜŞÜYOR: tam PII istemcide gereğinden
+      // uzun durmamalı (direktif §30).
+      setPledgeContact(null);
+      setLinkCandidates([]);
+      if (!id) { setPledgeDetail(null); return; }
+    },
+    loadPledgeDetail: (id) => {
+      setPledgeDetailLoading(true);
+      repo.pledgeDetail(id)
+        .then((d) => setPledgeDetail(d))
+        .catch(() => setPledgeDetail(null))
+        .finally(() => setPledgeDetailLoading(false));
+    },
+    revealPledgeContact: async (id, purpose) => {
+      try {
+        setPledgeContact(await repo.pledgeContact(id, purpose));
+        return true;
+      } catch {
+        showToast(tr.pledgeToast.contactFailed);
+        return false;
+      }
+    },
+    clearPledgeContact: () => setPledgeContact(null),
+    changePledgeStatus: async (id, status, reason) => {
+      try {
+        await repo.setPledgeStatus(id, status, reason);
+        const d = await repo.pledgeDetail(id).catch(() => null);
+        if (d) setPledgeDetail(d);
+        pledgeReloadRef.current += 1; setPledgeTick((n) => n + 1);
+        showToast(tr.pledgeToast.statusSaved);
+        return true;
+      } catch (e) {
+        // Sunucunun reddettiği geçişin sebebini olduğu gibi göstermek yerine
+        // ekranın diliyle söylüyoruz; ayrıntı denetim kaydında.
+        showToast(e instanceof Error && /izin verilmiyor/i.test(e.message)
+          ? tr.pledgeToast.statusRejected : tr.pledgeToast.statusFailed);
+        return false;
+      }
+    },
+    loadLinkCandidates: (id) => {
+      repo.linkableSubmissions(id).then(setLinkCandidates).catch(() => setLinkCandidates([]));
+    },
+    linkPledge: async (pledgeId, submissionId) => {
+      try {
+        await repo.linkPledgeToSubmission(pledgeId, submissionId);
+        const d = await repo.pledgeDetail(pledgeId).catch(() => null);
+        if (d) setPledgeDetail(d);
+        pledgeReloadRef.current += 1; setPledgeTick((n) => n + 1);
+        showToast(tr.pledgeToast.linkSaved);
+        return true;
+      } catch {
+        showToast(tr.pledgeToast.linkFailed);
+        return false;
+      }
+    },
+
     openSupport: (needId) => { setFormError(''); setSupportNeedId(needId); },
     closeSupport: () => setSupportNeedId(null),
     createDeliveryPledge: async (input) => {
@@ -1308,7 +1507,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Every piece of state exposed on `api` must be listed here, or consumers keep the
   // previous value: `deliveryOpen` and `slides` were missing, so the delivery overlay
   // never appeared and the slide list could go stale after a save.
-  }), [snap, loadError, overview, coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, contactMessages, contactLoading, contactError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError, trackedPledge, supportNeedId, logDisasterId, focusNeedId, opChosen]);
+  }), [snap, loadError, overview, coordOverview, coordOverviewLoading, coordOverviewError, coordQueue, coordQueueLoading, orgs, slides, mySubs, mySubsLoading, mySubsError, orgEdits, orgEditsLoading, orgEditsError, orgEditsPending, reportQueue, reportQueueLoading, reportQueueError, myVolunteer, myVolunteerLoading, myVolunteerLoaded, systemLog, systemLogLoading, systemLogError, contactMessages, contactLoading, contactError, volunteerFilter, volunteers, volunteersLoading, volunteersError, staff, invites, staffLoading, staffError, route, tab, device, role, unverified, currentSlug, query, filter, subFilter, catFilter, locFilter, onlyCritical, updatedToday, form, track, reportStage, lastCode, formError, copied, wizardMode, disasterFormOpen, deliveryOpen, modal, toast, trackedSub, trackError, trackedPledge, supportNeedId, logDisasterId, focusNeedId, opChosen, pledgeFilter, pledgeRows, pledgeTotal, pledgeLoading, pledgeError, pledgeSummary, pledgeOpenId, pledgeDetail, pledgeDetailLoading, pledgeContact, linkCandidates, pledgeBadge]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

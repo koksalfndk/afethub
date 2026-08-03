@@ -1,6 +1,8 @@
 import type {
   ContactInput, ContactMessage, ContactStatus, ContactAttachment,
   Disaster, Location, Need, Submission, LogEntry, Announcement,
+  CoordPledgePage, CoordPledgeDetail, PledgeContact, PledgeSummary,
+  PledgeFilter, LinkableSubmission, PledgeStatus as PledgeStatusT,
   VerifyKind, RevisionKind, DeliveryInput, PriorityKey, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
   BannerSlide, BannerSlideInput, SlideAction,
@@ -266,6 +268,19 @@ export interface Repo {
   deleteAnnouncement(id: string): Promise<Snapshot>;
   saveLocation(id: string | null, input: LocationInput): Promise<Snapshot>;
   deleteLocation(id: string): Promise<Snapshot>;
+  // ---- Faz 3-C: koordinatör teslim sözü operasyonu -------------------------
+  // Hepsi SECURITY DEFINER RPC'lerine gider; tabloya doğrudan erişim yok
+  // (migration 0041 izinleri kapattı, 0044 yüzeyi açtı).
+  listCoordPledges(f: PledgeFilter): Promise<CoordPledgePage>;
+  pledgeSummary(disasterId?: string): Promise<PledgeSummary>;
+  pledgeDetail(id: string): Promise<CoordPledgeDetail | null>;
+  // Gerekçe zorunlu: sunucu üç karakterden kısa bir amaç kabul etmiyor ve
+  // her çağrı denetim kaydı üretiyor.
+  pledgeContact(id: string, purpose: string): Promise<PledgeContact>;
+  setPledgeStatus(id: string, status: PledgeStatusT, reason: string): Promise<PledgeStatusT>;
+  linkableSubmissions(id: string): Promise<LinkableSubmission[]>;
+  linkPledgeToSubmission(pledgeId: string, submissionId: string): Promise<PledgeStatusT>;
+
   publishNeed(p: NeedPayload): Promise<Snapshot>;
   bumpNeed(needId: string): Promise<Snapshot>;
   togglePause(needId: string): Promise<Snapshot>;
@@ -397,6 +412,40 @@ export const isLivePledge = (s: PledgeStatus): boolean => PLEDGE_LIVE_STATUSES.i
 // Listeyi burada tutmanın sebebi, iki yüzeyin (kart ve hızlı bakış penceresi) aynı
 // cümleyi iki ayrı yerde tanımlamasını engellemek.
 export const PLEDGE_CLOSED_PRIORITIES: PriorityKey[] = ['Completed', 'Paused'];
+
+// Bir durumdan hangilerine geçilebilir? Sunucudaki `pledge_transition_allowed()`
+// ile AYNI liste. Buradaki kopya yalnızca hangi düğmelerin gösterileceğini
+// belirliyor; karar sunucuda veriliyor ve yasak bir geçiş oradan geri dönüyor.
+export const PLEDGE_TRANSITIONS: Record<PledgeStatusT, PledgeStatusT[]> = {
+  pledged:            ['confirmed', 'in_transit', 'cancelled'],
+  confirmed:          ['in_transit', 'cancelled'],
+  in_transit:         ['delivered_reported', 'cancelled'],
+  delivered_reported: [],
+  fulfilled:          [],
+  cancelled:          [],
+  expired:            [],
+};
+
+// Koordinatörün elle yazamayacağı durumlar. `fulfilled` bir karar değil sonuç;
+// `expired` ise zamanlayıcının işi (henüz kurulmadı).
+export const PLEDGE_COORD_BLOCKED: PledgeStatusT[] = ['fulfilled', 'expired'];
+
+export const PLEDGE_PAGE_SIZE = 25;
+
+// Gecikmeyi okunur bir cümleye çeviren tek yer. Dakika SUNUCUDAN geliyor.
+export function overdueLabel(minutes: number | null): string {
+  if (minutes == null || minutes <= 0) return '';
+  if (minutes < 60) return `${minutes} dakika gecikti`;
+  const h = Math.floor(minutes / 60);
+  if (h < 24) return `${h} saat gecikti`;
+  const d = Math.floor(h / 24);
+  return `${d} gün gecikti`;
+}
+
+export const EMPTY_PLEDGE_FILTER: PledgeFilter = {
+  view: 'all', disasterId: '', needId: '', locationId: '', city: '',
+  search: '', from: '', to: '', sort: 'operational', page: 0,
+};
 
 export const acceptsPledges = (n: { priority: PriorityKey }): boolean =>
   !PLEDGE_CLOSED_PRIORITIES.includes(n.priority);

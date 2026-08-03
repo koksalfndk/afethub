@@ -62,6 +62,11 @@ export function Sidebar() {
           {item(tr.nav.dashboard, 'coordHome', null, 'grey', () => a.go('coordHome'))}
           {item(tr.nav.disasterAdmin, 'coordDisasters', snap?.disasters.length ?? 0, 'grey', () => a.go('coordDisasters'))}
           {item(tr.nav.reviewQueue, 'coordQueue', pending, 'red', () => a.go('coordQueue'))}
+          {/* Rozet yalnızca sayı GERÇEKTEN bilindiğinde ve sıfırdan büyükken çıkıyor:
+              "Teslim Sözleri 0" yazan bir menü öğesi bilgi değil, gürültü. */}
+          {item(tr.nav.pledges, 'coordPledges',
+            a.pledgeBadge && a.pledgeBadge > 0 ? a.pledgeBadge : null,
+            (a.pledgeBadge ?? 0) > 0 ? 'red' : 'grey', () => a.go('coordPledges'))}
           {item(tr.nav.orgEdits, 'coordOrgEdits', openOrgEdits, openOrgEdits > 0 ? 'red' : 'grey', () => a.go('coordOrgEdits'))}
           {item(tr.nav.communityReports, 'coordReports', openReports || null, openReports > 0 ? 'red' : 'grey', () => a.go('coordReports'))}
           {item(tr.nav.staff, 'coordStaff', a.volunteersPending || null, a.volunteersPending > 0 ? 'red' : 'grey', () => a.go('coordStaff'))}

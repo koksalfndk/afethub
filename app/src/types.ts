@@ -152,6 +152,108 @@ export interface DeliveryPledgeTracking {
 }
 
 // ---------------------------------------------------------------------------
+// Koordinatör teslim sözü operasyonu (migration 0044)
+// ---------------------------------------------------------------------------
+
+// Listedeki bir satır. İletişim alanları MASKELİ gelir ve maskesiz hâli bu tipte
+// HİÇ bulunmaz — tam bilgi ayrı bir çağrının ayrı bir tipidir (`PledgeContact`).
+export interface CoordPledgeRow {
+  id: string;
+  code: string;
+  disasterId: string;
+  disasterName: string;
+  needId: string;
+  needName: string;
+  needPriority: PriorityKey;
+  qty: number;
+  unit: string;
+  locationName: string;
+  estimatedAt: string;
+  status: PledgeStatus;
+  // Gecikme dakikası SUNUCUDAN gelir; istemci saati kullanılmaz. null = gecikme yok.
+  overdueMinutes: number | null;
+  contactMasked: string;
+  emailMasked: string;
+  phoneMasked: string;
+  city: string;
+  hasPhone: boolean;
+  submissionId: string | null;
+  submissionCode: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CoordPledgePage {
+  rows: CoordPledgeRow[];
+  total: number;
+}
+
+export interface PledgeSummary {
+  today: number;
+  transit: number;
+  overdue: number;
+  reported: number;
+  cancelled: number;
+  upcoming: number;
+  active: number;   // rozet sayısı: iptal ve süresi dolmuş hariç
+}
+
+export type PledgeView =
+  | 'all' | 'today' | 'upcoming' | 'overdue' | 'transit'
+  | 'reported' | 'done' | 'cancelled' | 'expired';
+
+export type PledgeSort =
+  | 'operational' | 'due_asc' | 'overdue' | 'created_asc' | 'created_desc' | 'qty' | 'priority';
+
+export interface PledgeFilter {
+  view: PledgeView;
+  disasterId: string;
+  needId: string;
+  locationId: string;
+  city: string;
+  search: string;
+  from: string;
+  to: string;
+  sort: PledgeSort;
+  page: number;
+}
+
+export interface CoordPledgeDetail extends CoordPledgeRow {
+  disasterSlug: string;
+  needUnit: string;
+  needRequired: number;
+  needVerified: number;
+  needRemaining: number;
+  notes: string;
+  cancelReason: string;
+  cancelledAt: string;
+  submissionStatus: string;
+  submissionQty: number | null;
+  submissionVerified: number | null;
+}
+
+// Tam iletişim. Yalnızca gerekçeli, denetlenen bir çağrıdan döner ve istemcide
+// uzun süre tutulmaz (ekran kapanınca düşer).
+export interface PledgeContact {
+  fullName: string;
+  email: string;
+  phone: string;
+  city: string;
+}
+
+export interface LinkableSubmission {
+  id: string;
+  code: string;
+  qty: number;
+  unit: string;
+  locationName: string;
+  submittedAt: string;
+  status: string;
+  contributorMasked: string;
+  qtyMatches: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Saha güncellemeleri (migration 0038)
 // ---------------------------------------------------------------------------
 export type OperationUpdateType =

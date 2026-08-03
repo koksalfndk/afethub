@@ -12,11 +12,14 @@ import type {
   StaffMember, StaffRole, RoleInvite, OperationStage,
   OperationUpdate, OperationUpdateType, OperationMedia,
   DeliveryPledgeInput, DeliveryPledgeTracking, PledgeStatus,
+  CoordPledgeRow, CoordPledgePage, CoordPledgeDetail, PledgeContact, PledgeSummary,
+  PledgeFilter, LinkableSubmission,
 } from '../types';
 import type {
   Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed,
   CoordOverview, CoordDisasterRow, CoordQueueItem,
 } from './repo';
+import { PLEDGE_PAGE_SIZE } from './repo';
 import type { NeedPayload } from '../needForm';
 import { genCode, genNrq, isSameEvent, REPORT_DAY_WINDOW, isLocalSlideImage, disasterSlug, isPublicAuditAction, SLA_HOURS, splitDistricts, auditActionLabel, auditDetailLabel, auditValueLabel, auditActorLabel } from './repo';
 import { PRI } from '../theme';
@@ -37,6 +40,37 @@ function rel(iso: string): string {
 
 // Supabase implementation. Verification goes through the verify_submission RPC
 // (transactional, invariant-enforcing). Mutations re-read the snapshot.
+
+// Liste ve detay aynı sütun adlarını paylaşıyor; dönüştürme tek yerde.
+// İletişim alanları SUNUCUDA maskelenmiş geliyor — burada maskeleme yapılmıyor,
+// çünkü tarayıcıda maskelemek maskesiz veriyi ağdan geçirmek demek olurdu.
+function mapPledgeRow(r: Record<string, unknown>): CoordPledgeRow {
+  return {
+    id: String(r.id),
+    code: String(r.code ?? ''),
+    disasterId: String(r.disaster_id ?? ''),
+    disasterName: String(r.disaster_name ?? ''),
+    needId: String(r.need_id ?? ''),
+    needName: String(r.need_name ?? ''),
+    needPriority: (String(r.need_priority ?? 'Normal') as CoordPledgeRow['needPriority']),
+    qty: Number(r.qty ?? 0),
+    unit: String(r.unit ?? ''),
+    locationName: String(r.location_name ?? ''),
+    estimatedAt: String(r.estimated_at ?? ''),
+    status: String(r.status ?? 'pledged') as PledgeStatus,
+    overdueMinutes: r.overdue_minutes == null ? null : Number(r.overdue_minutes),
+    contactMasked: String(r.contact_masked ?? ''),
+    emailMasked: String(r.email_masked ?? ''),
+    phoneMasked: String(r.phone_masked ?? ''),
+    city: String(r.city ?? ''),
+    hasPhone: r.has_phone === true,
+    submissionId: r.submission_id ? String(r.submission_id) : null,
+    submissionCode: String(r.submission_code ?? ''),
+    createdAt: String(r.created_at ?? ''),
+    updatedAt: String(r.updated_at ?? ''),
+  };
+}
+
 export class SupabaseRepo implements Repo {
   readonly kind = 'supabase' as const;
   private db: SupabaseClient;
@@ -1228,4 +1262,119 @@ export class SupabaseRepo implements Repo {
       photoUrl: r.photo_url ?? null, needName: r.need_name ?? '',
     };
   }
+
+  // ---- Faz 3-C: koordinatör teslim sözü operasyonu ---------------------------
+  // Hepsi migration 0044'ün RPC'lerine gidiyor. Tabloya tek bir `.from()` YOK:
+  // izinler 0041'de kapatıldı ve kapalı kalmalı.
+
+  async listCoordPledges(f: PledgeFilter): Promise<CoordPledgePage> {
+    const { data, error } = await this.db.rpc('list_delivery_pledges_for_coordinator', {
+      p_disaster: f.disasterId || null,
+      p_need: f.needId || null,
+      p_status: null,
+      p_view: f.view,
+      p_overdue: null,
+      p_location: f.locationId || null,
+      p_city: f.city.trim() || null,
+      p_search: f.search.trim().length >= 3 ? f.search.trim() : null,
+      p_from: f.from || null,
+      p_to: f.to || null,
+      p_sort: f.sort,
+      p_limit: PLEDGE_PAGE_SIZE,
+      p_offset: f.page * PLEDGE_PAGE_SIZE,
+    });
+    if (error) throw error;
+    const rows = (data ?? []) as Record<string, unknown>[];
+    return {
+      rows: rows.map(mapPledgeRow),
+      // Toplam her satırda aynı; satır yoksa sıfır. Sayfalamanın "108 kayıttan
+      // 25'i" diyebilmesi buna bağlı.
+      total: rows.length > 0 ? Number(rows[0].total_count ?? 0) : 0,
+    };
+  }
+
+  async pledgeSummary(disasterId?: string): Promise<PledgeSummary> {
+    const { data, error } = await this.db.rpc('delivery_pledge_summary', {
+      p_disaster: disasterId || null,
+    });
+    if (error) throw error;
+    const r = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
+    return {
+      today: Number(r?.today_count ?? 0),
+      transit: Number(r?.transit_count ?? 0),
+      overdue: Number(r?.overdue_count ?? 0),
+      reported: Number(r?.reported_count ?? 0),
+      cancelled: Number(r?.cancelled_count ?? 0),
+      upcoming: Number(r?.upcoming_count ?? 0),
+      active: Number(r?.active_count ?? 0),
+    };
+  }
+
+  async pledgeDetail(id: string): Promise<CoordPledgeDetail | null> {
+    const { data, error } = await this.db.rpc('get_delivery_pledge_detail', { p_pledge: id });
+    if (error) throw error;
+    const r = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
+    if (!r) return null;
+    return {
+      ...mapPledgeRow(r),
+      disasterSlug: String(r.disaster_slug ?? ''),
+      needUnit: String(r.need_unit ?? ''),
+      needRequired: Number(r.need_required ?? 0),
+      needVerified: Number(r.need_verified ?? 0),
+      needRemaining: Number(r.need_remaining ?? 0),
+      notes: String(r.notes ?? ''),
+      cancelReason: String(r.cancel_reason ?? ''),
+      cancelledAt: String(r.cancelled_at ?? ''),
+      submissionStatus: String(r.submission_status ?? ''),
+      submissionQty: r.submission_qty == null ? null : Number(r.submission_qty),
+      submissionVerified: r.submission_verified == null ? null : Number(r.submission_verified),
+    };
+  }
+
+  async pledgeContact(id: string, purpose: string): Promise<PledgeContact> {
+    const { data, error } = await this.db.rpc('get_delivery_pledge_contact', {
+      p_pledge: id, p_purpose: purpose,
+    });
+    if (error) throw error;
+    const r = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
+    return {
+      fullName: String(r?.full_name ?? ''),
+      email: String(r?.email ?? ''),
+      phone: String(r?.phone ?? ''),
+      city: String(r?.city ?? ''),
+    };
+  }
+
+  async setPledgeStatus(id: string, status: PledgeStatus, reason: string): Promise<PledgeStatus> {
+    const { data, error } = await this.db.rpc('set_pledge_status', {
+      p_pledge: id, p_status: status, p_reason: reason,
+    });
+    if (error) throw error;
+    return String(data) as PledgeStatus;
+  }
+
+  async linkableSubmissions(id: string): Promise<LinkableSubmission[]> {
+    const { data, error } = await this.db.rpc('list_linkable_submissions', { p_pledge: id, p_limit: 20 });
+    if (error) throw error;
+    return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id),
+      code: String(r.code ?? ''),
+      qty: Number(r.qty ?? 0),
+      unit: String(r.unit ?? ''),
+      locationName: String(r.location_name ?? ''),
+      submittedAt: String(r.submitted_at ?? ''),
+      status: String(r.status ?? ''),
+      contributorMasked: String(r.contributor_masked ?? ''),
+      qtyMatches: r.qty_matches === true,
+    }));
+  }
+
+  async linkPledgeToSubmission(pledgeId: string, submissionId: string): Promise<PledgeStatus> {
+    const { data, error } = await this.db.rpc('link_pledge_to_submission_coord', {
+      p_pledge: pledgeId, p_submission: submissionId,
+    });
+    if (error) throw error;
+    return String(data) as PledgeStatus;
+  }
+
 }
