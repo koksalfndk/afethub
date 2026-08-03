@@ -53,6 +53,13 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .hdr-nav-fallback { display: none; }
 @media (max-width: 900px) { .hdr-nav-fallback { display: block; } }
 
+/* Touch targets. Below 900px the desktop header layout is still in use but the
+   pointer is a finger, so the 38px control row grows to 44 (WCAG 2.2 AA §2.5.8
+   floor is 24; rules/04 asks for ~48 and 44 is what fits this row without
+   changing DESKTOP_HEADER_H). Icon sizes are untouched — only the hit area
+   grows. The phone layout below 768px uses 48px buttons set in Header.tsx. */
+@media (max-width: 900px) { .hdr-ctl { height: 44px !important; } }
+
 /* Card swap on /gonullu: the list and the form are alternatives, so one leaves to the
    left as the other arrives from the right. Direction is reversed on the way back, so
    the movement says which way you are going rather than just "something changed". */

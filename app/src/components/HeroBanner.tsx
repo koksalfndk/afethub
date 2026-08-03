@@ -402,21 +402,48 @@ export function HeroBanner({ bottomInset = 0 }: {
           position: 'absolute', left: 0, right: 0, bottom: 14 + bottomInset, zIndex: 4,
           display: 'flex', justifyContent: 'center', gap: 7, pointerEvents: 'none',
         }}>
+          {/* Görsel nokta 9 piksel; DOKUNMA HEDEFİ 24×24 (WCAG 2.2 AA §2.5.8).
+              İkisi ayrı: noktayı 24 piksele büyütmek göstergeyi bir düğme
+              yığınına çevirirdi. Düğmenin kendisi 24×24, içindeki `span` çizilen
+              nokta. Aradaki 7 piksel boşlukla birlikte hedefler örtüşmüyor. */}
           {slides.map((d, idx) => (
             <button
               key={d.key}
               onClick={() => go(idx, idx > i ? 1 : -1)}
-              aria-label={d.title}
+              aria-label={tr.banner.goToSlide(idx + 1, slides.length, d.title)}
               aria-current={idx === i ? 'true' : undefined}
               style={{
                 pointerEvents: 'auto',
-                width: idx === i ? 26 : 9, height: 9, borderRadius: 20, border: 0, padding: 0, cursor: 'pointer',
+                width: 24, height: 24, padding: 0, border: 0, borderRadius: 12, cursor: 'pointer',
+                background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <span aria-hidden="true" style={{
+                display: 'block',
+                width: idx === i ? 26 : 9, height: 9, borderRadius: 20,
                 background: idx === i ? C.navy : C.borderSoft, transition: 'width .18s ease-out',
                 // Fotoğrafın üstüne denk geldiğinde kaybolmasın diye ince bir hâle.
                 boxShadow: '0 0 0 2px rgba(255,255,255,.65)',
-              }}
-            />
+              }} />
+            </button>
           ))}
+          {/* Otomatik geçiş fare imleciyle duruyordu; dokunmatik ve klavye
+              kullanıcısının onu durdurmanın bir yolu yoktu (WCAG 2.2 AA §2.2.2
+              Pause, Stop, Hide). `prefers-reduced-motion` zaten geçişi hiç
+              başlatmıyor — bu düğme onu ayrıca ELLE durdurabilmek için. */}
+          <button
+            type="button"
+            onClick={() => setPaused((v) => !v)}
+            aria-pressed={paused}
+            aria-label={paused ? tr.banner.resume : tr.banner.pause}
+            style={{
+              pointerEvents: 'auto', marginLeft: 6,
+              width: 24, height: 24, padding: 0, border: 0, borderRadius: 12, cursor: 'pointer',
+              background: 'rgba(255,255,255,.72)', color: C.navy,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 10, fontWeight: 700, lineHeight: 1,
+            }}
+          >{paused ? '▶' : '❚❚'}</button>
         </div>
       )}
       {nb && frame(nb, false)}

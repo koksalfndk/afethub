@@ -65,7 +65,6 @@ const ReportModal = lazy(() => import('./components/ReportModal').then((m) => ({
 // "Destek Ol"a basıldığında iniyor (rules/09 §8 — zayıf bağlantıdaki ziyaretçi
 // açmadığı formu indirmemeli).
 const SupportSheet = lazy(() => import('./components/SupportSheet').then((m) => ({ default: m.SupportSheet })));
-import { LiveTicker } from './components/LiveTicker';
 import { Footer } from './components/Footer';
 
 // Sayfa genişliği ve ortalama TEK yerde.
@@ -124,7 +123,15 @@ export function App() {
           minHeight: frame ? 720 : '100vh', position: 'relative',
         }}>
           <Header />
-          <LiveTicker />
+          {/* `LiveTicker` KALDIRILDI (Faz 3-D kapanışı, 3 Ağustos 2026).
+              1 Ağustos ana sayfa kararı canlı akış kartını bilerek kaldırmıştı;
+              başlığın hemen altında her sayfada dönen şerit aynı işlevi geri
+              getiriyor ve sakin hero'nun üstünü örtüyordu. Karar kaydı bunu açık
+              madde olarak bırakmıştı ("karar sizin").
+              Erişilebilirlik tarafı da buradaydı: konum göstergeleri 5×5 piksellik
+              düğmelerdi — WCAG 2.2 AA "Target Size" eşiği 24×24.
+              Bilgi kaybolmuyor: aynı kayıtlar afet sayfasındaki Hareketler akışında
+              ve koordinatör panelindeki sistem kaydında duruyor. */}
           <AccountBanner />
           {/* flex: 1 — this row absorbs the leftover height, which is what pushes the
               footer down. alignItems: stretch keeps the coordinator sidebar and the

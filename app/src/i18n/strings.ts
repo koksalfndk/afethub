@@ -419,6 +419,11 @@ export const tr = {
 
   banner: {
     label: 'Bilgilendirme',
+    // Ekran okuyucuya konum da söyleniyor: yalnızca başlık, "kaçıncı slayt"
+    // sorusunu cevaplamıyordu.
+    goToSlide: (n: number, total: number, title: string) => `${n} / ${total}: ${title}`,
+    pause: 'Otomatik geçişi durdur',
+    resume: 'Otomatik geçişi sürdür',
     reportTitle: 'Bir olay gördüyseniz bildirin',
     reportBody: 'Yangın, sel, deprem veya şiddetli hava olayını hesap açmadan bildirin. Aynı olaya ait bildirimler birleştirilir ve koordinatör incelemesine tek kayıt olarak düşer.',
     verifyTitle: 'Kalan miktar yalnızca doğrulamayla düşer',
@@ -2055,7 +2060,6 @@ export const tr = {
     saveFailed: 'İşlem tamamlanamadı. Bilgileri kontrol edip tekrar deneyin.',
   },
 
-  ticker: { label: 'Son güncellemeler' },
 
   slider: {
     title: 'Slider Yönetimi',

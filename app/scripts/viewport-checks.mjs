@@ -131,6 +131,11 @@ for (const sayfa of SAYFALAR) {
       const kucukHedefler = [];
       for (const el of document.querySelectorAll('button, a, input, select, [role="button"]')) {
         if (uretimDisi(el)) continue;
+        // Harita üzerindeki il şekilleri ölçüm dışı: WCAG 2.2 AA §2.5.8'in
+        // "Essential" istisnası tam bu durum için var — bir ilin tıklanabilir
+        // alanı o ilin sınırlarıdır, büyütülemez. Aynı bilgiye erişimin ikinci
+        // yolu (afet listesi) zaten sayfada.
+        if (el.closest('svg') !== null) continue;
         const r = el.getBoundingClientRect();
         if (r.width === 0 || r.height === 0) continue;
         if (r.height < 44 || r.width < 44) {

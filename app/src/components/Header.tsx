@@ -3,7 +3,7 @@ import { useApp } from '../store';
 import { useAuth } from '../auth';
 import { tr } from '../i18n/strings';
 import { C, G } from '../theme';
-import { Ico, IconBtn, LiveDot, type IcoName } from '../ui';
+import { Ico, IconBtn, LiveDot, ICON_BTN_SIZE, type IcoName } from '../ui';
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -109,7 +109,7 @@ export function Header() {
   // need is meaningless without an operation, so those two live on the disaster
   // page only.
   const reportCta = (
-    <button onClick={goAnd(a.openDisasterForm)} className="hv-emergency" style={{
+    <button onClick={goAnd(a.openDisasterForm)} className="hv-emergency hdr-ctl" style={{
       background: G.emergencyBtn, border: '1px solid #BE2A31', borderRadius: 20, padding: '0 17px',
       height: 38, fontSize: 13.5, fontWeight: 600, color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap',
       boxShadow: 'inset 0 1px 0 rgba(255,255,255,.18), 0 2px 6px rgba(191,42,49,.26)',
@@ -286,7 +286,13 @@ export function Header() {
       position: 'sticky', top: 0, zIndex: 30,
     }}>
       {mob ? (
-        <div ref={profRef} style={{ display: 'grid', gridTemplateColumns: '42px 1fr 42px', alignItems: 'center', gap: 8, padding: '9px 12px' }}>
+        // Dokunma hedefleri 48×48 (rules/04). Dikey dolgu 9 → 6 piksele indi ki
+        // başlık yüksekliği aynı kalsın: 6 + 48 + 6 + 1 = 61 = MOBILE_HEADER_H.
+        // Yükseklik değişseydi altına yapışan her sticky öğe kayardı.
+        <div ref={profRef} style={{
+          display: 'grid', gridTemplateColumns: `${ICON_BTN_SIZE}px 1fr ${ICON_BTN_SIZE}px`,
+          alignItems: 'center', gap: 8, padding: '6px 12px',
+        }}>
           <IconBtn
             icon={drawerOpen ? 'close' : 'menu'}
             label={drawerOpen ? tr.header.closeMenu : tr.header.openMenu}
@@ -300,7 +306,8 @@ export function Header() {
               of them, leaving sign-out reachable on desktop only. */}
           <button onClick={() => setProfOpen((v) => !v)}
             aria-label={tr.header.profileMenu} aria-expanded={profOpen} className="hv-navy" style={{
-              width: 42, height: 42, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: ICON_BTN_SIZE, height: ICON_BTN_SIZE, borderRadius: 12,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: profOpen ? C.chipNavyBg : C.surface, border: `1px solid ${C.borderSoft}`,
               color: C.navy, cursor: 'pointer',
             }}>{avatarInner}</button>
@@ -319,14 +326,18 @@ export function Header() {
           <span style={{ flex: 1, minWidth: 8 }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 1 auto', minWidth: 0 }}>
             {coord && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 7, background: C.errorSurface, border: `1px solid ${C.errorBorder}`, color: C.emergency, borderRadius: 20, padding: '0 13px', height: 38, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
+              <span className="hdr-ctl" style={{ display: 'flex', alignItems: 'center', gap: 7, background: C.errorSurface, border: `1px solid ${C.errorBorder}`, color: C.emergency, borderRadius: 20, padding: '0 13px', height: 38, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
                 <LiveDot />{tr.header.awaiting(pending)}
               </span>
             )}
             {!coord && search}
             {!coord && reportCta}
+            {/* `hdr-ctl`: 900 pikselin altında (tablet) yüksekliği 44'e çıkıyor.
+                Masaüstünde 38 kalıyor — orada işaretçi fare ve satırdaki bütün
+                kontroller 38 hizasında. Kural CSS'te, çünkü aynı eşik `hdr-nav`
+                ile paylaşılıyor. */}
             <button onClick={() => setProfOpen((v) => !v)} aria-label={tr.header.profileMenu} aria-expanded={profOpen}
-              className="hv-navy" style={{
+              className="hv-navy hdr-ctl" style={{
                 display: 'flex', alignItems: 'center', gap: 6, height: 38, padding: '0 6px 0 4px', borderRadius: 20,
                 border: `1px solid ${C.borderSoft}`, background: C.surface, cursor: 'pointer', flex: '0 0 auto',
               }}>

@@ -301,11 +301,19 @@ export const washCard = (accent: string, pct = 5): CSSProperties => ({
 });
 
 // Compact icon-only control (mobile hamburger / profile, header actions).
+// 48×48: rules/04 §Accessibility "yaklaşık 48px" diyor ve bu düğme telefonda tek
+// elle, çoğu zaman yürürken kullanılıyor. Önceki 42×42 hem o kuralın hem WCAG 2.2
+// AA §2.5.8'in (24×24 taban) üstündeydi ama kuralın kendi hedefinin altındaydı.
+// İKONUN boyutu değişmedi — büyüyen yalnızca dokunulabilir alan.
+export const ICON_BTN_SIZE = 48;
+
 export function IconBtn({ icon, label, onClick, size = 20 }: { icon: IcoName; label: string; onClick: () => void; size?: number }) {
   return (
     <button onClick={onClick} aria-label={label} title={label} className="hv-navy" style={{
-      width: 42, height: 42, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, cursor: 'pointer', flex: '0 0 42px',
+      width: ICON_BTN_SIZE, height: ICON_BTN_SIZE, borderRadius: 12,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, cursor: 'pointer',
+      flex: `0 0 ${ICON_BTN_SIZE}px`,
     }}><Ico n={icon} size={size} /></button>
   );
 }
