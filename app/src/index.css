@@ -47,6 +47,11 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 @media (max-width: 1220px) { .hdr-search { display: none !important; } }
 @media (max-width: 1040px) { .hdr-track { display: none !important; } }
 @media (max-width: 900px) { .hdr-nav { display: none !important; } }
+/* The three public links do not disappear with the strip: below 900px they move
+   into the profile menu. Kept in CSS so the strip and its fallback can never
+   disagree about the threshold. */
+.hdr-nav-fallback { display: none; }
+@media (max-width: 900px) { .hdr-nav-fallback { display: block; } }
 
 /* Card swap on /gonullu: the list and the form are alternatives, so one leaves to the
    left as the other arrives from the right. Direction is reversed on the way back, so

@@ -51,7 +51,62 @@ type LocalPledge = {
   name: string; phone: string; city: string; disasterId: string;
   submissionId?: string; cancelledAt?: string; cancelReason?: string; updatedAt: string;
 };
-const pledges: LocalPledge[] = [];
+// Örnek teslim sözleri. Boş bırakılmışlardı ve sonuç şuydu: koordinatör teslim
+// sözü ekranı yerel modda HİÇ dolu görülemedi, Faz 3-C'de mobil kart görünümü
+// bu yüzden doğrulanamadan kapandı. Beş kayıt beş farklı durumu kapsıyor, böylece
+// özet kartları, dokuz sekme ve kart/tablo ayrımı gerçek satırlarla ölçülebiliyor.
+//
+// Hepsi `DEMO-` önekli ve `notes` alanında örnek olduğu yazılı (rules/07 §Seed
+// Content): bu kayıtlar canlı bir teslim sözüyle karıştırılamaz. Yerel modda
+// kalırlar — canlı Supabase yolu bu diziyi hiç okumaz.
+//
+// Zamanlar SABİT DEĞİL, "şimdi"ye göre türetiliyor: sabit bir tarih birkaç gün
+// sonra hepsini "geciken" yapar ve "Bugün" sekmesi kalıcı olarak boşalırdı.
+const saatSonra = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
+const pledges: LocalPledge[] = [
+  {
+    id: 'demo-p1', code: 'DEMO-GECIKEN', email: 'ornek1@afethub.test',
+    needId: 'n1', qty: 12, unit: 'kutu', needName: 'Maske', disasterId: 'd1',
+    locationName: 'Seydikemer Kapalı Pazar Yeri', eta: saatSonra(-30),
+    notes: 'Örnek kayıt (demo) — gecikmiş teslim sözü.', status: 'pledged',
+    name: 'Ayla Kaya', phone: '05001110011', city: 'Muğla',
+    createdAt: saatSonra(-54), updatedAt: saatSonra(-54),
+  },
+  {
+    id: 'demo-p2', code: 'DEMO-BUGUN', email: 'ornek2@afethub.test',
+    needId: 'n3', qty: 5, unit: 'adet', needName: 'Powerbank', disasterId: 'd1',
+    locationName: 'Seydikemer Kapalı Pazar Yeri', eta: saatSonra(4),
+    notes: 'Örnek kayıt (demo) — bugün beklenen teslim sözü.', status: 'confirmed',
+    name: 'Bora Tunç', phone: '05001110022', city: 'Fethiye',
+    createdAt: saatSonra(-8), updatedAt: saatSonra(-2),
+  },
+  {
+    id: 'demo-p3', code: 'DEMO-YOLDA', email: 'ornek3@afethub.test',
+    needId: 'n4', qty: 30, unit: 'paket', needName: 'Pil', disasterId: 'd1',
+    locationName: 'Çamlıyayla Okul Spor Salonu', eta: saatSonra(2),
+    notes: 'Örnek kayıt (demo) — yola çıkmış teslim sözü.', status: 'in_transit',
+    name: 'Ceyda Ak', phone: '05001110033', city: 'Muğla',
+    createdAt: saatSonra(-20), updatedAt: saatSonra(-1),
+  },
+  {
+    id: 'demo-p4', code: 'DEMO-BILDIRILDI', email: 'ornek4@afethub.test',
+    needId: 'n6', qty: 8, unit: 'çift', needName: 'İş Eldiveni', disasterId: 'd1',
+    locationName: 'Çamlıyayla Okul Spor Salonu', eta: saatSonra(-6),
+    notes: 'Örnek kayıt (demo) — teslim bildirildi, doğrulama bekleniyor.',
+    status: 'delivered_reported',
+    name: 'Deniz Er', phone: '05001110044', city: 'Denizli',
+    createdAt: saatSonra(-26), updatedAt: saatSonra(-5),
+  },
+  {
+    id: 'demo-p5', code: 'DEMO-IPTAL', email: 'ornek5@afethub.test',
+    needId: 'n2', qty: 10, unit: 'adet', needName: 'Göz Damlası', disasterId: 'd1',
+    locationName: 'Seydikemer Kapalı Pazar Yeri', eta: saatSonra(-12),
+    notes: 'Örnek kayıt (demo) — iptal edilmiş teslim sözü.', status: 'cancelled',
+    name: 'Ekin Sual', phone: '05001110055', city: 'İzmir',
+    createdAt: saatSonra(-40), updatedAt: saatSonra(-14),
+    cancelledAt: saatSonra(-14), cancelReason: 'Örnek: araç arızası nedeniyle iptal edildi.',
+  },
+];
 
 // Canlı (hâlâ beklenen) durumlar — sunucudaki `need_pledge_totals` ile aynı liste.
 const LIVE: PledgeStatus[] = ['pledged', 'confirmed', 'in_transit'];
@@ -147,6 +202,25 @@ function sortCoordRows(rows: CoordPledgeRow[], sort: PledgeSort): CoordPledgeRow
       });
   }
 }
+
+// Filtre + sıralama tek yerde: listeleme ile dışa aktarma aynı satırları
+// üretmeli. İki kopya, "ekranda gördüğüm ile indirdiğim neden farklı"
+// sorusunun kaynağıdır.
+function filtreliPledgeSatirlari(f: PledgeFilter): CoordPledgeRow[] {
+  const all = pledges.map(toCoordRow).filter((r) => {
+    if (f.disasterId && r.disasterId !== f.disasterId) return false;
+    if (f.needId && r.needId !== f.needId) return false;
+    if (f.city && !r.city.toLocaleLowerCase('tr').includes(f.city.toLocaleLowerCase('tr'))) return false;
+    const q = f.search.trim().toLocaleLowerCase('tr');
+    if (q.length >= 3) {
+      const hay = `${r.code} ${r.needName} ${r.locationName} ${r.city}`.toLocaleLowerCase('tr');
+      if (!hay.includes(q)) return false;
+    }
+    return matchesPledgeView(r, f.view);
+  });
+  return sortCoordRows(all, f.sort);
+}
+
 let locations: Location[] = seed.locations.map((x) => ({ ...x }));
 // Volunteer applications and staff both start empty on purpose: an invented "pending
 // volunteer" would be a named person who never applied, and a fake coordinator list
@@ -1415,20 +1489,16 @@ export class LocalRepo implements Repo {
   // Amaç Supabase'siz önizlemede ekranın gerçekten denenebilmesi.
 
   async listCoordPledges(f: PledgeFilter): Promise<CoordPledgePage> {
-    const all = pledges.map(toCoordRow).filter((r) => {
-      if (f.disasterId && r.disasterId !== f.disasterId) return false;
-      if (f.needId && r.needId !== f.needId) return false;
-      if (f.city && !r.city.toLocaleLowerCase('tr').includes(f.city.toLocaleLowerCase('tr'))) return false;
-      const q = f.search.trim().toLocaleLowerCase('tr');
-      if (q.length >= 3) {
-        const hay = `${r.code} ${r.needName} ${r.locationName} ${r.city}`.toLocaleLowerCase('tr');
-        if (!hay.includes(q)) return false;
-      }
-      return matchesPledgeView(r, f.view);
-    });
-    const sorted = sortCoordRows(all, f.sort);
+    const sorted = filtreliPledgeSatirlari(f);
     const from = f.page * PLEDGE_PAGE_SIZE;
     return { rows: sorted.slice(from, from + PLEDGE_PAGE_SIZE), total: sorted.length };
+  }
+
+  // Yerel modda dışa aktarma = sayfalamasız aynı liste. Denetim kaydı YOK:
+  // yerel modun denetim kaydı da yok, ve olmayan bir kaydı varmış gibi
+  // göstermek raporu yalanlar (CLAUDE.md §No Fabricated Completion).
+  async exportCoordPledges(f: PledgeFilter): Promise<CoordPledgeRow[]> {
+    return filtreliPledgeSatirlari(f);
   }
 
   async pledgeSummary(disasterId?: string): Promise<PledgeSummary> {

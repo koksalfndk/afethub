@@ -59,8 +59,15 @@ export function Header() {
     { label: tr.nav.howItWorks, active: a.route === 'howItWorks', onClick: () => a.go('howItWorks') },
   ];
 
+  // `hdr-nav` sınıfı: `index.css` 900 pikselin altında bu şeridi gizliyor. Kural
+  // Faz 3-A'da yazılmıştı ama sınıf öğeye HİÇ VERİLMEMİŞTİ, dolayısıyla kural
+  // hiçbir zaman çalışmadı. 768 pikselde koordinatör düzeninde daralabilen tek
+  // öğe yoktu (arama kutusu ve "Yardım Bildir" o rolde zaten yok) ve belge
+  // 24 piksel taşıyordu — ölçüldü, sebebi buydu.
+  // Gizlenen üç bağlantı kaybolmuyor: aşağıdaki `hdr-nav-fallback` bloğu onları
+  // aynı genişlikte profil menüsüne koyuyor.
   const nav = (
-    <nav style={{ display: 'flex', gap: 1, marginLeft: 12, flex: '0 1 auto', minWidth: 0 }}>
+    <nav className="hdr-nav" style={{ display: 'flex', gap: 1, marginLeft: 12, flex: '0 1 auto', minWidth: 0 }}>
       {navItems.map((n) => (
         <button key={n.label} onClick={n.onClick} aria-current={n.active ? 'page' : undefined} style={{
           background: n.active ? G.navActive : 'transparent', border: 0, cursor: 'pointer',
@@ -137,6 +144,13 @@ export function Header() {
         <div style={{ fontSize: 13.5, fontWeight: 700 }}>{loggedIn ? name || tr.header.account : tr.header.profileMenu}</div>
         <div style={{ fontSize: 12, color: C.muted }}>{loggedIn ? (auth.user?.email ?? '') : tr.header.guest}</div>
       </div>
+      {/* Şerit gizlendiğinde (900 pikselin altı) üç genel bağlantı buraya iner.
+          Görünürlüğü CSS belirliyor, JavaScript'te bir genişlik eşiği tutulmuyor:
+          iki ayrı yerde yaşayan bir eşik er geç ayrışır. */}
+      <div className="hdr-nav-fallback">
+        {navItems.map((n) => menuRow('chev', n.label, n.onClick))}
+        <div style={{ height: 1, background: C.borderFaint, margin: '6px 2px' }} />
+      </div>
       {menuRow('people', tr.nav.volunteer, () => a.go('volunteer'))}
       {menuRow('track', tr.header.track, () => a.go('track'))}
       {menuRow('critical', tr.reportDisaster.title, a.openDisasterForm)}
@@ -207,6 +221,38 @@ export function Header() {
             flex: 1, height: 44, borderRadius: 10, fontSize: 14, fontWeight: 600,
             background: G.emergencyBtn, border: '1px solid #BE2A31', color: '#fff', cursor: 'pointer',
           }}>{tr.header.register}</button>
+        </div>
+      )}
+      {/* Koordinatör operasyon menüsü telefonda HİÇBİR YERDE yoktu: yan panel
+          yalnızca masaüstünde çiziliyor (App.tsx: `coord && !mob`) ve alt çubukta
+          dört sekme var — Teslim Sözleri onlardan biri değil. Sonuç: mobil bir
+          koordinatör teslim sözü ekranına ulaşamıyordu; ekran kodlanmıştı ama
+          erişilemezdi. Bölüm AYRI BAŞLIK altında duruyor, çünkü herkese açık ve
+          koordinatör gezinmesi rol bağlamı olmadan karıştırılmamalı
+          (rules/04 §Responsive Navigation). */}
+      {coord && (
+        <div style={{ marginBottom: 4 }}>
+          <span style={{
+            display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '.09em',
+            textTransform: 'uppercase', color: C.muted3, padding: '10px 8px 4px',
+          }}>{tr.nav.operations}</span>
+          {[
+            { label: tr.nav.dashboard, route: 'coordHome' as const },
+            { label: tr.nav.reviewQueue, route: 'coordQueue' as const },
+            { label: tr.nav.pledges, route: 'coordPledges' as const },
+            { label: tr.nav.needs, route: 'coordNeeds' as const },
+            { label: tr.nav.ops, route: 'coordOps' as const },
+          ].map((n) => (
+            <button key={n.label} onClick={goAnd(() => a.go(n.route))} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+              padding: '13px 8px', border: 0, borderTop: `1px solid ${C.borderFaint}`, background: 'none',
+              fontSize: 15, fontWeight: 600, color: a.route === n.route ? C.emergency : C.navy, cursor: 'pointer',
+            }}>{n.label}<Ico n="chev" size={16} color={C.muted3} /></button>
+          ))}
+          <span style={{
+            display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '.09em',
+            textTransform: 'uppercase', color: C.muted3, padding: '14px 8px 4px',
+          }}>{tr.modePublic}</span>
         </div>
       )}
       {[...navItems,

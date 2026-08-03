@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../store';
 import { tr } from '../i18n/strings';
 import { trPledges } from '../i18n/coordPledges';
@@ -6,7 +6,7 @@ import { C, PRI } from '../theme';
 import { cols } from '../select';
 import { eyebrow, Ico, StatCard, PriorityBadge, inputStyle, type IcoName } from '../ui';
 import { Picker } from '../components/Picker';
-import { overdueLabel, PLEDGE_PAGE_SIZE } from '../data';
+import { overdueLabel, PLEDGE_PAGE_SIZE, repo } from '../data';
 import type { CoordPledgeRow, PledgeStatus, PledgeView } from '../types';
 
 // Detay çekmecesi ağır: durum geçişleri, iletişim açma paneli ve bağlama listesi
@@ -95,6 +95,39 @@ export function CoordPledges() {
     { key: 'transit',  label: trPledges.cards.transit,   hint: trPledges.cards.transitHint,   value: s?.transit ?? 0,   accent: C.info,      icon: 'activity', view: 'transit' },
     { key: 'cancel',   label: trPledges.cards.cancelled, hint: trPledges.cards.cancelledHint, value: s?.cancelled ?? 0, accent: C.muted2,    icon: 'critical', view: 'cancelled' },
   ];
+
+  // Dışa aktarma doğrudan `repo` üzerinden çağrılıyor, store'a yeni bir aksiyon
+  // eklenmeden: `store.tsx` herkese açık ilk pakette ve oraya eklenen her satır,
+  // bu ekranı hiç açmayacak bir ziyaretçinin indirdiği bayta dönüşüyor
+  // (Faz 3-C bundle incelemesi). `CoordPledges` zaten tembel bir parça.
+  const [disaAktarma, setDisaAktarma] = useState<'idle' | 'running'>('idle');
+  // Senkron kilit: `disabled` bir sonraki render'da uygulanıyor, aynı tick içinde
+  // gelen ikinci tıklama ondan önce geçiyor. Faz 3-A'da üretimde ölçülen kusur
+  // buydu; burada da iki dosya ve İKİ denetim satırı üretirdi.
+  const disaAktarmaKilidi = useRef(false);
+
+  const disaAktar = async () => {
+    if (disaAktarmaKilidi.current) return;
+    disaAktarmaKilidi.current = true;
+    setDisaAktarma('running');
+    try {
+      const rows = await repo.exportCoordPledges(f);
+      if (rows.length === 0) {
+        a.showToast(trPledges.exportEmpty);
+        return;
+      }
+      const { pledgeRowsToCsv, pledgeCsvFileName, downloadCsv } = await import('../pledgeCsv');
+      downloadCsv(pledgeCsvFileName(f.view), pledgeRowsToCsv(rows));
+      a.showToast(trPledges.exportDone(rows.length));
+    } catch {
+      // Hata metni kullanıcıya ham olarak GÖSTERİLMİYOR: sunucu iletisi iç
+      // ayrıntı taşıyabilir (rules/03 §Error Handling).
+      a.showToast(trPledges.exportFailed);
+    } finally {
+      disaAktarmaKilidi.current = false;
+      setDisaAktarma('idle');
+    }
+  };
 
   const from = f.page * PLEDGE_PAGE_SIZE + 1;
   const to = Math.min((f.page + 1) * PLEDGE_PAGE_SIZE, a.pledgeTotal);
@@ -191,6 +224,23 @@ export function CoordPledges() {
             {trPledges.clearFilters}
           </button>
         )}
+      </div>
+
+      {/* Dışa aktarma. Ekrandaki filtreyi izler ve sayfalamayı yok sayar: 25
+          satırlık bir dosya, "listeyi aldım" sanan bir kullanıcı üretirdi. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+        <button type="button" onClick={disaAktar} disabled={disaAktarma !== 'idle'}
+          className="hv-navy" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 7,
+            background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy,
+            borderRadius: 9, minHeight: 44, padding: '0 14px', fontSize: 13.5, fontWeight: 600,
+            cursor: disaAktarma !== 'idle' ? 'default' : 'pointer',
+            opacity: disaAktarma !== 'idle' ? 0.7 : 1,
+          }}>
+          <Ico n="download" size={15} color={C.navy} />
+          {disaAktarma === 'running' ? trPledges.exportPreparing : trPledges.exportCsv}
+        </button>
+        <span style={{ fontSize: 12, color: C.muted2 }}>{trPledges.exportNote}</span>
       </div>
 
       {a.pledgeError ? (

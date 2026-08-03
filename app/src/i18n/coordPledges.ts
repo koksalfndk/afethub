@@ -46,6 +46,28 @@ export const trPledges = {
   filterAll: 'Tümü',
   clearFilters: 'Filtreleri temizle',
 
+  // ---- CSV dışa aktarma (Faz 3-D) ----------------------------------------
+  // Dosya, ekranda görünen sütunların hepsini taşıyor; iletişim alanları
+  // MASKELİ. Maskesiz bilgi ayrı bir çağrının konusu ve dosyaya hiç girmiyor.
+  exportCsv: 'CSV indir',
+  exportPreparing: 'Hazırlanıyor…',
+  exportEmpty: 'Bu filtrelerle dışa aktarılacak kayıt yok.',
+  exportFailed: 'Dosya hazırlanamadı. Lütfen tekrar deneyin.',
+  exportDone: (n: number) => `${n} kayıt indirildi. İletişim bilgileri maskeli.`,
+  exportNote: 'İndirilen dosya ekrandaki filtreyi izler ve iletişim bilgilerini maskeli taşır.',
+  csv: {
+    priority: 'İhtiyaç önceliği',
+    qty: 'Miktar',
+    unit: 'Birim',
+    overdue: 'Gecikme',
+    city: 'Şehir',
+    contactMasked: 'Söz sahibi (maskeli)',
+    emailMasked: 'E-posta (maskeli)',
+    phoneMasked: 'Telefon (maskeli)',
+    submissionCode: 'Bağlı teslimat kodu',
+    createdAt: 'Oluşturma',
+  },
+
   colCode: 'Takip kodu', colNeed: 'İhtiyaç', colOperation: 'Operasyon',
   colQty: 'Miktar', colLocation: 'Teslim noktası', colEta: 'Tahmini teslim',
   colStatus: 'Durum', colContact: 'İletişim', colUpdated: 'Son güncelleme',

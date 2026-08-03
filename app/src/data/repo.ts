@@ -1,7 +1,7 @@
 import type {
   ContactInput, ContactMessage, ContactStatus, ContactAttachment,
   Disaster, Location, Need, Submission, LogEntry, Announcement,
-  CoordPledgePage, CoordPledgeDetail, PledgeContact, PledgeSummary,
+  CoordPledgePage, CoordPledgeRow, CoordPledgeDetail, PledgeContact, PledgeSummary,
   PledgeFilter, LinkableSubmission, PledgeStatus as PledgeStatusT,
   VerifyKind, RevisionKind, DeliveryInput, PriorityKey, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
@@ -272,6 +272,11 @@ export interface Repo {
   // Hepsi SECURITY DEFINER RPC'lerine gider; tabloya doğrudan erişim yok
   // (migration 0041 izinleri kapattı, 0044 yüzeyi açtı).
   listCoordPledges(f: PledgeFilter): Promise<CoordPledgePage>;
+  // Dışa aktarma AYNI sorguyu kullanır, yalnızca sayfalamayı açar: ekranda
+  // görülen liste ile indirilen dosya aynı kaynaktan gelmeli. Sunucu tarafında
+  // bir denetim satırı yazılır (migration 0047) — toplu veri çıkışı sessiz
+  // olmamalı (rules/03 §Audit Log).
+  exportCoordPledges(f: PledgeFilter): Promise<CoordPledgeRow[]>;
   pledgeSummary(disasterId?: string): Promise<PledgeSummary>;
   pledgeDetail(id: string): Promise<CoordPledgeDetail | null>;
   // Gerekçe zorunlu: sunucu üç karakterden kısa bir amaç kabul etmiyor ve

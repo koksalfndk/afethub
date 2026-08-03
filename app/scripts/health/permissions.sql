@@ -41,7 +41,10 @@ where n.nspname = 'public'
   and p.proname in ('list_delivery_pledges_for_coordinator','get_delivery_pledge_detail',
                     'get_delivery_pledge_contact','delivery_pledge_summary',
                     'list_linkable_submissions','link_pledge_to_submission_coord',
-                    'set_pledge_status')
+                    'set_pledge_status',
+                    -- Faz 3-D: süre dolumu ve dışa aktarma kaydı
+                    'expire_stale_pledges','expire_stale_pledges_system',
+                    'expire_stale_pledges_core','log_pledge_export')
   and has_function_privilege('anon', p.oid, 'EXECUTE')
 union all
 -- Eklenti fonksiyonları HARİÇ: pgcrypto gibi eklentiler kendi fonksiyonlarını

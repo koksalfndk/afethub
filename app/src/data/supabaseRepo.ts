@@ -1293,6 +1293,52 @@ export class SupabaseRepo implements Repo {
     };
   }
 
+  // Dışa aktarma: aynı RPC, sayfa sayfa. Sunucudaki üst sınır sayfa başına 100
+  // ve orası GEVŞETİLMEDİ — tek çağrıda binlerce satır döndürmek, listeyi
+  // okuyan her yerin aynı sınırı yeniden düşünmesini gerektirirdi.
+  // `EXPORT_MAX_ROWS` bir kesme değil bir tavan: aşılırsa çağıran uyarılır
+  // (sessizce eksik dosya üretmek, dosyanın kendisinden daha tehlikeli).
+  async exportCoordPledges(f: PledgeFilter): Promise<CoordPledgeRow[]> {
+    const SAYFA = 100;
+    const EXPORT_MAX_ROWS = 5000;
+    const toplam: CoordPledgeRow[] = [];
+
+    for (let offset = 0; offset < EXPORT_MAX_ROWS; offset += SAYFA) {
+      const { data, error } = await this.db.rpc('list_delivery_pledges_for_coordinator', {
+        p_disaster: f.disasterId || null,
+        p_need: f.needId || null,
+        p_status: null,
+        p_view: f.view,
+        p_overdue: null,
+        p_location: f.locationId || null,
+        p_city: f.city.trim() || null,
+        p_search: f.search.trim().length >= 3 ? f.search.trim() : null,
+        p_from: f.from || null,
+        p_to: f.to || null,
+        p_sort: f.sort,
+        p_limit: SAYFA,
+        p_offset: offset,
+      });
+      if (error) throw error;
+      const rows = (data ?? []) as Record<string, unknown>[];
+      toplam.push(...rows.map(mapPledgeRow));
+      if (rows.length < SAYFA) break;
+    }
+
+    // Denetim satırı veriden SONRA yazılıyor: başarısız bir sorgudan sonra
+    // "dışa aktarıldı" yazmak, olmayan bir olayı kaydetmek olurdu. (İletişim
+    // bilgisinde sıra tersti — orada kaydın veriden ÖNCE yazılması gerekiyor,
+    // çünkü asıl risk verinin görülüp kaydın yazılmaması.)
+    const { error: logError } = await this.db.rpc('log_pledge_export', {
+      p_view: f.view,
+      p_row_count: toplam.length,
+      p_disaster: f.disasterId || null,
+    });
+    if (logError) throw logError;
+
+    return toplam;
+  }
+
   async pledgeSummary(disasterId?: string): Promise<PledgeSummary> {
     const { data, error } = await this.db.rpc('delivery_pledge_summary', {
       p_disaster: disasterId || null,

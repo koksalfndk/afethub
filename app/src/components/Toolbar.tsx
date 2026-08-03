@@ -16,7 +16,11 @@ export function Toolbar() {
   }) as const;
 
   return (
-    <div style={{
+    // `data-prototype-chrome`: bu çubuk yalnızca geliştirme yapısında var, üretim
+    // paketinde yok. Ölçüm betikleri (scripts/viewport-checks.mjs) onu bu
+    // işaretten tanıyıp dışarıda bırakıyor — aksi hâlde prototip düğmeleri
+    // "44 piksel altı dokunma hedefi" olarak raporlanıp gerçek bulguları örtüyor.
+    <div data-prototype-chrome="1" style={{
       background: '#0B1E30', color: '#F6F8FA', padding: '0 16px', display: 'flex', alignItems: 'center',
       gap: 16, flexWrap: 'wrap', minHeight: 48, position: 'sticky', top: 0, zIndex: 60,
     }}>
