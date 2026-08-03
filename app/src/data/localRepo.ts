@@ -1,4 +1,5 @@
 import type {
+  UpdateFeedFilter, UpdateFeedCursor, UpdateFeedPage, OperationUpdateInput,
   ContactInput, ContactMessage, ContactStatus, ContactAttachment,
   LogEntry, Need, Submission, VerifyKind, RevisionKind, DeliveryInput, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
@@ -14,7 +15,7 @@ import type {
   Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed,
   CoordOverview, CoordDisasterRow, CoordQueueItem,
 } from './repo';
-import { PLEDGE_PAGE_SIZE, PLEDGE_TRANSITIONS, genCode, genNrq, remaining, isSameEvent, SLA_HOURS, urgencyScore, splitDistricts, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS, COMMUNITY_THRESHOLD, isPublicAuditAction, MAX_FEATURED_NEEDS, isLivePledge } from './repo';
+import { PLEDGE_PAGE_SIZE, PLEDGE_TRANSITIONS, PUBLIC_UPDATE_TYPES, genCode, genNrq, remaining, isSameEvent, SLA_HOURS, urgencyScore, splitDistricts, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS, COMMUNITY_THRESHOLD, isPublicAuditAction, MAX_FEATURED_NEEDS, isLivePledge } from './repo';
 import { disasterTypeLabel } from '../i18n/strings';
 import { agoMinutes } from '../util';
 import { PRI } from '../theme';
@@ -1499,6 +1500,58 @@ export class LocalRepo implements Repo {
   // göstermek raporu yalanlar (CLAUDE.md §No Fabricated Completion).
   async exportCoordPledges(f: PledgeFilter): Promise<CoordPledgeRow[]> {
     return filtreliPledgeSatirlari(f);
+  }
+
+  // ---- Faz 4-A: herkese açık saha güncellemeleri — YEREL DEMO ---------------
+  // Sunucudaki `list_operation_updates_public` ile aynı kurallar: yalnızca
+  // yayımlanmış kayıtlar, aktif sabitlenmişler hariç, cursor sayfalaması.
+  // Gerçek yetkilendirme, hız sınırı ve moderasyon burada YOK — onlar RPC'lerin işi.
+  async listOperationUpdates(f: UpdateFeedFilter, cursor: UpdateFeedCursor | null): Promise<UpdateFeedPage> {
+    const SAYFA = 20;
+    const sirali = updates
+      .filter((u) => u.disasterId === f.disasterId)
+      .filter((u) => !f.type || u.type === f.type)
+      .filter((u) => !u.pinned)
+      .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt) || b.id.localeCompare(a.id));
+    const baslangic = cursor
+      ? sirali.findIndex((u) => u.publishedAt === cursor.publishedAt && u.id === cursor.id) + 1
+      : 0;
+    const rows = sirali.slice(baslangic, baslangic + SAYFA).map((u) => ({ ...u }));
+    const last = rows.length === SAYFA ? rows[rows.length - 1] : null;
+    return { rows, cursor: last ? { publishedAt: last.publishedAt, id: last.id } : null };
+  }
+
+  async listPinnedOperationUpdates(disasterId: string): Promise<OperationUpdate[]> {
+    return updates
+      .filter((u) => u.disasterId === disasterId && u.pinned)
+      .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+      .slice(0, 3)
+      .map((u) => ({ ...u }));
+  }
+
+  async getOperationUpdate(id: string): Promise<OperationUpdate | null> {
+    const u = updates.find((x) => x.id === id);
+    return u ? { ...u } : null;
+  }
+
+  // Yerel modda gönderi MODERASYONA düşer ve akışta GÖRÜNMEZ — canlıdaki
+  // davranışın aynısı. Bir moderasyon kuyruğu olmadığı için kayıt burada
+  // bellekte tutulmuyor: onu akışa eklemek "yayımlandı" demek olurdu.
+  async submitOperationUpdate(input: OperationUpdateInput): Promise<string> {
+    if (input.body.trim().length < 3 || input.body.trim().length > 1200) {
+      throw new Error('Update text must be between 3 and 1200 characters');
+    }
+    if (!PUBLIC_UPDATE_TYPES.includes(input.type)) {
+      throw new Error('This update type is not available to you');
+    }
+    if (!input.email.trim()) throw new Error('An e-mail address is required to send a field report');
+    return 'demo-' + Math.random().toString(36).slice(2, 10);
+  }
+
+  async reportOperationUpdate(): Promise<void> {
+    // Yerel modda rapor kaydı tutulmuyor. Sessizce başarılı dönmek yerine hiçbir
+    // şey yapmadığını söyleyen bir yorum: ekran "bildiriminiz alındı" diyor ve
+    // yerel modda bu cümle yalnızca akışın denenebilmesi için var.
   }
 
   async pledgeSummary(disasterId?: string): Promise<PledgeSummary> {

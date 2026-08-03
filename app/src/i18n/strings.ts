@@ -725,7 +725,7 @@ export const tr = {
     communityPendingTitle: 'Koordinatör doğrulaması bekleniyor.',
     communityPendingBody: 'Bu operasyon, aynı olayı bildiren kişilerin doğrulamalarıyla otomatik açıldı. Bildirimler doğrulanmış bilgi değildir; koordinatör inceleyene kadar buradaki içeriği resmî bir tespit olarak değerlendirmeyin.',
     startedByAfethub: 'AfetHUB koordinasyon ekibi',
-    tabs: { overview: 'Genel bakış', needs: 'İhtiyaçlar', locations: 'Teslim noktaları', announcements: 'Duyurular', activity: 'Hareketler' },
+    tabs: { overview: 'Genel bakış', needs: 'İhtiyaçlar', locations: 'Teslim noktaları', updates: 'Saha Güncellemeleri', announcements: 'Duyurular', activity: 'Hareketler' },
     summary: {
       activeNeeds: 'Aktif ihtiyaç', activeHint: 'önce kritik sıralı',
       completedNeeds: 'Tamamlanan ihtiyaç', completedHint: 'tamamen karşılandı',

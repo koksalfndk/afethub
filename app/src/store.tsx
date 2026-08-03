@@ -40,7 +40,7 @@ export type Route =
   | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordPledges' | 'coordLog' | 'coordSlider' | 'coordDisasters' | 'coordDisaster'
   | 'coordOrgEdits' | 'coordOrgs' | 'coordStaff' | 'volunteer' | 'coordOps' | 'coordReports'
   | 'components' | 'system' | 'contact' | 'coordContact';
-export type Tab = 'overview' | 'needs' | 'locations' | 'announcements' | 'activity';
+export type Tab = 'overview' | 'needs' | 'locations' | 'updates' | 'announcements' | 'activity';
 export type Device = 'desktop' | 'mobile';
 export type Role = 'visitor' | 'coordinator';
 export type Filter = 'All' | 'Critical' | 'Urgent' | 'Normal' | 'Completed';
@@ -59,7 +59,7 @@ export interface ModalState {
 
 // ---- Clean URL routing (History API): every screen is a real, shareable path ----
 // A Vercel SPA rewrite (vercel.json) serves index.html for these paths.
-const TABS: Tab[] = ['overview', 'needs', 'locations', 'announcements', 'activity'];
+const TABS: Tab[] = ['overview', 'needs', 'locations', 'updates', 'announcements', 'activity'];
 
 function toPath(route: Route, tab: Tab, slug: string): string {
   switch (route) {

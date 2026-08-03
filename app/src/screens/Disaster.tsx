@@ -30,10 +30,14 @@ const FILTERS: Filter[] = ['All', 'Critical', 'Urgent', 'Normal', 'Completed'];
 // Rail layout: "Operasyon" is what a visitor acts on, "Kayıtlar" is what they read.
 const SECTION_GROUPS: [string, Tab[]][] = [
   ['Operasyon', ['overview', 'needs', 'locations']],
+  // Saha güncellemeleri bir KAYIT değil, akan bilgi: kendi grubunda duruyor ki
+  // duyuru ve denetim kaydıyla karışmasın.
+  ['Sahadan', ['updates']],
   ['Kayıtlar', ['announcements', 'activity']],
 ];
 const SECTION_ICON: Record<Tab, IcoName> = {
-  overview: 'activity', needs: 'need', locations: 'pin', announcements: 'critical', activity: 'activity',
+  overview: 'activity', needs: 'need', locations: 'pin', updates: 'people',
+  announcements: 'critical', activity: 'activity',
 };
 const opBtn = (primary: boolean) => (primary
   ? {
@@ -44,6 +48,10 @@ const opBtn = (primary: boolean) => (primary
       background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 10,
       height: 44, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' as const,
     });
+
+// Saha güncellemeleri akışı kendi sekmesinde ve TEMBEL iniyor: ihtiyaç
+// listesini açan ziyaretçi bu ekranı hiç görmeyebilir (rules/09 §8).
+const OperationUpdates = lazy(() => import('../components/OperationUpdates').then((m) => ({ default: m.OperationUpdates })));
 
 export function Disaster() {
   const a = useApp();
@@ -158,6 +166,9 @@ export function Disaster() {
   const cardBase = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, position: 'relative' as const, overflow: 'hidden' as const };
   const sectionCount: Record<Tab, number> = {
     overview: 0, needs: activeNeeds, locations: a.snap.locations.length,
+    // Anlık görüntüdeki yayımlanmış güncelleme sayısı. Akışın kendisi cursor ile
+    // sayfalanıyor; buradaki sayı bir rozet, bir toplam değil.
+    updates: a.snap.updates.length,
     announcements: a.snap.announcements.length, activity: a.snap.log.length,
   };
 
@@ -165,6 +176,7 @@ export function Disaster() {
     { key: 'overview', label: tr.disaster.tabs.overview },
     { key: 'needs', label: tr.disaster.tabs.needs },
     { key: 'locations', label: tr.disaster.tabs.locations },
+    { key: 'updates', label: tr.disaster.tabs.updates },
     { key: 'announcements', label: tr.disaster.tabs.announcements },
     { key: 'activity', label: tr.disaster.tabs.activity },
   ];
@@ -548,6 +560,10 @@ export function Disaster() {
             </div>
           ))}
         </div>
+      )}
+
+      {a.tab === 'updates' && (
+        <Suspense fallback={null}><OperationUpdates /></Suspense>
       )}
 
       {a.tab === 'activity' && (

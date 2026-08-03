@@ -11,6 +11,7 @@ import type {
   AnnouncementInput, LocationInput,
   StaffMember, StaffRole, RoleInvite,
   OperationStage, PledgeStatus, OperationUpdateType, OperationUpdate, OperationMedia,
+  OperationUpdateInput, UpdateFeedFilter, UpdateFeedCursor, UpdateFeedPage, UpdateReportReason,
   DeliveryPledgeInput, DeliveryPledgeTracking,
 } from '../types';
 import type { NeedPayload } from '../needForm';
@@ -271,6 +272,19 @@ export interface Repo {
   // ---- Faz 3-C: koordinatör teslim sözü operasyonu -------------------------
   // Hepsi SECURITY DEFINER RPC'lerine gider; tabloya doğrudan erişim yok
   // (migration 0041 izinleri kapattı, 0044 yüzeyi açtı).
+  // ---- Faz 4-A: herkese açık saha güncellemeleri akışı ---------------------
+  // Hepsi migration 0048'in RPC'lerine gidiyor. `operation_updates` tablosuna
+  // doğrudan erişim YOK ve Realtime yalnızca olay projeksiyonunu görüyor; bu
+  // metotlar akışın TEK okuma yolu.
+  listOperationUpdates(f: UpdateFeedFilter, cursor: UpdateFeedCursor | null): Promise<UpdateFeedPage>;
+  listPinnedOperationUpdates(disasterId: string): Promise<OperationUpdate[]>;
+  // Realtime olayı geldiğinde çağrılan yol: olayın kendisi asla render edilmiyor,
+  // kayıt güvenli görünümden yeniden okunuyor.
+  getOperationUpdate(id: string): Promise<OperationUpdate | null>;
+  // Misafir gönderimi. Doğrudan yayına GİTMEZ; `moderation_pending` doğar.
+  submitOperationUpdate(input: OperationUpdateInput): Promise<string>;
+  reportOperationUpdate(updateId: string, reason: UpdateReportReason, note: string): Promise<void>;
+
   listCoordPledges(f: PledgeFilter): Promise<CoordPledgePage>;
   // Dışa aktarma AYNI sorguyu kullanır, yalnızca sayfalamayı açar: ekranda
   // görülen liste ile indirilen dosya aynı kaynaktan gelmeli. Sunucu tarafında

@@ -10,7 +10,8 @@ import type {
   OrganizationSave, VolunteerInput, VolunteerApplication, VolunteerStatus,
   AnnouncementInput, LocationInput,
   StaffMember, StaffRole, RoleInvite, OperationStage,
-  OperationUpdate, OperationUpdateType, OperationMedia,
+  OperationUpdate, OperationUpdateType, OperationMedia, OperationUpdateInput,
+  UpdateFeedFilter, UpdateFeedCursor, UpdateFeedPage, UpdateReportReason,
   DeliveryPledgeInput, DeliveryPledgeTracking, PledgeStatus,
   CoordPledgeRow, CoordPledgePage, CoordPledgeDetail, PledgeContact, PledgeSummary,
   PledgeFilter, LinkableSubmission,
@@ -68,6 +69,31 @@ function mapPledgeRow(r: Record<string, unknown>): CoordPledgeRow {
     submissionCode: String(r.submission_code ?? ''),
     createdAt: String(r.created_at ?? ''),
     updatedAt: String(r.updated_at ?? ''),
+  };
+}
+
+
+// Herkese açık akış satırı → arayüz modeli. `getSnapshot` içindeki eşleme ile AYNI
+// alanlar; ikisi ayrışırsa aynı kayıt iki ekranda iki farklı şey gösterir.
+function mapOperationUpdate(r: Record<string, unknown>): OperationUpdate {
+  return {
+    id: String(r.id), disasterId: String(r.disaster_id),
+    type: r.update_type as OperationUpdateType,
+    authorType: r.author_type as OperationUpdate['authorType'],
+    authorLabel: String(r.author_label ?? ''),
+    organizationId: r.organization_id ? String(r.organization_id) : null,
+    body: String(r.body ?? ''),
+    verified: r.verification_status === 'coordinator_verified',
+    relatedNeedId: r.related_need_id ? String(r.related_need_id) : null,
+    relatedNeedName: String(r.related_need_name ?? ''),
+    relatedLocationId: r.related_delivery_location_id ? String(r.related_delivery_location_id) : null,
+    relatedLocationName: String(r.related_location_name ?? ''),
+    approximateLocation: String(r.approximate_location ?? ''),
+    pinned: r.is_pinned === true,
+    correctsUpdateId: r.corrects_update_id ? String(r.corrects_update_id) : null,
+    photoCount: Number(r.photo_count ?? 0),
+    publishedAt: String(r.published_at ?? r.created_at ?? ''),
+    time: rel(String(r.published_at ?? r.created_at ?? new Date().toISOString())),
   };
 }
 
@@ -1337,6 +1363,69 @@ export class SupabaseRepo implements Repo {
     if (logError) throw logError;
 
     return toplam;
+  }
+
+  // ---- Faz 4-A: herkese açık saha güncellemeleri -----------------------------
+  // Akış cursor ile geliyor (migration 0048). Sabitlenmiş kayıtlar bu listede YOK;
+  // ayrı bir çağrıyla alınıyor ve ekranda ayrı bölümde duruyor — aynı kartın iki
+  // kez görünmesi "iki ayrı uyarı var" diye okunur.
+  async listOperationUpdates(f: UpdateFeedFilter, cursor: UpdateFeedCursor | null): Promise<UpdateFeedPage> {
+    const SAYFA = 20;
+    const { data, error } = await this.db.rpc('list_operation_updates_public', {
+      p_disaster: f.disasterId,
+      p_type: f.type || null,
+      p_before_published_at: cursor?.publishedAt ?? null,
+      p_before_id: cursor?.id ?? null,
+      p_limit: SAYFA,
+    });
+    if (error) throw error;
+    const rows = ((data ?? []) as Record<string, unknown>[]).map(mapOperationUpdate);
+    // Sayfa dolu geldiyse devamı OLABİLİR. "Kesin var" demiyoruz: son sayfa tam
+    // dolduğunda bir kez daha boş istek atılır, bu da yanlış bir "daha fazla yok"
+    // mesajından iyidir.
+    const last = rows.length === SAYFA ? rows[rows.length - 1] : null;
+    return {
+      rows,
+      cursor: last ? { publishedAt: last.publishedAt, id: last.id } : null,
+    };
+  }
+
+  async listPinnedOperationUpdates(disasterId: string): Promise<OperationUpdate[]> {
+    const { data, error } = await this.db.rpc('list_pinned_operation_updates', { p_disaster: disasterId });
+    if (error) throw error;
+    return ((data ?? []) as Record<string, unknown>[]).map(mapOperationUpdate);
+  }
+
+  async getOperationUpdate(id: string): Promise<OperationUpdate | null> {
+    const { data, error } = await this.db.rpc('get_operation_update_public', { p_update: id });
+    if (error) throw error;
+    const rows = (data ?? []) as Record<string, unknown>[];
+    return rows.length > 0 ? mapOperationUpdate(rows[0]) : null;
+  }
+
+  async submitOperationUpdate(input: OperationUpdateInput): Promise<string> {
+    // Doğrulamanın tamamı sunucuda (uzunluk, tür izni, ilgili kaydın aynı
+    // operasyona ait olması, tekrar gönderim, hız sınırı, PII bayrağı).
+    const { data, error } = await this.db.rpc('submit_operation_update', {
+      p_disaster: input.disasterId,
+      p_type: input.type,
+      p_body: input.body,
+      p_related_need: input.relatedNeedId || null,
+      p_related_location: input.relatedLocationId || null,
+      p_approximate_location: input.approximateLocation || '',
+      p_name: input.name,
+      p_email: input.email,
+      p_phone: input.phone,
+    });
+    if (error) throw error;
+    return String(data ?? '');
+  }
+
+  async reportOperationUpdate(updateId: string, reason: UpdateReportReason, note: string): Promise<void> {
+    const { error } = await this.db.rpc('report_operation_update', {
+      p_update: updateId, p_reason: reason, p_note: note,
+    });
+    if (error) throw error;
   }
 
   async pledgeSummary(disasterId?: string): Promise<PledgeSummary> {

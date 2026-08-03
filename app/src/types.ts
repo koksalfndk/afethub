@@ -301,6 +301,27 @@ export interface OperationUpdate {
   time: string;          // display string
 }
 
+// Herkese açık akışın süzgeci ve cursor'ı. Sayfa numarası YOK: afet anında akışa
+// sürekli yeni kayıt giriyor ve offset sayfalaması aynı kaydı iki kez ya da hiç
+// göstermez (migration 0048).
+export interface UpdateFeedFilter {
+  disasterId: string;
+  type: OperationUpdateType | '';
+}
+
+export interface UpdateFeedCursor {
+  publishedAt: string;
+  id: string;
+}
+
+export interface UpdateFeedPage {
+  rows: OperationUpdate[];
+  // Sunucudan sayfa boyutu kadar kayıt geldiyse devamı olabilir. Toplam sayı
+  // BİLEREK yok: cursor sayfalamasında toplamı hesaplamak her istekte tüm akışı
+  // saydırır ve o sayı zaten bir sonraki saniyede yanlış olur.
+  cursor: UpdateFeedCursor | null;
+}
+
 export interface OperationUpdateInput {
   disasterId: string;
   type: OperationUpdateType;
