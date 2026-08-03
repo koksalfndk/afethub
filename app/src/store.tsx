@@ -77,6 +77,13 @@ function toPath(route: Route, tab: Tab, slug: string): string {
     case 'account': return '/hesabim';
     case 'coordHome': return '/koordinasyon';
     case 'coordQueue': return '/koordinasyon/kuyruk';
+    // DİKKAT: yol tablosu İKİ yerde — burada ve `routes.ts` içinde. Faz 3-C'de
+    // yalnızca `routes.ts` güncellendi ve `/koordinasyon/teslim-sozleri` adresi
+    // yüklendikten saniyeler sonra `/` oluyordu: buradaki `default` dalı devreye
+    // giriyor, efekt "yol değişti" sanıp ana sayfayı yazıyordu. Ekran doğru
+    // görünüyordu, adres yanlıştı — yani bağlantı paylaşılamıyor ve yenileme
+    // ana sayfaya düşüyordu.
+    case 'coordPledges': return '/koordinasyon/teslim-sozleri';
     case 'coordNeeds': return '/koordinasyon/ihtiyaclar';
     case 'coordLog': return '/koordinasyon/kayit';
     case 'coordSlider': return '/koordinasyon/slider';
