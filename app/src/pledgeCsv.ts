@@ -27,12 +27,26 @@ function hucre(v: string | number | null | undefined): string {
 // ISO'ya yakın ama okunur: `2026-08-02 09:46`. Türkçe biçim (`02.08.2026`) Excel'de
 // metin olarak sıralanınca ay ve günü karıştırıyor; dışa aktarılan bir dosyanın
 // ilk işi sıralanmak oluyor.
+// Saat dilimi operasyonun saat dilimi: `Europe/Istanbul`. Sunucu da, ekrandaki
+// `etaText` de bunu kullanıyor.
+//
+// İlk sürüm tarayıcının YEREL saatini kullanıyordu. Türkiye'den bakan biri için
+// fark yok, o yüzden ilk üretim koşusunda da görünmedi — ama yurt dışından
+// bağlanan bir koordinatörde ekranda "18:00", dosyada "15:00" yazardı. Aynı
+// kaydın iki farklı saati, teslim saatini konuşan iki kişi demektir.
+const TZ = 'Europe/Istanbul';
+
 function zaman(iso: string): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  // `en-CA` bilerek: `YYYY-MM-DD` üretiyor. Biçim sıralanabilir kalmalı, dil
+  // seçimi bir yerelleştirme kararı değil.
+  const tarih = d.toLocaleDateString('en-CA', { timeZone: TZ });
+  const saat = d.toLocaleTimeString('tr-TR', {
+    timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+  return `${tarih} ${saat}`;
 }
 
 function gecikme(dk: number | null): string {
@@ -73,9 +87,10 @@ export function pledgeRowsToCsv(rows: CoordPledgeRow[]): string {
 // Dosya adı: görünüm + tarih. Aynı gün iki farklı görünüm indirildiğinde
 // dosyalar birbirini ezmiyor ve hangisinin ne olduğu adından okunuyor.
 export function pledgeCsvFileName(view: string): string {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `teslim-sozleri-${view}-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}.csv`;
+  // Dosya adındaki gün de operasyonun günü: gece yarısına yakın bir indirmede
+  // dosya adı ile içerideki tarihler farklı güne düşmemeli.
+  const gun = new Date().toLocaleDateString('en-CA', { timeZone: TZ }).replaceAll('-', '');
+  return `teslim-sozleri-${view}-${gun}.csv`;
 }
 
 // BOM olmadan Excel dosyayı Windows-1254 sanıp Türkçe karakterleri bozuyor.
