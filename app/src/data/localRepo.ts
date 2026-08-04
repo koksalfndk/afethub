@@ -1608,6 +1608,13 @@ export class LocalRepo implements Repo {
     if (q) q.openReports += 1;
   }
 
+  // Yerel modda Realtime YOK ve bunu taklit etmiyoruz: sahte bir "Canlı" rozeti,
+  // gerçek bağlantının hiç ölçülmediği bir yerde güven yaratırdı. Hiçbir geri
+  // çağrı çalışmaz; ekran `idle` durumunda kalır ve gösterge çizilmez.
+  subscribeOperationUpdates(): () => void {
+    return () => {};
+  }
+
   // ---- Faz 4-A: moderasyon — YEREL DEMO -------------------------------------
   // Yetkilendirme burada YOK: gerçek kontrol `is_coordinator()` ile sunucuda.
   // Bu kopya yalnızca ekranın Supabase olmadan çalışabilmesi için var.

@@ -5,7 +5,7 @@ import { trUpdates, UPDATE_TYPE_LABEL, UPDATE_FILTERS } from '../i18n/operationU
 import { C } from '../theme';
 import { eyebrow, Ico, type IcoName } from '../ui';
 import { repo } from '../data';
-import type { OperationUpdate, OperationUpdateType, UpdateFeedCursor } from '../types';
+import type { OperationUpdate, OperationUpdateType, UpdateFeedCursor, UpdateFeedEvent, RealtimeStatus } from '../types';
 
 // Gönderim formu ve raporlama penceresi ağır: ancak kullanıcı gerçekten
 // göndermek ya da bildirmek istediğinde iniyorlar (rules/09 §8).
@@ -132,6 +132,18 @@ export function OperationUpdates() {
   // (Faz 3-A'da üretimde ölçülen kusurun aynısı).
   const moreLock = useRef(false);
 
+  // ---- Canlı akış (Faz 4-A) -------------------------------------------------
+  // `idle` = bu modda realtime yok (yerel demo); gösterge hiç çizilmiyor.
+  const [rtStatus, setRtStatus] = useState<'idle' | RealtimeStatus>('idle');
+  // Yeni gelen kayıtlar TAMPONDA bekliyor; "N yeni güncelleme"ye basılınca akışa
+  // giriyor. Kendiliğinden eklemek okunan listeyi kaydırırdı.
+  const [fresh, setFresh] = useState<OperationUpdate[]>([]);
+  // Olay işleyicisinin güncel süzgece bakması gerekiyor ama abonelik süzgeç
+  // değişince YENİDEN KURULMAMALI (WebSocket'i her çip tıklamasında koparmak
+  // olurdu) — süzgeç bir ref üzerinden okunuyor.
+  const typeRef = useRef(type);
+  typeRef.current = type;
+
   const ilkYukle = useCallback(async () => {
     if (!disasterId) return;
     setLoading(true);
@@ -153,6 +165,93 @@ export function OperationUpdates() {
   }, [disasterId, type]);
 
   useEffect(() => { void ilkYukle(); }, [ilkYukle]);
+
+  // Süzgeç değiştiğinde ya da akış baştan yüklendiğinde tampon anlamını yitiriyor:
+  // içindekiler ya yeni süzgece uymuyor ya da zaten listede.
+  useEffect(() => { setFresh([]); }, [ilkYukle]);
+
+  const ilkYukleRef = useRef(ilkYukle);
+  ilkYukleRef.current = ilkYukle;
+
+  // Olay geldi → kayıt GÜVENLİ görünümden yeniden okunur. Olayın kendisi asla
+  // render edilmiyor: gövde/PII taşımıyor ve source-of-truth değil (0048).
+  const olayIsle = useCallback(async (e: UpdateFeedEvent) => {
+    if (e.eventType === 'hidden') {
+      // Gizlenen içerik istemciden HEMEN düşer (değişmez karar). Veritabanında
+      // durmaya devam ediyor; bu yalnızca ekrandan kaldırma.
+      setRows((prev) => prev.filter((u) => u.id !== e.updateId));
+      setPinned((prev) => prev.filter((u) => u.id !== e.updateId));
+      setFresh((prev) => prev.filter((u) => u.id !== e.updateId));
+      return;
+    }
+    // Aktif süzgece uymayan yayın tamponu ŞİŞİRMEMELİ: "3 yeni güncelleme" deyip
+    // gösterince hiçbir şey eklememek güveni bozar.
+    if ((e.eventType === 'published' || e.eventType === 'corrected')
+        && typeRef.current && e.updateType !== typeRef.current) return;
+
+    let kayit: OperationUpdate | null = null;
+    try {
+      kayit = await repo.getOperationUpdate(e.updateId);
+    } catch { return; /* okunamadıysa olay atlanır; tam yenileme telafi eder */ }
+    // Olay ile okuma arasında kayıt gizlenmiş olabilir — görünümden geldiyse yayında.
+    if (!kayit) return;
+
+    if (e.eventType === 'published' || e.eventType === 'corrected') {
+      if (kayit.pinned) {
+        // Sabit olarak doğan kayıt (örn. sabitlenmiş güvenlik uyarısının
+        // düzeltmesi) akış tamponuna değil sabit bölümüne gider.
+        try { setPinned(await repo.listPinnedOperationUpdates(disasterId)); } catch { /* sonraki yenileme */ }
+        return;
+      }
+      const yeni = kayit;
+      setFresh((prev) => (prev.some((u) => u.id === yeni.id) ? prev : [yeni, ...prev]));
+      // Zaten akışta görünüyorsa (düzeltme zinciri vb.) yerinde güncelle.
+      setRows((prev) => prev.map((u) => (u.id === yeni.id ? yeni : u)));
+      return;
+    }
+
+    // pinned / unpinned / updated: sabit bölümü yeniden okunur, akıştaki kopya
+    // yerinde tazelenir. Sabitlenen kayıt akıştan çıkar (sunucu listede zaten
+    // döndürmeyecek); sabitliği kalkan kayıt kronolojik yerine bir sonraki tam
+    // yenilemede döner — araya sokuşturmak sıralamayı bozar.
+    try { setPinned(await repo.listPinnedOperationUpdates(disasterId)); } catch { /* sonraki yenileme */ }
+    const guncel = kayit;
+    if (e.eventType === 'pinned') {
+      setRows((prev) => prev.filter((u) => u.id !== guncel.id));
+      setFresh((prev) => prev.filter((u) => u.id !== guncel.id));
+    } else {
+      setRows((prev) => prev.map((u) => (u.id === guncel.id ? guncel : u)));
+      setFresh((prev) => prev.map((u) => (u.id === guncel.id ? guncel : u)));
+    }
+  }, [disasterId]);
+
+  const olayIsleRef = useRef(olayIsle);
+  olayIsleRef.current = olayIsle;
+
+  // Abonelik operasyon başına BİR kez kuruluyor; süzgeç ve işleyici ref'lerden.
+  useEffect(() => {
+    if (!disasterId) return;
+    const kapat = repo.subscribeOperationUpdates(
+      disasterId,
+      (e) => { void olayIsleRef.current(e); },
+      (s) => {
+        setRtStatus((onceki) => {
+          // Kopukluktan dönüşte kaçan olaylar telafi edilir: tam yenileme.
+          if (s === 'live' && onceki === 'offline') void ilkYukleRef.current();
+          return s;
+        });
+      },
+    );
+    return kapat;
+  }, [disasterId]);
+
+  const tamponuGoster = () => {
+    setRows((prev) => {
+      const varOlan = new Set(prev.map((u) => u.id));
+      return [...fresh.filter((u) => !varOlan.has(u.id)), ...prev];
+    });
+    setFresh([]);
+  };
 
   // Süzgeç adres çubuğuna yazılıyor ama geçmişe yeni kayıt EKLENMİYOR: süzgeç
   // değiştirmek bir gezinme değil, geri tuşu operasyon sayfasından çıkmalı.
@@ -206,21 +305,64 @@ export function OperationUpdates() {
       </div>
 
       {/* Süzgeç çipleri — seçim SORGUYA gidiyor, tarayıcıda gizleme yok. */}
-      <div role="tablist" aria-label={trUpdates.filters}
-        style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-        {UPDATE_FILTERS.map((f) => {
-          const on = type === f.key;
-          return (
-            <button key={f.key || 'all'} type="button" role="tab" aria-selected={on}
-              onClick={() => setType(f.key)}
-              style={{
-                background: on ? C.navy : C.surface, border: `1px solid ${on ? C.navy : C.borderSoft}`,
-                color: on ? '#fff' : C.heading2, borderRadius: 20, padding: '10px 14px',
-                fontSize: 13, fontWeight: 600, cursor: 'pointer', minHeight: 44,
-              }}>{f.label}</button>
-          );
-        })}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
+        <div role="tablist" aria-label={trUpdates.filters}
+          style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {UPDATE_FILTERS.map((f) => {
+            const on = type === f.key;
+            return (
+              <button key={f.key || 'all'} type="button" role="tab" aria-selected={on}
+                onClick={() => setType(f.key)}
+                style={{
+                  background: on ? C.navy : C.surface, border: `1px solid ${on ? C.navy : C.borderSoft}`,
+                  color: on ? '#fff' : C.heading2, borderRadius: 20, padding: '10px 14px',
+                  fontSize: 13, fontWeight: 600, cursor: 'pointer', minHeight: 44,
+                }}>{f.label}</button>
+            );
+          })}
+        </div>
+        {/* Bağlantı durumu — yalnızca realtime OLAN modda çiziliyor (`idle` = yok).
+            Durum kelimeyle; nokta yalnızca destek (rules/04 §Accessibility). */}
+        {rtStatus !== 'idle' && rtStatus !== 'offline' && (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 'auto',
+            fontSize: 12, fontWeight: 600, color: rtStatus === 'live' ? '#157F3E' : C.muted2,
+            whiteSpace: 'nowrap',
+          }}>
+            <span aria-hidden="true" style={{
+              width: 8, height: 8, borderRadius: 4,
+              background: rtStatus === 'live' ? '#2FA45C' : C.muted3,
+            }} />
+            {rtStatus === 'live' ? trUpdates.rtLive : trUpdates.rtConnecting}
+          </span>
+        )}
       </div>
+
+      {/* Kopukluk sessiz geçiştirilmiyor: akış bayat olabilir ve bunu söylemek
+          "canlıymış gibi durmak"tan iyi (rules/01 §Freshness). Sarı, kırmızı değil:
+          bu bir tehlike değil, bir bilgi tazeliği notu. */}
+      {rtStatus === 'offline' && (
+        <div role="status" style={{
+          background: '#FFF8E5', border: '1px solid #F2DFA8', borderRadius: 10,
+          padding: '9px 12px', fontSize: 12.5, color: '#8A6100', marginBottom: 14,
+        }}>{trUpdates.rtOffline}</div>
+      )}
+
+      {/* Yeni kayıtlar kullanıcı İSTEYİNCE giriyor; sayaç ekran okuyucuya da
+          duyuruluyor. Buton tüm şeridi kaplıyor — sahada eldivenli bir başparmak
+          küçük bir bağlantıyı tutturamaz. */}
+      {fresh.length > 0 && (
+        <div role="status" aria-live="polite" style={{ marginBottom: 12 }}>
+          <button type="button" onClick={tamponuGoster} className="hv-navy" style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            background: '#EEF4FB', border: '1px solid #CFE0F2', color: '#1E5C93',
+            borderRadius: 10, minHeight: 48, fontSize: 14, fontWeight: 700, cursor: 'pointer',
+          }}>
+            <Ico n="activity" size={15} color="#1E5C93" />
+            {trUpdates.rtNew(fresh.length)} · {trUpdates.rtShow}
+          </button>
+        </div>
+      )}
 
       {error && (
         <div role="alert" style={{ background: '#FEF3F2', border: '1px solid #F6C9C9', borderRadius: 12, padding: 16, marginBottom: 14 }}>

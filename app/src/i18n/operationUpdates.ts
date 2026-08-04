@@ -24,6 +24,16 @@ export const trUpdates = {
   relatedLocation: 'Teslim noktası',
   area: 'Yaklaşık bölge',
 
+  // ---- Canlı akış -----------------------------------------------------------
+  // Yeni kayıt akışa KENDİLİĞİNDEN girmiyor; kullanıcı isterse gösteriliyor.
+  // Okuma sırasında listenin üstten kayması, sahada tek eliyle telefon tutan
+  // birine yapılacak şey değil (rules/01 §Emergency First).
+  rtLive: 'Canlı',
+  rtConnecting: 'Bağlanıyor…',
+  rtOffline: 'Canlı bağlantı koptu — akış güncel olmayabilir.',
+  rtNew: (n: number) => (n === 1 ? '1 yeni güncelleme' : `${n} yeni güncelleme`),
+  rtShow: 'Göster',
+
   filters: 'Süzgeç',
   filterAll: 'Tümü',
   more: 'Daha Fazla Göster',

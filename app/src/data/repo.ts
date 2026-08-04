@@ -13,6 +13,7 @@ import type {
   OperationStage, PledgeStatus, OperationUpdateType, OperationUpdate, OperationMedia,
   OperationUpdateInput, UpdateFeedFilter, UpdateFeedCursor, UpdateFeedPage, UpdateReportReason,
   UpdateQueueRow, UpdateContact, ModerationAction,
+  UpdateFeedEvent, RealtimeStatus,
   DeliveryPledgeInput, DeliveryPledgeTracking,
 } from '../types';
 import type { NeedPayload } from '../needForm';
@@ -285,6 +286,18 @@ export interface Repo {
   // Misafir gönderimi. Doğrudan yayına GİTMEZ; `moderation_pending` doğar.
   submitOperationUpdate(input: OperationUpdateInput): Promise<string>;
   reportOperationUpdate(updateId: string, reason: UpdateReportReason, note: string): Promise<void>;
+
+  // Gerçek zamanlı akış aboneliği. YALNIZCA `operation_update_events_public`
+  // olay tablosunu dinler (0048) — base tabloya abonelik yok, olay gövde/PII
+  // taşımıyor ve source-of-truth değil: ekran olayı alınca kaydı
+  // `get_operation_update_public` üzerinden yeniden okur. Dönen fonksiyon
+  // aboneliği kapatır. Yerel modda kanal yok: hiçbir geri çağrı çalışmaz ve
+  // ekran göstergeyi hiç çizmez (yalan bir "Canlı" rozeti olmaz).
+  subscribeOperationUpdates(
+    disasterId: string,
+    onEvent: (e: UpdateFeedEvent) => void,
+    onStatus: (s: RealtimeStatus) => void,
+  ): () => void;
 
   // ---- Faz 4-A: moderasyon (migration 0049) --------------------------------
   // Kuyruk maskeli döner. Tam iletişim bilgisi AYRI bir çağrı, ayrı bir gerekçe

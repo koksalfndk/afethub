@@ -14,6 +14,7 @@ import type {
   UpdateFeedFilter, UpdateFeedCursor, UpdateFeedPage, UpdateReportReason,
   OperationUpdateStatus, OperationUpdateAuthorType,
   UpdateQueueRow, UpdateContact, ModerationAction,
+  UpdateFeedEvent, UpdateEventType, RealtimeStatus,
   DeliveryPledgeInput, DeliveryPledgeTracking, PledgeStatus,
   CoordPledgeRow, CoordPledgePage, CoordPledgeDetail, PledgeContact, PledgeSummary,
   PledgeFilter, LinkableSubmission,
@@ -1428,6 +1429,46 @@ export class SupabaseRepo implements Repo {
       p_update: updateId, p_reason: reason, p_note: note,
     });
     if (error) throw error;
+  }
+
+  // Gerçek zamanlı abonelik (Faz 4-A). Güvenlik sözleşmesi:
+  //   * Kanal YALNIZCA `operation_update_events_public` INSERT'lerini dinliyor.
+  //     Base tablo publication'da zaten yok (0048) — buradaki filtre bir savunma
+  //     katmanı daha: yanlışlıkla publication'a eklense bile bu istemci ona
+  //     abone değil.
+  //   * Olay source-of-truth DEĞİL: ekran her olayda kaydı
+  //     `get_operation_update_public` üzerinden yeniden okuyor. Payload'daki
+  //     alanlar yalnızca "neye bakmalıyım" bilgisi.
+  subscribeOperationUpdates(
+    disasterId: string,
+    onEvent: (e: UpdateFeedEvent) => void,
+    onStatus: (s: RealtimeStatus) => void,
+  ): () => void {
+    const GECERLI: UpdateEventType[] = ['published', 'hidden', 'corrected', 'pinned', 'unpinned', 'updated'];
+    onStatus('connecting');
+    const kanal = this.db
+      .channel(`op-events-${disasterId}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'operation_update_events_public',
+        filter: `disaster_id=eq.${disasterId}`,
+      }, (payload) => {
+        const r = (payload.new ?? {}) as Record<string, unknown>;
+        const tur = String(r.event_type ?? '');
+        // Tanınmayan olay SESSİZCE atlanmıyor değil — bilinçli atlanıyor: ileride
+        // sunucu yeni bir olay türü eklerse eski istemci onu yanlış yorumlamak
+        // yerine bir sonraki tam yenilemede yakalar.
+        if (!(GECERLI as string[]).includes(tur)) return;
+        onEvent({
+          updateId: String(r.update_id ?? ''),
+          eventType: tur as UpdateEventType,
+          updateType: r.update_type ? (String(r.update_type) as OperationUpdateType) : null,
+        });
+      })
+      .subscribe((durum) => {
+        if (durum === 'SUBSCRIBED') onStatus('live');
+        else if (durum === 'CHANNEL_ERROR' || durum === 'TIMED_OUT' || durum === 'CLOSED') onStatus('offline');
+      });
+    return () => { void this.db.removeChannel(kanal); };
   }
 
   // ---- Faz 4-A: moderasyon (migration 0049) ----------------------------------

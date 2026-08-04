@@ -367,6 +367,26 @@ export interface UpdateContact {
   phone: string;
 }
 
+// ---------------------------------------------------------------------------
+// Realtime (migration 0048'in olay projeksiyonu)
+// ---------------------------------------------------------------------------
+
+// Kanaldan gelen olay. GÖVDE YOK, PII YOK — olay tablosunun kendisi taşımıyor
+// (0048'in varlık sebebi). `updateType` yalnızca istemcinin süzgeç kararı için;
+// içerik her durumda `get_operation_update_public` ile yeniden okunur.
+export type UpdateEventType =
+  | 'published' | 'hidden' | 'corrected' | 'pinned' | 'unpinned' | 'updated';
+
+export interface UpdateFeedEvent {
+  updateId: string;
+  eventType: UpdateEventType;
+  updateType: OperationUpdateType | null;
+}
+
+// Bağlantı durumu ekranda KELİMEYLE gösterilir (rules/04: durum yalnız renkle
+// anlatılmaz). `idle` = bu modda realtime yok (yerel demo); gösterge çizilmez.
+export type RealtimeStatus = 'connecting' | 'live' | 'offline';
+
 export type ModerationAction = 'publish' | 'reject' | 'hide' | 'archive';
 
 export interface OperationUpdateInput {

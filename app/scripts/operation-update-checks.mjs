@@ -34,6 +34,9 @@ for (const vp of [{w:390,h:844},{w:1280,h:900}]) {
   ok(t.includes('sohbet alanı değildir'), `${vp.w}: modülün ne olmadığı yazıyor`);
   ok(/henüz yayımlanmış saha güncellemesi bulunmuyor|Sabit uyarılar|Koordinatör doğruladı|Doğrulama bekleniyor/.test(t),
      `${vp.w}: akış ya dolu ya da boş durumu gösteriyor`);
+  // Yerel modda Realtime yok ve taklit edilmiyor: sahte "Canlı" rozeti çizilmez.
+  ok(!/Canlı|Bağlanıyor…|Canlı bağlantı koptu/.test(t),
+     `${vp.w}: yerel modda canlı bağlantı göstergesi YOK`);
   ok(p.url().includes('/updates'), `${vp.w}: adres /updates (${p.url().split('/').slice(3).join('/')})`);
   // Süzgeç URL'e yansıyor mu
   const guv = p.getByRole('tab', { name: /^Güvenlik$/ }).first();
