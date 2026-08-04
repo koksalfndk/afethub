@@ -14,7 +14,7 @@ import type {
   UpdateFeedFilter, UpdateFeedCursor, UpdateFeedPage, UpdateReportReason,
   OperationUpdateStatus, OperationUpdateAuthorType,
   UpdateQueueRow, UpdateContact, ModerationAction,
-  UpdateFeedEvent, UpdateEventType, RealtimeStatus,
+  UpdateFeedEvent, UpdateEventType, RealtimeStatus, UpdateAttachment, UpdatePhotoInput,
   DeliveryPledgeInput, DeliveryPledgeTracking, PledgeStatus,
   CoordPledgeRow, CoordPledgePage, CoordPledgeDetail, PledgeContact, PledgeSummary,
   PledgeFilter, LinkableSubmission,
@@ -1560,6 +1560,52 @@ export class SupabaseRepo implements Repo {
   async pinOperationUpdate(updateId: string, pinned: boolean, until: string | null): Promise<void> {
     const { error } = await this.db.rpc('pin_operation_update', {
       p_update: updateId, p_pinned: pinned, p_until: until,
+    });
+    if (error) throw error;
+  }
+
+  // ---- Faz 4-A: fotoğraflar (0038 + 0050) ------------------------------------
+  async attachUpdatePhoto(disasterId: string, updateId: string, photo: UpdatePhotoInput): Promise<void> {
+    // Yol sunucu sözleşmesiyle birebir: `disasterId/updateId/` öneki dışındaki
+    // her yol `register_update_attachment` tarafından reddediliyor.
+    const path = `${disasterId}/${updateId}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.webp`;
+    const { error: upErr } = await this.db.storage
+      .from('operation-media')
+      .upload(path, photo.blob, { contentType: 'image/webp', upsert: false });
+    if (upErr) throw upErr;
+    const { error } = await this.db.rpc('register_update_attachment', {
+      p_update: updateId, p_path: path, p_mime: 'image/webp',
+      p_bytes: photo.blob.size, p_width: photo.width, p_height: photo.height,
+    });
+    if (error) {
+      // Kayıt reddedildi (örn. 4 fotoğraf sınırı): nesne kovada sahipsiz
+      // kalmasın. Silme de başarısız olursa nesne özel kovada erişimsiz durur —
+      // okuma politikası onaysız eki zaten kimseye göstermiyor.
+      await this.db.storage.from('operation-media').remove([path]).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async listUpdateAttachments(updateId: string): Promise<UpdateAttachment[]> {
+    const { data, error } = await this.db.rpc('list_update_attachments', { p_update: updateId });
+    if (error) throw error;
+    return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id),
+      storagePath: String(r.storage_path),
+      fileType: String(r.file_type ?? ''),
+      width: r.width == null ? null : Number(r.width),
+      height: r.height == null ? null : Number(r.height),
+      caption: String(r.caption ?? ''),
+      publicLocationText: String(r.public_location_text ?? ''),
+      status: (['pending', 'approved', 'rejected'].includes(String(r.moderation_status))
+        ? String(r.moderation_status) : 'pending') as UpdateAttachment['status'],
+      reason: String(r.moderation_reason ?? ''),
+    }));
+  }
+
+  async moderateUpdateAttachment(attachmentId: string, status: 'approved' | 'rejected', reason: string): Promise<void> {
+    const { error } = await this.db.rpc('moderate_update_attachment', {
+      p_attachment: attachmentId, p_status: status, p_reason: reason,
     });
     if (error) throw error;
   }

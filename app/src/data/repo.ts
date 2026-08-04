@@ -13,7 +13,7 @@ import type {
   OperationStage, PledgeStatus, OperationUpdateType, OperationUpdate, OperationMedia,
   OperationUpdateInput, UpdateFeedFilter, UpdateFeedCursor, UpdateFeedPage, UpdateReportReason,
   UpdateQueueRow, UpdateContact, ModerationAction,
-  UpdateFeedEvent, RealtimeStatus,
+  UpdateFeedEvent, RealtimeStatus, UpdateAttachment, UpdatePhotoInput,
   DeliveryPledgeInput, DeliveryPledgeTracking,
 } from '../types';
 import type { NeedPayload } from '../needForm';
@@ -318,6 +318,17 @@ export interface Repo {
   // E-POSTA GÖNDERMEZ (bildirim motoru Faz 4-B). Yalnızca isteği kaydeder.
   requestUpdateInfo(updateId: string, message: string): Promise<void>;
   pinOperationUpdate(updateId: string, pinned: boolean, until: string | null): Promise<void>;
+
+  // ---- Faz 4-A: fotoğraflar (0038 + 0050) ----------------------------------
+  // Yükleme + kayıt tek adım: nesne ÖZEL kovaya `disasterId/updateId/...` yoluna
+  // gider, `register_update_attachment` doğrular (tür/boyut/adet/yol) ve kaydı
+  // açar. Misafir eki `pending` doğar; koordinatörünki onaylı. Kayıt edilemeyen
+  // nesne kovada sahipsiz kalmasın diye sunucu reddi sonrası silinmeye çalışılır.
+  attachUpdatePhoto(disasterId: string, updateId: string, photo: UpdatePhotoInput): Promise<void>;
+  // Koordinatör listesi (0050): bekleyen + karar verilmiş ekler. Önizleme için
+  // yol `signMedia` ile imzalanır — koordinatör bekleyeni de imzalayabilir.
+  listUpdateAttachments(updateId: string): Promise<UpdateAttachment[]>;
+  moderateUpdateAttachment(attachmentId: string, status: 'approved' | 'rejected', reason: string): Promise<void>;
 
   listCoordPledges(f: PledgeFilter): Promise<CoordPledgePage>;
   // Dışa aktarma AYNI sorguyu kullanır, yalnızca sayfalamayı açar: ekranda

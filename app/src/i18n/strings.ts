@@ -823,7 +823,8 @@ export const tr = {
       none: 'Bu operasyon için henüz yayımlanmış saha güncellemesi bulunmuyor.',
       relatedNeed: (n: string) => `İlgili ihtiyaç: ${n}`,
       // Bu fazda yalnızca OKUMA var; gönderi ve moderasyon Faz 4'te.
-      previewNote: 'Yayımlanan son güncellemeler gösteriliyor.',
+      previewNote: 'Yayımlanan son güncellemeler gösteriliyor; güvenlik uyarıları önceliklidir.',
+      seeAll: 'Tüm güncellemeleri gör',
       corrected: 'Bu bilgi düzeltildi',
       moderationNotice: 'Gönderiniz alındı. Koordinatör incelemesinden sonra akışta görünecek.',
       contactWarning: 'Metinde telefon numarası veya e-posta adresi görünüyor. Kişisel iletişim bilgisi paylaşmayın; gönderiniz incelemeye alınacak.',

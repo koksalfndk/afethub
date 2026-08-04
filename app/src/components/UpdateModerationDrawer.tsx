@@ -6,7 +6,7 @@ import { C } from '../theme';
 import { inputStyle, eyebrow } from '../ui';
 import { repo } from '../data';
 import { sureOnce, FlagBadges } from '../screens/CoordUpdates';
-import type { UpdateQueueRow, UpdateContact } from '../types';
+import type { UpdateQueueRow, UpdateContact, UpdateAttachment } from '../types';
 
 // ---------------------------------------------------------------------------
 // Saha güncellemesi inceleme çekmecesi (Faz 4-A)
@@ -291,6 +291,13 @@ export function UpdateModerationDrawer({ row, onClose, onChanged }: {
             )}
           </Section>
 
+          {/* ---- Fotoğraflar -------------------------------------------------- */}
+          {(row.photoPending > 0 || row.photoApproved > 0) && (
+            <Section title={trModeration.sectionPhotos}>
+              <PhotoModeration updateId={row.id} />
+            </Section>
+          )}
+
           {/* ---- Açık bilgi isteği ------------------------------------------- */}
           {row.infoRequestedAt && (
             <Section title={trModeration.sectionInfo}>
@@ -516,6 +523,142 @@ export function UpdateModerationDrawer({ row, onClose, onChanged }: {
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Fotoğraf moderasyonu (0038 + 0050)
+//
+// Bekleyen fotoğrafı koordinatör görebilmeli — kova özel ama depolama okuma
+// politikası `is_coordinator()` içeriyor, dolayısıyla imzalı bağlantı üretmek
+// mümkün. Onay tek başına YAYIN değildir: onaylı fotoğraf ancak güncelleme
+// yayımlanınca galeriye düşer; bu not ekranda da yazıyor.
+// ---------------------------------------------------------------------------
+function PhotoModeration({ updateId }: { updateId: string }) {
+  const a = useApp();
+  const [rows, setRows] = useState<UpdateAttachment[]>([]);
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [rejectId, setRejectId] = useState('');
+  const [reason, setReason] = useState('');
+  const lock = useRef(false);
+  const [busy, setBusy] = useState(false);
+
+  const yukle = async () => {
+    setState('loading');
+    try {
+      const list = await repo.listUpdateAttachments(updateId);
+      setRows(list);
+      const paths = list.map((x) => x.storagePath).filter(Boolean);
+      setUrls(paths.length ? await repo.signMedia(paths) : {});
+      setState('ready');
+    } catch {
+      setState('error');
+    }
+  };
+  useEffect(() => { void yukle(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [updateId]);
+
+  const karar = async (att: UpdateAttachment, status: 'approved' | 'rejected', neden: string) => {
+    if (lock.current) return;
+    lock.current = true; setBusy(true);
+    try {
+      await repo.moderateUpdateAttachment(att.id, status, neden);
+      a.showToast(trModeration.photoDone[status]);
+      setRejectId(''); setReason('');
+      await yukle();
+    } catch {
+      a.showToast(trModeration.actionFailed);
+    } finally {
+      lock.current = false; setBusy(false);
+    }
+  };
+
+  if (state === 'loading') return <p style={{ margin: 0, fontSize: 13, color: C.muted }}>{trModeration.photosLoading}</p>;
+  if (state === 'error') return <p style={{ margin: 0, fontSize: 13, color: C.errorText, fontWeight: 600 }}>{trModeration.photosLoadFailed}</p>;
+  if (rows.length === 0) return null;
+
+  const tone: Record<UpdateAttachment['status'], { fg: string; bg: string; bd: string }> = {
+    pending:  { fg: '#8A6100', bg: '#FFF8E5', bd: '#F2DFA8' },
+    approved: { fg: '#157F3E', bg: '#EAF7EF', bd: '#C9E9D6' },
+    rejected: { fg: C.errorText, bg: '#FEF3F2', bd: '#F6C9C9' },
+  };
+
+  return (
+    <div style={{ display: 'grid', gap: 10 }}>
+      {rows.map((att) => (
+        <div key={att.id} style={{ display: 'flex', gap: 12, border: `1px solid ${C.borderSoft}`, borderRadius: 10, padding: 10 }}>
+          {urls[att.storagePath] ? (
+            // Küçük önizleme yeter; koordinatör tam boyut için yeni sekmede açabilir.
+            <a href={urls[att.storagePath]} target="_blank" rel="noreferrer" style={{ flex: '0 0 84px' }}>
+              <img src={urls[att.storagePath]} alt={att.caption || trModeration.sectionPhotos}
+                width={att.width ?? 84} height={att.height ?? 84}
+                style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 8, display: 'block', border: `1px solid ${C.borderFaint}` }} />
+            </a>
+          ) : (
+            <div style={{
+              flex: '0 0 84px', width: 84, height: 84, borderRadius: 8, background: C.canvas,
+              border: `1px dashed ${C.borderSoft}`, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', fontSize: 11, color: C.muted2, textAlign: 'center', padding: 4,
+            }}>{trModeration.photoNoPreview}</div>
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <span style={{
+              display: 'inline-block', fontSize: 11.5, fontWeight: 700,
+              color: tone[att.status].fg, background: tone[att.status].bg,
+              border: `1px solid ${tone[att.status].bd}`, borderRadius: 20, padding: '3px 9px',
+            }}>{trModeration.photoStatus[att.status]}</span>
+            {att.caption && <div style={{ fontSize: 12.5, color: C.heading2, marginTop: 5 }}>{att.caption}</div>}
+            {att.publicLocationText && <div style={{ fontSize: 12, color: C.muted2, marginTop: 2 }}>{att.publicLocationText}</div>}
+            {att.status === 'rejected' && att.reason && (
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{att.reason}</div>
+            )}
+            {rejectId === att.id ? (
+              <div style={{ marginTop: 8 }}>
+                <label style={{ display: 'block' }}>
+                  <span style={{ ...eyebrow, display: 'block', marginBottom: 4 }}>{trModeration.photoRejectReason}</span>
+                  <input value={reason} onChange={(e) => setReason(e.target.value)} style={inputStyle} />
+                </label>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                  <button type="button" disabled={busy || reason.trim().length < 3}
+                    onClick={() => void karar(att, 'rejected', reason.trim())}
+                    style={{ ...kucukTehlike, opacity: busy || reason.trim().length < 3 ? .5 : 1 }}>
+                    {busy ? trModeration.saving : trModeration.photoReject}
+                  </button>
+                  <button type="button" disabled={busy} onClick={() => { setRejectId(''); setReason(''); }} style={kucukSessiz}>
+                    {trModeration.cancel}
+                  </button>
+                </div>
+              </div>
+            ) : att.status !== 'rejected' && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                {att.status === 'pending' && (
+                  <button type="button" disabled={busy} onClick={() => void karar(att, 'approved', '')} style={kucukBirincil}>
+                    {busy ? trModeration.saving : trModeration.photoApprove}
+                  </button>
+                )}
+                <button type="button" disabled={busy} onClick={() => { setRejectId(att.id); setReason(''); }} style={kucukSessiz}>
+                  {trModeration.photoReject}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+      <p style={{ margin: 0, fontSize: 12, color: C.muted2, lineHeight: 1.5 }}>{trModeration.photosNote}</p>
+    </div>
+  );
+}
+
+const kucukBirincil: React.CSSProperties = {
+  background: C.navy, border: `1px solid ${C.navy}`, color: '#fff', borderRadius: 8,
+  padding: '0 13px', minHeight: 40, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+};
+const kucukSessiz: React.CSSProperties = {
+  background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy, borderRadius: 8,
+  padding: '0 13px', minHeight: 40, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+};
+const kucukTehlike: React.CSSProperties = {
+  background: C.emergency, border: `1px solid ${C.emergency}`, color: '#fff', borderRadius: 8,
+  padding: '0 13px', minHeight: 40, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+};
 
 // Sonucu gösteren onay paneli (rules/04 §Destructive Actions: eylemi değil,
 // sonucunu söyle; onay tek tık ötede ama içerik görünür).

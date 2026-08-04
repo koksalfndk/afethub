@@ -101,6 +101,28 @@ export const trModeration = {
   infoRequested: (t: string) => `Bilgi istendi (${t})`,
   infoPendingNote: 'Gönderen yanıt verene kadar kayıt kuyrukta bekler.',
 
+  // ---- Fotoğraflar ----------------------------------------------------------
+  sectionPhotos: 'Fotoğraflar',
+  photosLoading: 'Fotoğraflar yükleniyor…',
+  photosLoadFailed: 'Fotoğraflar yüklenemedi.',
+  photoNoPreview: 'Önizleme yok',
+  photoStatus: {
+    pending: 'Onay bekliyor',
+    approved: 'Onaylı',
+    rejected: 'Reddedildi',
+  },
+  // Onaylı fotoğraf yalnızca güncelleme YAYIMLANINCA galeriye düşer; onay tek
+  // başına yayın değildir. Bunu burada söylemek "onayladım, neden görünmüyor"
+  // sorusunu baştan cevaplıyor.
+  photosNote: 'Onaylı fotoğraflar yalnızca güncelleme yayımlandığında herkese açık galeride görünür.',
+  photoApprove: 'Onayla',
+  photoReject: 'Reddet',
+  photoRejectReason: 'Ret gerekçesi',
+  photoDone: {
+    approved: 'Fotoğraf onaylandı.',
+    rejected: 'Fotoğraf reddedildi.',
+  },
+
   // ---- Aksiyonlar -----------------------------------------------------------
   actPublish: 'Yayınla',
   actPublishEdited: 'Düzenleyerek Yayınla',

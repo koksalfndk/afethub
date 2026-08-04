@@ -20,6 +20,11 @@ export const trUpdates = {
   verifiedBadge: 'Koordinatör doğruladı',
   unverifiedBadge: 'Doğrulama bekleniyor',
   photoCount: (n: number) => (n === 1 ? '1 fotoğraf' : `${n} fotoğraf`),
+  photosLoading: 'Fotoğraflar açılıyor…',
+  // Yerel modda imzalanacak kova yok; canlıda ise bağlantı üretilememiş olabilir.
+  // Kırık çerçeve göstermek yerine durumu söylüyoruz.
+  photosUnavailable: 'Fotoğraflar şu anda görüntülenemiyor.',
+  photoAlt: 'Saha fotoğrafı',
   relatedNeed: 'İlgili ihtiyaç',
   relatedLocation: 'Teslim noktası',
   area: 'Yaklaşık bölge',
@@ -86,6 +91,20 @@ export const trUpdates = {
   coordConfirmGo: 'Onayla ve yayınla',
   coordSuccessTitle: 'Güncelleme yayımlandı',
   coordSuccessBody: 'Güncelleme herkese açık akışta görünür durumda. Gerekirse moderasyon ekranından gizleyebilir veya düzeltme yayımlayabilirsiniz.',
+
+  // ---- Fotoğraflar ----------------------------------------------------------
+  fPhotos: 'Fotoğraflar (isteğe bağlı, en çok 4)',
+  // EXIF vaadi DÜRÜST: `toWebp` canvas'tan yeniden kodluyor ve kameranın
+  // yazdığı GPS/EXIF etiketleri bu sırada gerçekten düşüyor (src/imageUpload.ts).
+  fPhotosHint: 'Fotoğraflar yüklenmeden önce yeniden boyutlandırılır; kameranın eklediği konum (GPS) etiketleri bu sırada silinir. Yayına ancak koordinatör onayından sonra çıkar.',
+  fPhotoAdd: 'Fotoğraf ekle',
+  fPhotoRemove: 'Kaldır',
+  fPhotoBad: 'Bu dosya eklenemedi. JPEG, PNG veya WebP olmalı ve 8 MB’ı aşmamalı.',
+  photosUploading: 'Fotoğraflar yükleniyor…',
+  photosDone: (n: number) => (n === 1 ? '1 fotoğraf incelemeye alındı.' : `${n} fotoğraf incelemeye alındı.`),
+  // Kısmi başarı GİZLENMİYOR: metin gitti ama fotoğraf gitmediyse kişi bunu bilmeli.
+  photosFailed: (basarisiz: number, toplam: number) =>
+    `${toplam} fotoğraftan ${basarisiz} tanesi yüklenemedi. Gönderiniz fotoğrafsız iletildi; dilerseniz koordinasyon ekibine e-postayla ulaştırabilirsiniz.`,
 
   successTitle: 'Saha güncellemeniz incelemeye gönderildi',
   successBody: 'Koordinasyon ekibi bilgiyi doğruladıktan sonra yayımlayabilir. Yayımlanmayan gönderiler herkese açık hiçbir yerde görünmez.',

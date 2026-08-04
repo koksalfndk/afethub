@@ -389,6 +389,31 @@ export type RealtimeStatus = 'connecting' | 'live' | 'offline';
 
 export type ModerationAction = 'publish' | 'reject' | 'hide' | 'archive';
 
+// Moderasyon çekmecesindeki ek satırı (migration 0050). `storagePath` ÖZEL
+// kovadaki nesne yolu — tek başına görüntü açmaz, kısa ömürlü imzalı bağlantı
+// gerekir; koordinatör bekleyen fotoğrafı da imzalayabilir (0038 depolama
+// politikası).
+export interface UpdateAttachment {
+  id: string;
+  storagePath: string;
+  fileType: string;
+  width: number | null;
+  height: number | null;
+  caption: string;
+  publicLocationText: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reason: string;
+}
+
+// Gönderim formundan yüklenecek fotoğraf: `imageUpload.toWebp` çıktısı.
+// Canvas'tan yeniden kodlama EXIF/GPS etiketlerini DÜŞÜRÜR — form bu vaadi
+// verirken buna dayanıyor (src/imageUpload.ts).
+export interface UpdatePhotoInput {
+  blob: Blob;
+  width: number;
+  height: number;
+}
+
 export interface OperationUpdateInput {
   disasterId: string;
   type: OperationUpdateType;

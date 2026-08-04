@@ -388,7 +388,16 @@ export function OperationOverview({ needs, mob, twoCol }: {
   // ve burada hiç gösterilmiyor.
   const verifiedRows = snap.log.filter((l) => isVerifiedDelivery(l.action)).slice(0, 5);
 
-  const updates = snap.updates.slice(0, 4);
+  // Önizleme: son 3 yayımlanmış güncelleme, GÜVENLİK UYARILARI ÖNCE. Bir yol
+  // kapanışı, kronolojide üçüncü sıraya düştü diye önizlemeden taşmamalı
+  // (rules/01 §Human safety önceliği). Tam akış kendi sekmesinde.
+  const updates = [...snap.updates]
+    .sort((a, b) => {
+      const oa = a.type === 'safety_notice' ? 0 : 1;
+      const ob = b.type === 'safety_notice' ? 0 : 1;
+      return oa - ob || b.publishedAt.localeCompare(a.publishedAt);
+    })
+    .slice(0, 3);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -517,9 +526,14 @@ export function OperationOverview({ needs, mob, twoCol }: {
           {updates.length === 0 ? <Empty text={tr.disaster.updates.none} /> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {updates.map((u) => <UpdateCard key={u.id} u={u} />)}
-              {/* "Tüm güncellemeleri gör" AKSİYONU YOK: hedef route Faz 4'te
-                  yazılacak ve çalışmayan bir bağlantı göstermek, olmayan bir sayfayı
-                  varmış gibi sunmak olurdu (direktif §17). */}
+              {/* Faz 3-B'de bu bağlantı BİLEREK yoktu (hedef sekme henüz yazılmamıştı);
+                  Faz 4-A'da Saha Güncellemeleri sekmesi var ve bağlantı artık gerçek
+                  bir yere gidiyor. */}
+              <button type="button" onClick={() => a.setTab('updates')} className="hv-navy" style={{
+                alignSelf: 'flex-start', background: C.surface, border: `1px solid ${C.borderSoft}`,
+                color: C.navy, borderRadius: 9, minHeight: 44, padding: '0 14px',
+                fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}>{tr.disaster.updates.seeAll}</button>
               <p style={{ margin: 0, fontSize: 12, color: C.muted2 }}>{tr.disaster.updates.previewNote}</p>
             </div>
           )}

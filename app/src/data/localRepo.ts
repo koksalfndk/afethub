@@ -1,6 +1,6 @@
 import type {
   UpdateFeedFilter, UpdateFeedCursor, UpdateFeedPage, OperationUpdateInput,
-  UpdateQueueRow, UpdateContact, ModerationAction,
+  UpdateQueueRow, UpdateContact, ModerationAction, UpdateAttachment, UpdatePhotoInput,
   ContactInput, ContactMessage, ContactStatus, ContactAttachment,
   LogEntry, Need, Submission, VerifyKind, RevisionKind, DeliveryInput, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
@@ -76,6 +76,9 @@ function removeFromFeed(id: string): void {
   const i = updates.findIndex((u) => u.id === id);
   if (i >= 0) updates.splice(i, 1);
 }
+
+// Yerel fotoğraf ekleri: updateId → ekler. Sayfa yenilenince sıfırlanır.
+const localAttachments = new Map<string, UpdateAttachment[]>();
 // Yerel teslim sözü deposu. Sayfa yenilenince sıfırlanır — kalıcı bir kayıt değil.
 type LocalPledge = {
   id: string;
@@ -1705,6 +1708,44 @@ export class LocalRepo implements Repo {
     }
     q.infoRequestedAt = new Date().toISOString();
     q.infoRequestMessage = message.trim();
+  }
+
+  // ---- Faz 4-A: fotoğraflar — YEREL DEMO ------------------------------------
+  // Yerel modda özel kova yok; ek kayıtları bellekte tutuluyor ve `signMedia`
+  // boş döndüğü için önizleme çizilmiyor (galeriyle aynı dürüstlük kuralı).
+  async attachUpdatePhoto(_disasterId: string, updateId: string, photo: UpdatePhotoInput): Promise<void> {
+    const ekler = localAttachments.get(updateId) ?? [];
+    if (ekler.length >= 4) throw new Error('At most 4 photos per update');
+    ekler.push({
+      id: 'att-' + Math.random().toString(36).slice(2, 10),
+      storagePath: '', fileType: 'image/webp',
+      width: photo.width, height: photo.height,
+      caption: '', publicLocationText: '', status: 'pending', reason: '',
+    });
+    localAttachments.set(updateId, ekler);
+    const q = updateQueue.find((x) => x.id === updateId);
+    if (q) q.photoPending += 1;
+  }
+
+  async listUpdateAttachments(updateId: string): Promise<UpdateAttachment[]> {
+    return (localAttachments.get(updateId) ?? []).map((a) => ({ ...a }));
+  }
+
+  async moderateUpdateAttachment(attachmentId: string, status: 'approved' | 'rejected', reason: string): Promise<void> {
+    for (const [updateId, ekler] of localAttachments) {
+      const a = ekler.find((x) => x.id === attachmentId);
+      if (!a) continue;
+      const q = updateQueue.find((x) => x.id === updateId);
+      if (q) {
+        if (a.status === 'pending') q.photoPending = Math.max(0, q.photoPending - 1);
+        if (a.status === 'approved') q.photoApproved = Math.max(0, q.photoApproved - 1);
+        if (status === 'approved') q.photoApproved += 1;
+      }
+      a.status = status;
+      a.reason = reason;
+      return;
+    }
+    throw new Error('Photo not found');
   }
 
   async pinOperationUpdate(updateId: string, pinned: boolean): Promise<void> {

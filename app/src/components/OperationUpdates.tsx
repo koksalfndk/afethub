@@ -57,6 +57,62 @@ function Chip({ text, tone, icon }: { text: string; tone: 'warn' | 'ok' | 'muted
   );
 }
 
+// Kartın onaylı fotoğrafları. "N fotoğraf" bir düğme: bağlantılar ancak kişi
+// isteyince İMZALANIYOR — akıştaki her kart için imzalı URL üretmek, hiç
+// bakılmayacak fotoğraflar için ağ trafiği ve kısa ömürlü bağlantı israfı olurdu.
+// Kaynak `snap.media` (operation_media_public): yalnızca onaylı VE yayımlanmış
+// ekler; bekleyen fotoğraf buraya sunucu gereği hiç düşmüyor.
+function CardPhotos({ updateId, count }: { updateId: string; count: number }) {
+  const a = useApp();
+  const [open, setOpen] = useState(false);
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const items = (a.snap?.media ?? []).filter((m) => m.updateId === updateId);
+  // Sayı kartın kendi verisinden; medya listesi anlık görüntüden. İkisi kısa bir
+  // süre ayrışabilir (yeni onay) — düğme sayıyı, açılan ızgara gerçekte imzalanabileni gösterir.
+  if (items.length === 0 && count === 0) return null;
+
+  const ac = async () => {
+    if (open) { setOpen(false); return; }
+    setOpen(true);
+    if (items.length === 0 || Object.keys(urls).length > 0) return;
+    setState('loading');
+    try {
+      setUrls(await repo.signMedia(items.map((m) => m.storagePath)));
+      setState('idle');
+    } catch { setState('error'); }
+  };
+
+  const usable = items.filter((m) => urls[m.storagePath]);
+  return (
+    <div style={{ marginTop: 8 }}>
+      <button type="button" onClick={() => void ac()} aria-expanded={open} style={{
+        background: 'none', border: 0, color: C.navy, fontSize: 12.5, fontWeight: 700,
+        cursor: 'pointer', textDecoration: 'underline', padding: '0 2px', minHeight: 44,
+      }}>{trUpdates.photoCount(count)}</button>
+      {open && (
+        state === 'loading' ? (
+          <p style={{ margin: '6px 0 0', fontSize: 12.5, color: C.muted }}>{trUpdates.photosLoading}</p>
+        ) : state === 'error' || (items.length > 0 && usable.length === 0) ? (
+          <p style={{ margin: '6px 0 0', fontSize: 12.5, color: C.muted }}>{trUpdates.photosUnavailable}</p>
+        ) : usable.length === 0 ? (
+          <p style={{ margin: '6px 0 0', fontSize: 12.5, color: C.muted }}>{trUpdates.photosUnavailable}</p>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+            {usable.map((m) => (
+              <a key={m.id} href={urls[m.storagePath]} target="_blank" rel="noreferrer">
+                <img src={urls[m.storagePath]} alt={m.caption || trUpdates.photoAlt}
+                  width={m.width ?? 96} height={m.height ?? 96} loading="lazy"
+                  style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 8, border: `1px solid ${C.borderFaint}`, display: 'block' }} />
+              </a>
+            ))}
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
 function UpdateCard({ u, onReport }: { u: OperationUpdate; onReport: (id: string) => void }) {
   const safety = u.type === 'safety_notice';
   const quiet = u.type === 'public_comment';
@@ -95,8 +151,9 @@ function UpdateCard({ u, onReport }: { u: OperationUpdate; onReport: (id: string
         {u.relatedNeedName && <span>{trUpdates.relatedNeed}: <strong style={{ color: C.navy }}>{u.relatedNeedName}</strong></span>}
         {u.relatedLocationName && <span>{trUpdates.relatedLocation}: <strong style={{ color: C.navy }}>{u.relatedLocationName}</strong></span>}
         {u.approximateLocation && <span>{trUpdates.area}: <strong style={{ color: C.navy }}>{u.approximateLocation}</strong></span>}
-        {u.photoCount > 0 && <span>{trUpdates.photoCount(u.photoCount)}</span>}
       </div>
+
+      {u.photoCount > 0 && <CardPhotos updateId={u.id} count={u.photoCount} />}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
         <button type="button" onClick={() => onReport(u.id)} style={{

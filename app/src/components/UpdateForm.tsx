@@ -4,7 +4,15 @@ import { trUpdates, UPDATE_TYPE_LABEL } from '../i18n/operationUpdates';
 import { C } from '../theme';
 import { Ico, inputStyle } from '../ui';
 import { repo, PUBLIC_UPDATE_TYPES, COORD_UPDATE_TYPES, UPDATE_PII_RE } from '../data';
-import type { OperationUpdateType } from '../types';
+import { toWebp } from '../imageUpload';
+import type { OperationUpdateType, UpdatePhotoInput } from '../types';
+
+// Teslimat kanıtıyla aynı ölçü (PhotoUploader): 1600 px koordinatörün bir etiketi
+// okumasına yetiyor ve zayıf şebekede yüklenebilir kalıyor.
+const PHOTO_MAX_EDGE = 1600;
+const PHOTO_LIMIT = 4; // sunucu sınırıyla aynı (register_update_attachment)
+
+interface SeciliFoto extends UpdatePhotoInput { previewUrl: string }
 
 // Saha güncellemesi gönderimi — ROLE GÖRE İKİ AYRI SÖZLEŞME.
 //
@@ -46,6 +54,31 @@ export function UpdateForm({ onClose, onSent }: { onClose: () => void; onSent: (
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
 
+  // Fotoğraflar gönderimden ÖNCE seçiliyor, gönderimden SONRA yükleniyor:
+  // kayıt yolu `disasterId/updateId/...` ve updateId ancak gönderimde doğuyor.
+  const [photos, setPhotos] = useState<SeciliFoto[]>([]);
+  const [photoErr, setPhotoErr] = useState('');
+  const [photoNote, setPhotoNote] = useState('');
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const fotoEkle = async (files: FileList | null) => {
+    if (!files) return;
+    setPhotoErr('');
+    const kalan = PHOTO_LIMIT - photos.length;
+    for (const f of Array.from(files).slice(0, kalan)) {
+      try {
+        const w = await toWebp(f, PHOTO_MAX_EDGE);
+        setPhotos((prev) => prev.length >= PHOTO_LIMIT ? prev : [...prev, {
+          blob: w.blob, width: w.width, height: w.height,
+          previewUrl: URL.createObjectURL(w.blob),
+        }]);
+      } catch {
+        setPhotoErr(trUpdates.fPhotoBad);
+      }
+    }
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
   // Senkron kilit — `disabled` bir sonraki render'da uygulanıyor.
   const lock = useRef(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -75,11 +108,26 @@ export function UpdateForm({ onClose, onSent }: { onClose: () => void; onSent: (
     setSending(true);
     setError('');
     try {
-      await repo.submitOperationUpdate({
+      const updateId = await repo.submitOperationUpdate({
         disasterId: snap.disaster.id, type, body: body.trim(),
         relatedNeedId: needId || null, relatedLocationId: locId || null,
         approximateLocation: area.trim(), name: name.trim(), email: email.trim(), phone: phone.trim(),
       });
+      // Fotoğraflar SIRAYLA: paralel dört yükleme zayıf şebekede dördünü birden
+      // düşürür. Kısmi başarısızlık gizlenmiyor — metin gittiyse gitti, fotoğraf
+      // gitmediyse kişi bunu başarı ekranında okuyor.
+      if (photos.length > 0) {
+        setPhotoNote(trUpdates.photosUploading);
+        let basarisiz = 0;
+        for (const p of photos) {
+          try {
+            await repo.attachUpdatePhoto(snap.disaster.id, updateId, p);
+          } catch { basarisiz += 1; }
+        }
+        setPhotoNote(basarisiz === 0
+          ? trUpdates.photosDone(photos.length)
+          : trUpdates.photosFailed(basarisiz, photos.length));
+      }
       setDone(true);
     } catch {
       setError(trUpdates.formFailed);
@@ -121,6 +169,11 @@ export function UpdateForm({ onClose, onSent }: { onClose: () => void; onSent: (
             <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.55 }}>
               {koord ? trUpdates.coordSuccessBody : trUpdates.successBody}
             </p>
+            {photoNote && (
+              <p role="status" style={{ fontSize: 13, color: C.heading2, fontWeight: 600, lineHeight: 1.5 }}>
+                {photoNote}
+              </p>
+            )}
             <button type="button" onClick={() => { onSent(); }} className="hv-navy" style={{
               marginTop: 12, background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy,
               borderRadius: 9, minHeight: 48, padding: '0 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer',
@@ -184,6 +237,42 @@ export function UpdateForm({ onClose, onSent }: { onClose: () => void; onSent: (
                 <input value={area} onChange={(e) => setArea(e.target.value)} maxLength={120} style={inputStyle} />
                 <span style={{ display: 'block', fontSize: 11.5, color: C.muted2, marginTop: 4 }}>{trUpdates.fAreaHint}</span>
               </label>
+
+              <div>
+                {label(trUpdates.fPhotos)}
+                <input ref={fileRef} type="file" multiple accept="image/jpeg,image/png,image/webp,image/avif"
+                  style={{ display: 'none' }} onChange={(e) => void fotoEkle(e.target.files)} />
+                {photos.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                    {photos.map((p, i) => (
+                      <div key={p.previewUrl} style={{ position: 'relative' }}>
+                        <img src={p.previewUrl} alt="" width={72} height={72}
+                          style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: `1px solid ${C.borderSoft}`, display: 'block' }} />
+                        <button type="button" aria-label={trUpdates.fPhotoRemove}
+                          onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
+                          style={{
+                            position: 'absolute', top: -8, right: -8, width: 26, height: 26,
+                            borderRadius: 13, border: `1px solid ${C.borderSoft}`, background: C.surface,
+                            color: C.emergency, fontSize: 13, fontWeight: 700, cursor: 'pointer', lineHeight: 1,
+                          }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {photos.length < PHOTO_LIMIT && (
+                  <button type="button" onClick={() => fileRef.current?.click()} style={{
+                    width: '100%', textAlign: 'left', border: `1px dashed ${C.borderSoft}`, borderRadius: 10,
+                    padding: '12px 14px', background: C.canvas, cursor: 'pointer', fontSize: 13.5,
+                    fontWeight: 600, color: C.navy, minHeight: 48,
+                  }}>+ {trUpdates.fPhotoAdd}</button>
+                )}
+                {photoErr && (
+                  <div role="alert" style={{ marginTop: 6, fontSize: 12.5, color: C.errorText, fontWeight: 600 }}>{photoErr}</div>
+                )}
+                <span style={{ display: 'block', fontSize: 11.5, color: C.muted2, marginTop: 6, lineHeight: 1.5 }}>
+                  {trUpdates.fPhotosHint}
+                </span>
+              </div>
 
               {/* İletişim alanları ve onay kutuları MİSAFİR sözleşmesinin parçası:
                   moderasyon geri dönüşü ve kötüye kullanım sınırı için. Koordinatörün
