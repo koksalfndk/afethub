@@ -12,6 +12,8 @@ import type {
   StaffMember, StaffRole, RoleInvite, OperationStage,
   OperationUpdate, OperationUpdateType, OperationMedia, OperationUpdateInput,
   UpdateFeedFilter, UpdateFeedCursor, UpdateFeedPage, UpdateReportReason,
+  OperationUpdateStatus, OperationUpdateAuthorType,
+  UpdateQueueRow, UpdateContact, ModerationAction,
   DeliveryPledgeInput, DeliveryPledgeTracking, PledgeStatus,
   CoordPledgeRow, CoordPledgePage, CoordPledgeDetail, PledgeContact, PledgeSummary,
   PledgeFilter, LinkableSubmission,
@@ -1424,6 +1426,99 @@ export class SupabaseRepo implements Repo {
   async reportOperationUpdate(updateId: string, reason: UpdateReportReason, note: string): Promise<void> {
     const { error } = await this.db.rpc('report_operation_update', {
       p_update: updateId, p_reason: reason, p_note: note,
+    });
+    if (error) throw error;
+  }
+
+  // ---- Faz 4-A: moderasyon (migration 0049) ----------------------------------
+  async listUpdateQueue(disasterId: string): Promise<UpdateQueueRow[]> {
+    const { data, error } = await this.db.rpc('operation_update_queue', {
+      p_disaster: disasterId || null, p_limit: 200,
+    });
+    if (error) throw error;
+    return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id),
+      disasterId: String(r.disaster_id),
+      disasterName: String(r.disaster_name ?? ''),
+      type: String(r.update_type) as OperationUpdateType,
+      status: String(r.status) as OperationUpdateStatus,
+      verified: r.verification_status === 'coordinator_verified',
+      authorType: String(r.author_type) as OperationUpdateAuthorType,
+      authorLabel: String(r.author_label ?? ''),
+      body: String(r.body ?? ''),
+      originalBody: String(r.original_body ?? ''),
+      approximateLocation: String(r.approximate_location ?? ''),
+      piiFlagged: Boolean(r.pii_flagged),
+      relatedNeedName: String(r.related_need_name ?? ''),
+      relatedLocationName: String(r.related_location_name ?? ''),
+      // Sunucu zaten maskeli gönderiyor; burada bir maskeleme YAPILMIYOR.
+      // İstemcide maskelemek, ağ yanıtında tam değerin durduğu anlamına gelirdi.
+      contactMasked: String(r.contact_masked ?? ''),
+      emailMasked: String(r.email_masked ?? ''),
+      phoneMasked: String(r.phone_masked ?? ''),
+      hasContact: Boolean(r.has_contact),
+      infoRequestedAt: r.info_requested_at ? String(r.info_requested_at) : null,
+      infoRequestMessage: String(r.info_request_message ?? ''),
+      photoPending: Number(r.photo_pending ?? 0),
+      photoApproved: Number(r.photo_approved ?? 0),
+      openReports: Number(r.open_reports ?? 0),
+      createdAt: String(r.created_at ?? ''),
+      publishedAt: r.published_at ? String(r.published_at) : null,
+    }));
+  }
+
+  async updateContact(updateId: string, purpose: string): Promise<UpdateContact> {
+    const { data, error } = await this.db.rpc('get_operation_update_contact', {
+      p_update: updateId, p_purpose: purpose,
+    });
+    if (error) throw error;
+    const r = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
+    return {
+      fullName: String(r?.full_name ?? ''),
+      email: String(r?.email ?? ''),
+      phone: String(r?.phone ?? ''),
+    };
+  }
+
+  async moderateOperationUpdate(
+    updateId: string, action: ModerationAction, reason: string, verified?: boolean,
+  ): Promise<void> {
+    const { error } = await this.db.rpc('moderate_operation_update', {
+      p_update: updateId,
+      p_action: action,
+      p_reason: reason,
+      // `null` gönderiliyor, `false` DEĞİL: sunucu üç durumu ayırt ediyor ve
+      // `false` "doğrulanmamış olarak işaretle" anlamına gelir.
+      p_verified: verified === undefined ? null : verified,
+    });
+    if (error) throw error;
+  }
+
+  async publishUpdateEdited(updateId: string, body: string, reason: string): Promise<void> {
+    const { error } = await this.db.rpc('publish_operation_update_edited', {
+      p_update: updateId, p_body: body, p_reason: reason,
+    });
+    if (error) throw error;
+  }
+
+  async correctOperationUpdate(updateId: string, body: string, reason: string): Promise<string> {
+    const { data, error } = await this.db.rpc('correct_operation_update', {
+      p_update: updateId, p_body: body, p_reason: reason,
+    });
+    if (error) throw error;
+    return String(data ?? '');
+  }
+
+  async requestUpdateInfo(updateId: string, message: string): Promise<void> {
+    const { error } = await this.db.rpc('request_operation_update_info', {
+      p_update: updateId, p_message: message,
+    });
+    if (error) throw error;
+  }
+
+  async pinOperationUpdate(updateId: string, pinned: boolean, until: string | null): Promise<void> {
+    const { error } = await this.db.rpc('pin_operation_update', {
+      p_update: updateId, p_pinned: pinned, p_until: until,
     });
     if (error) throw error;
   }

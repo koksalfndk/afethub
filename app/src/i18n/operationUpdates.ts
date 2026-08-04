@@ -64,6 +64,19 @@ export const trUpdates = {
   // söylemek, moderasyonda gecikmenin sebebini baştan açıklıyor.
   piiWarning: 'Metinde telefon numarası veya e-posta adresi görünüyor. Kişisel bilgi içeren gönderiler daha uzun incelenir.',
 
+  // ---- Koordinatör dallanması ----------------------------------------------
+  // Sunucu koordinatörün gönderimini DOĞRUDAN yayımlıyor (`submit_operation_update`
+  // içindeki `v_coord` kısayolu). Form bu gerçeği misafir metniyle örtemez;
+  // 3 Ağustos üretim doğrulamasında tam bu yüzden yanlış vaatli bir yayın oldu.
+  coordLead: 'Koordinatör olarak gönderdiğiniz güncelleme incelemeden geçmez, doğrudan yayımlanır.',
+  coordPublish: 'Yayınla',
+  coordConfirmTitle: 'Doğrudan yayımlanacak',
+  coordConfirm: (tur: string) =>
+    `Bu metin "${tur}" olarak, adınızla ve "Koordinatör doğruladı" rozetiyle herkese açık akışta hemen görünür. Yayımlandıktan sonra gizleyebilir veya düzeltebilirsiniz.`,
+  coordConfirmGo: 'Onayla ve yayınla',
+  coordSuccessTitle: 'Güncelleme yayımlandı',
+  coordSuccessBody: 'Güncelleme herkese açık akışta görünür durumda. Gerekirse moderasyon ekranından gizleyebilir veya düzeltme yayımlayabilirsiniz.',
+
   successTitle: 'Saha güncellemeniz incelemeye gönderildi',
   successBody: 'Koordinasyon ekibi bilgiyi doğruladıktan sonra yayımlayabilir. Yayımlanmayan gönderiler herkese açık hiçbir yerde görünmez.',
   successClose: 'Kapat',

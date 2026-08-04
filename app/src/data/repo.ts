@@ -12,6 +12,7 @@ import type {
   StaffMember, StaffRole, RoleInvite,
   OperationStage, PledgeStatus, OperationUpdateType, OperationUpdate, OperationMedia,
   OperationUpdateInput, UpdateFeedFilter, UpdateFeedCursor, UpdateFeedPage, UpdateReportReason,
+  UpdateQueueRow, UpdateContact, ModerationAction,
   DeliveryPledgeInput, DeliveryPledgeTracking,
 } from '../types';
 import type { NeedPayload } from '../needForm';
@@ -285,6 +286,26 @@ export interface Repo {
   submitOperationUpdate(input: OperationUpdateInput): Promise<string>;
   reportOperationUpdate(updateId: string, reason: UpdateReportReason, note: string): Promise<void>;
 
+  // ---- Faz 4-A: moderasyon (migration 0049) --------------------------------
+  // Kuyruk maskeli döner. Tam iletişim bilgisi AYRI bir çağrı, ayrı bir gerekçe
+  // ve ayrı bir denetim kaydı (rules/03 §Contact Information).
+  listUpdateQueue(disasterId: string): Promise<UpdateQueueRow[]>;
+  updateContact(updateId: string, purpose: string): Promise<UpdateContact>;
+  // `verified` bilerek üç durumlu: `undefined` sunucunun kaynak tabanlı kararını
+  // korur (koordinatör/kurum kaynaklı güncelleme doğrulanmış sayılır, misafir
+  // bildirimi sayılmaz). Yayınlamak tek başına DOĞRULAMAK değildir.
+  moderateOperationUpdate(
+    updateId: string, action: ModerationAction, reason: string, verified?: boolean,
+  ): Promise<void>;
+  // Yayımlanmamış bir kaydı düzelterek yayınlar; gönderenin özgün metni
+  // `original_body` içinde saklanır. Yayımlanmış bir kaydı düzeltmek AYRI bir
+  // yol: `correctOperationUpdate` yeni bir kayıt açar.
+  publishUpdateEdited(updateId: string, body: string, reason: string): Promise<void>;
+  correctOperationUpdate(updateId: string, body: string, reason: string): Promise<string>;
+  // E-POSTA GÖNDERMEZ (bildirim motoru Faz 4-B). Yalnızca isteği kaydeder.
+  requestUpdateInfo(updateId: string, message: string): Promise<void>;
+  pinOperationUpdate(updateId: string, pinned: boolean, until: string | null): Promise<void>;
+
   listCoordPledges(f: PledgeFilter): Promise<CoordPledgePage>;
   // Dışa aktarma AYNI sorguyu kullanır, yalnızca sayfalamayı açar: ekranda
   // görülen liste ile indirilen dosya aynı kaynaktan gelmeli. Sunucu tarafında
@@ -522,6 +543,20 @@ export function pickFeaturedNeeds<T extends {
 // server enforces the same list (submit_operation_update); this copy exists so the form
 // does not offer a choice that will be refused.
 export const PUBLIC_UPDATE_TYPES: OperationUpdateType[] = ['field_report', 'public_comment'];
+
+// Which update types a coordinator may write from the public form. The server
+// accepts any type from a coordinator; this list is the set that makes sense as
+// an operational announcement. `public_comment` is absent on purpose — this
+// module is not a comment section.
+export const COORD_UPDATE_TYPES: OperationUpdateType[] = [
+  'coordinator_update', 'safety_notice', 'delivery_update', 'need_update', 'field_report',
+];
+
+// Aynı sınıf desen sunucudaki `operation_update_pii_flag` ile. TEK KOPYA:
+// gönderim formu, yerel depo ve moderasyon ekranı bunu paylaşıyor — üç ayrı
+// kopya zamanla üç ayrı davranışa dönüşürdü. Amaç engellemek değil, uyarmak.
+export const UPDATE_PII_RE =
+  /(\+?90[\s-]?)?0?5\d{2}[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}|[\w.%+-]+@[\w.-]+\.[a-z]{2,}/i;
 
 // Shared, pure domain helpers — the invariant lives here and in schema.sql.
 export const remaining = (n: Need): number => Math.max(0, n.required - n.verified);

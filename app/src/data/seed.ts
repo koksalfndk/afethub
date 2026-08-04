@@ -427,6 +427,60 @@ export const operationUpdates: import('../types').OperationUpdate[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Moderasyon kuyruğu — DEMO
+//
+// Yalnızca yerel modda kullanılır; canlıda kuyruk `operation_update_queue`
+// RPC'sinden gelir. İletişim alanları burada da MASKELİ tutuluyor: demo veri
+// bile tam bir e-posta ya da telefon taşımamalı, çünkü bu dosya herkese açık
+// depoda duruyor ve ekranın maskeli hâlini göstermesi gereken şey de bu
+// (rules/03 §Contact Information, rules/07 §Seed Content).
+// ---------------------------------------------------------------------------
+export const updateQueue: import('../types').UpdateQueueRow[] = [
+  {
+    id: 'q1', disasterId: 'd1', disasterName: 'Seydikemer Orman Yangını',
+    type: 'field_report', status: 'moderation_pending', verified: false,
+    authorType: 'guest', authorLabel: 'Misafir',
+    body: 'Örnek gönderi (demo): Karaçulha çıkışında su dağıtım noktası kalabalık, ikinci bir nokta açılabilir mi? Bana 0532 000 00 00 numarasından ulaşabilirsiniz.',
+    originalBody: '',
+    approximateLocation: 'Karaçulha çıkışı', piiFlagged: true,
+    relatedNeedName: '', relatedLocationName: 'Seydikemer Kapalı Pazar Yeri',
+    contactMasked: 'A*** Y***', emailMasked: 'a***@example.com', phoneMasked: '+90 5** *** ** 00',
+    hasContact: true, infoRequestedAt: null, infoRequestMessage: '',
+    photoPending: 0, photoApproved: 0, openReports: 0,
+    createdAt: '', publishedAt: null,
+  },
+  {
+    id: 'q2', disasterId: 'd1', disasterName: 'Seydikemer Orman Yangını',
+    type: 'field_report', status: 'moderation_pending', verified: false,
+    authorType: 'user', authorLabel: 'Doğrulanmış kullanıcı',
+    body: 'Örnek gönderi (demo): Yeşilüzümlü tarafında rüzgâr arttı, gönüllülerin maskesiz çalışmaması gerekiyor.',
+    originalBody: '',
+    approximateLocation: 'Yeşilüzümlü', piiFlagged: false,
+    relatedNeedName: 'FFP2 Maske', relatedLocationName: '',
+    contactMasked: 'M*** D***', emailMasked: 'm***@example.com', phoneMasked: '',
+    hasContact: true, infoRequestedAt: null, infoRequestMessage: '',
+    photoPending: 2, photoApproved: 0, openReports: 0,
+    createdAt: '', publishedAt: null,
+  },
+  {
+    id: 'q3', disasterId: 'd1', disasterName: 'Seydikemer Orman Yangını',
+    type: 'field_report', status: 'moderation_pending', verified: false,
+    authorType: 'guest', authorLabel: 'Misafir',
+    body: 'Örnek gönderi (demo): Teslim noktasının akşam kaça kadar açık olduğunu bilen var mı?',
+    originalBody: '',
+    approximateLocation: '', piiFlagged: false,
+    relatedNeedName: '', relatedLocationName: '',
+    contactMasked: 'S*** K***', emailMasked: 's***@example.com', phoneMasked: '+90 5** *** ** 41',
+    hasContact: true,
+    // Zaman damgaları localRepo'da gerçek değerlerle doldurulur; sabit bir ISO
+    // dizesi birkaç gün sonra "3 ay önce" diye görünürdü.
+    infoRequestedAt: null, infoRequestMessage: 'Hangi teslim noktasını kastettiğinizi yazabilir misiniz?',
+    photoPending: 0, photoApproved: 0, openReports: 0,
+    createdAt: '', publishedAt: null,
+  },
+];
+
+// ---------------------------------------------------------------------------
 // Organizations directory — demo entries.
 //
 // Public bodies are listed with their published, publicly available contact

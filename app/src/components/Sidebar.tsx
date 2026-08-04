@@ -67,6 +67,7 @@ export function Sidebar() {
           {item(tr.nav.pledges, 'coordPledges',
             a.pledgeBadge && a.pledgeBadge > 0 ? a.pledgeBadge : null,
             (a.pledgeBadge ?? 0) > 0 ? 'red' : 'grey', () => a.go('coordPledges'))}
+          {item(tr.nav.updateModeration, 'coordUpdates', null, 'grey', () => a.go('coordUpdates'))}
           {item(tr.nav.orgEdits, 'coordOrgEdits', openOrgEdits, openOrgEdits > 0 ? 'red' : 'grey', () => a.go('coordOrgEdits'))}
           {item(tr.nav.communityReports, 'coordReports', openReports || null, openReports > 0 ? 'red' : 'grey', () => a.go('coordReports'))}
           {item(tr.nav.staff, 'coordStaff', a.volunteersPending || null, a.volunteersPending > 0 ? 'red' : 'grey', () => a.go('coordStaff'))}

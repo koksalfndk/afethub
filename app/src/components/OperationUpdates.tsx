@@ -198,7 +198,11 @@ export function OperationUpdates() {
           background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy,
           borderRadius: 9, minHeight: 48, padding: '0 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer',
         }}><Ico n="plus" size={15} color={C.navy} />{trUpdates.submit}</button>
-        <span style={{ fontSize: 12, color: C.muted2 }}>{trUpdates.formLead}</span>
+        {/* Vaat role göre: koordinatörün gönderimi incelemeden GEÇMEZ ve bunu
+            misafir cümlesiyle örtmek 3 Ağustos'ta üretimde yanlış çıktı. */}
+        <span style={{ fontSize: 12, color: C.muted2 }}>
+          {a.role === 'coordinator' ? trUpdates.coordLead : trUpdates.formLead}
+        </span>
       </div>
 
       {/* Süzgeç çipleri — seçim SORGUYA gidiyor, tarayıcıda gizleme yok. */}
@@ -278,7 +282,10 @@ export function OperationUpdates() {
         {formOpen && (
           <UpdateForm
             onClose={() => setFormOpen(false)}
-            onSent={() => { setFormOpen(false); }}
+            // Koordinatörün gönderimi doğrudan yayımlanıyor; akış yenilenmezse
+            // kendi güncellemesini göremez ve "kayboldu" sanır. Misafir için
+            // yenileme zararsız bir fazlalık.
+            onSent={() => { setFormOpen(false); void ilkYukle(); }}
           />
         )}
         {reportId && <UpdateReportModal updateId={reportId} onClose={() => setReportId('')} />}

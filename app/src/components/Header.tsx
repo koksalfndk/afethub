@@ -240,6 +240,7 @@ export function Header() {
             { label: tr.nav.dashboard, route: 'coordHome' as const },
             { label: tr.nav.reviewQueue, route: 'coordQueue' as const },
             { label: tr.nav.pledges, route: 'coordPledges' as const },
+            { label: tr.nav.updateModeration, route: 'coordUpdates' as const },
             { label: tr.nav.needs, route: 'coordNeeds' as const },
             { label: tr.nav.ops, route: 'coordOps' as const },
           ].map((n) => (

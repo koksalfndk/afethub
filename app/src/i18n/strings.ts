@@ -135,6 +135,7 @@ export const tr = {
     // koordinatör metinlerinin tamamını buraya koymak, o metinleri her ziyaretçiye
     // indirtmek olurdu (rules/09 §8).
     pledges: 'Teslim Sözleri',
+    updateModeration: 'Saha Güncellemeleri',
     activeDisasters: 'Aktif Afetler',
     needs: 'İhtiyaçlar',
     deliveryLocations: 'Teslim Noktaları',

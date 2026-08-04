@@ -101,6 +101,7 @@ const ROUTE_META: Record<Route, RouteMeta> = {
   },
   coordHome: { title: 'Koordinasyon paneli', index: false },
   coordPledges: { title: 'Teslim sözleri', index: false },
+  coordUpdates: { title: 'Saha güncellemeleri moderasyonu', index: false },
   coordQueue: { title: 'İnceleme kuyruğu', index: false },
   coordNeeds: { title: 'İhtiyaç yönetimi', index: false },
   coordLog: { title: 'Denetim kaydı', index: false },
@@ -152,7 +153,17 @@ export function applyRouteMeta(
   if (route === 'home') {
     title = meta.title;
   } else if (route === 'disaster' && opts?.disasterName) {
-    title = `${opts.disasterName} — İhtiyaçlar ve teslimat · ${SITE}`;
+    // Sekmeye göre başlık: /updates sekmesinde "İhtiyaçlar ve teslimat" yazmak
+    // yanlış bir vaatti (Faz 4-A üretim doğrulamasında görüldü). Yalnızca kendi
+    // içeriği ihtiyaç listesinden belirgin biçimde ayrılan sekmeler ayrışıyor.
+    const tabTitle: Partial<Record<Tab, string>> = {
+      updates: 'Saha güncellemeleri',
+      announcements: 'Duyurular',
+      activity: 'Hareketler',
+      locations: 'Teslim noktaları',
+    };
+    const ek = opts.tab ? tabTitle[opts.tab] : undefined;
+    title = `${opts.disasterName} — ${ek ?? 'İhtiyaçlar ve teslimat'} · ${SITE}`;
   } else {
     title = `${meta.title} · ${SITE}`;
   }

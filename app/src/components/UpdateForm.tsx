@@ -3,32 +3,36 @@ import { useApp } from '../store';
 import { trUpdates, UPDATE_TYPE_LABEL } from '../i18n/operationUpdates';
 import { C } from '../theme';
 import { Ico, inputStyle } from '../ui';
-import { repo, PUBLIC_UPDATE_TYPES } from '../data';
+import { repo, PUBLIC_UPDATE_TYPES, COORD_UPDATE_TYPES, UPDATE_PII_RE } from '../data';
 import type { OperationUpdateType } from '../types';
 
-// Misafir saha güncellemesi gönderimi.
+// Saha güncellemesi gönderimi — ROLE GÖRE İKİ AYRI SÖZLEŞME.
 //
-// Doğrulamanın TAMAMI sunucuda (`submit_operation_update`): uzunluk, tür izni,
-// ilgili kaydın aynı operasyona ait olması, tekrar gönderim, hız sınırı, PII
-// bayrağı. Buradaki kontroller yalnızca kişiyi reddedileceği bir gönderiden
-// önce uyarmak için (rules/03 §Input Validation).
+// Sunucuda (`submit_operation_update`) koordinatörün gönderimi DOĞRUDAN yayına
+// girer; misafirinki moderasyona düşer. Form eskiden herkese aynı cümleyi
+// söylüyordu ("incelemeden sonra yayımlanır") ve bu, koordinatör için yanlıştı —
+// 3 Ağustos üretim doğrulamasında koordinatör hesabıyla atılan test kaydı anında
+// yayımlandı. Çözüm sunucuyu değiştirmek değil (koordinatörün hızlı duyuru yolu
+// operasyonda gerekli), formun rolüne göre dürüst olması (rules/07 §Tone,
+// rules/04 §Destructive Actions: sonucu onaydan önce göster).
 //
-// `public_comment` FORMDA SUNULMUYOR. Sunucu onu hâlâ kabul ediyor ve mevcut
-// hiçbir yol bozulmuyor; ama bu modül bir yorum alanı değil ve bir seçenek
-// olarak sunmak onu öyle yapardı. Kullanıcıya açık tek tür `field_report`:
-// yapılandırılmış saha bildirimi.
+// `public_comment` HİÇBİR rolde sunulmuyor: bu modül bir yorum alanı değil.
 const FORM_TYPES: OperationUpdateType[] = PUBLIC_UPDATE_TYPES.filter((t) => t !== 'public_comment');
 
-// Sunucudaki `operation_update_pii_flag` ile aynı sınıf desen. Burada amaç
-// engellemek DEĞİL, uyarmak: metinde telefon ya da e-posta görünüyorsa kişi
-// bunu bilerek göndersin.
-const PII_RE = /(\+?90[\s-]?)?0?5\d{2}[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}|[\w.%+-]+@[\w.-]+\.[a-z]{2,}/i;
 
 export function UpdateForm({ onClose, onSent }: { onClose: () => void; onSent: () => void }) {
   const a = useApp();
   const snap = a.snap;
   const mob = a.device === 'mobile';
-  const [type, setType] = useState<OperationUpdateType>(FORM_TYPES[0] ?? 'field_report');
+  // Rol yalnızca formun DİLİNİ ve tür listesini seçiyor; yayın kararını sunucu
+  // veriyor (`is_coordinator()`). Tarayıcıdaki role güvenilmiyor — buradaki
+  // dallanma yanlışsa en kötü sonuç yanlış bir metin, yanlış bir yayın değil.
+  const koord = a.role === 'coordinator';
+  const tipler = koord ? COORD_UPDATE_TYPES : FORM_TYPES;
+  const [type, setType] = useState<OperationUpdateType>(tipler[0] ?? 'field_report');
+  // Koordinatörde onay adımı: "Yayınla"ya ilk basış sonucu gösterir, ikincisi
+  // gönderir. Misafirde bu adım yok — onun gönderisi zaten incelemeye gidiyor.
+  const [confirming, setConfirming] = useState(false);
   const [body, setBody] = useState('');
   const [needId, setNeedId] = useState('');
   const [locId, setLocId] = useState('');
@@ -54,14 +58,18 @@ export function UpdateForm({ onClose, onSent }: { onClose: () => void; onSent: (
   }, [onClose]);
 
   if (!snap) return null;
-  const piiVar = PII_RE.test(body);
+  const piiVar = UPDATE_PII_RE.test(body);
 
   const gonder = async () => {
     if (lock.current) return;
     // Hata durumunda form SIFIRLANMIYOR (rules/04 §Forms).
     if (body.trim().length < 3) { setError(trUpdates.formTooShort); return; }
-    if (!email.trim()) { setError(trUpdates.formNeedsEmail); return; }
-    if (!okTruth || !okPrivacy) { setError(trUpdates.formNeedsConsent); return; }
+    // E-posta yalnızca misafir sözleşmesinin parçası: sunucu koordinatörden
+    // istemiyor ve moderasyon geri dönüşü diye bir adım yok.
+    if (!koord && !email.trim()) { setError(trUpdates.formNeedsEmail); return; }
+    if (!koord && (!okTruth || !okPrivacy)) { setError(trUpdates.formNeedsConsent); return; }
+    // Koordinatör sonucu görmeden yayınlamıyor: ilk basış onay bloğunu açar.
+    if (koord && !confirming) { setConfirming(true); setError(''); return; }
 
     lock.current = true;
     setSending(true);
@@ -106,9 +114,13 @@ export function UpdateForm({ onClose, onSent }: { onClose: () => void; onSent: (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
               <Ico n="verified" size={20} color="#157F3E" />
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{trUpdates.successTitle}</h2>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+                {koord ? trUpdates.coordSuccessTitle : trUpdates.successTitle}
+              </h2>
             </div>
-            <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.55 }}>{trUpdates.successBody}</p>
+            <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.55 }}>
+              {koord ? trUpdates.coordSuccessBody : trUpdates.successBody}
+            </p>
             <button type="button" onClick={() => { onSent(); }} className="hv-navy" style={{
               marginTop: 12, background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy,
               borderRadius: 9, minHeight: 48, padding: '0 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer',
@@ -119,7 +131,10 @@ export function UpdateForm({ onClose, onSent }: { onClose: () => void; onSent: (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
               <div style={{ flex: 1 }}>
                 <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700 }}>{trUpdates.formTitle}</h2>
-                <p style={{ margin: 0, fontSize: 13, color: C.muted }}>{trUpdates.formLead}</p>
+                {/* Dürüst vaat: koordinatörün gönderimi incelemeden GEÇMEZ. */}
+                <p style={{ margin: 0, fontSize: 13, color: koord ? '#8A4A00' : C.muted, fontWeight: koord ? 600 : 400 }}>
+                  {koord ? trUpdates.coordLead : trUpdates.formLead}
+                </p>
               </div>
               <button type="button" onClick={onClose} aria-label={trUpdates.cancel} style={{
                 width: 44, height: 44, borderRadius: 10, border: `1px solid ${C.borderSoft}`,
@@ -128,10 +143,10 @@ export function UpdateForm({ onClose, onSent }: { onClose: () => void; onSent: (
             </div>
 
             <div style={{ display: 'grid', gap: 12 }}>
-              {FORM_TYPES.length > 1 && (
+              {tipler.length > 1 && (
                 <label>{label(trUpdates.fType)}
                   <select value={type} onChange={(e) => setType(e.target.value as OperationUpdateType)} style={inputStyle}>
-                    {FORM_TYPES.map((t) => <option key={t} value={t}>{UPDATE_TYPE_LABEL[t]}</option>)}
+                    {tipler.map((t) => <option key={t} value={t}>{UPDATE_TYPE_LABEL[t]}</option>)}
                   </select>
                 </label>
               )}
@@ -170,29 +185,37 @@ export function UpdateForm({ onClose, onSent }: { onClose: () => void; onSent: (
                 <span style={{ display: 'block', fontSize: 11.5, color: C.muted2, marginTop: 4 }}>{trUpdates.fAreaHint}</span>
               </label>
 
-              <label>{label(trUpdates.fName)}
-                <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" style={inputStyle} />
-              </label>
+              {/* İletişim alanları ve onay kutuları MİSAFİR sözleşmesinin parçası:
+                  moderasyon geri dönüşü ve kötüye kullanım sınırı için. Koordinatörün
+                  kimliği oturumdan geliyor; burada ad/e-posta sormak veri toplamak
+                  olurdu (rules/03 §Data Minimization). */}
+              {!koord && (
+                <>
+                  <label>{label(trUpdates.fName)}
+                    <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" style={inputStyle} />
+                  </label>
 
-              <label>{label(trUpdates.fEmail)}
-                <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" style={inputStyle} />
-                <span style={{ display: 'block', fontSize: 11.5, color: C.muted2, marginTop: 4 }}>{trUpdates.fEmailHint}</span>
-              </label>
+                  <label>{label(trUpdates.fEmail)}
+                    <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" style={inputStyle} />
+                    <span style={{ display: 'block', fontSize: 11.5, color: C.muted2, marginTop: 4 }}>{trUpdates.fEmailHint}</span>
+                  </label>
 
-              <label>{label(trUpdates.fPhone)}
-                <input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" autoComplete="tel" style={inputStyle} />
-              </label>
+                  <label>{label(trUpdates.fPhone)}
+                    <input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" autoComplete="tel" style={inputStyle} />
+                  </label>
 
-              {[
-                { on: okTruth, set: setOkTruth, text: trUpdates.okTruth },
-                { on: okPrivacy, set: setOkPrivacy, text: trUpdates.okPrivacy },
-              ].map((c) => (
-                <label key={c.text} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', minHeight: 44 }}>
-                  <input type="checkbox" checked={c.on} onChange={(e) => c.set(e.target.checked)}
-                    style={{ width: 20, height: 20, marginTop: 2, flex: '0 0 20px' }} />
-                  <span style={{ fontSize: 13, color: C.text, lineHeight: 1.45 }}>{c.text}</span>
-                </label>
-              ))}
+                  {[
+                    { on: okTruth, set: setOkTruth, text: trUpdates.okTruth },
+                    { on: okPrivacy, set: setOkPrivacy, text: trUpdates.okPrivacy },
+                  ].map((c) => (
+                    <label key={c.text} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', minHeight: 44 }}>
+                      <input type="checkbox" checked={c.on} onChange={(e) => c.set(e.target.checked)}
+                        style={{ width: 20, height: 20, marginTop: 2, flex: '0 0 20px' }} />
+                      <span style={{ fontSize: 13, color: C.text, lineHeight: 1.45 }}>{c.text}</span>
+                    </label>
+                  ))}
+                </>
+              )}
 
               {error && (
                 <div role="alert" style={{
@@ -203,16 +226,37 @@ export function UpdateForm({ onClose, onSent }: { onClose: () => void; onSent: (
 
               <p style={{ margin: 0, fontSize: 12, color: C.muted2, lineHeight: 1.5 }}>{trUpdates.emergency}</p>
 
+              {/* Yayın öncesi sonuç: metin herkese açık akışta HEMEN görünecek.
+                  Onay bloğu açıkken düğme gönderir; kapalıyken açar. */}
+              {koord && confirming && (
+                <div style={{ background: '#FFF8E5', border: '1px solid #F2DFA8', borderRadius: 10, padding: 12 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#8A4A00' }}>{trUpdates.coordConfirmTitle}</div>
+                  <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#8A6100', lineHeight: 1.5 }}>
+                    {trUpdates.coordConfirm(UPDATE_TYPE_LABEL[type])}
+                  </p>
+                </div>
+              )}
+
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <button type="button" onClick={() => void gonder()} disabled={sending} className="hv-emergency" style={{
                   background: C.navy, border: `1px solid ${C.navy}`, color: '#fff', borderRadius: 9,
                   minHeight: 48, padding: '0 20px', fontSize: 14.5, fontWeight: 600,
                   cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.7 : 1,
-                }}>{sending ? trUpdates.sending : trUpdates.send}</button>
-                <button type="button" onClick={onClose} style={{
-                  background: 'none', border: 0, color: C.muted, fontSize: 14, fontWeight: 600,
-                  cursor: 'pointer', minHeight: 48, padding: '0 8px',
-                }}>{trUpdates.cancel}</button>
+                }}>{sending ? trUpdates.sending
+                  : koord ? (confirming ? trUpdates.coordConfirmGo : trUpdates.coordPublish)
+                  : trUpdates.send}</button>
+                {koord && confirming && !sending && (
+                  <button type="button" onClick={() => setConfirming(false)} style={{
+                    background: C.surface, border: `1px solid ${C.borderSoft}`, color: C.navy,
+                    borderRadius: 9, minHeight: 48, padding: '0 14px', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  }}>{trUpdates.cancel}</button>
+                )}
+                {!(koord && confirming) && (
+                  <button type="button" onClick={onClose} style={{
+                    background: 'none', border: 0, color: C.muted, fontSize: 14, fontWeight: 600,
+                    cursor: 'pointer', minHeight: 48, padding: '0 8px',
+                  }}>{trUpdates.cancel}</button>
+                )}
               </div>
             </div>
           </>

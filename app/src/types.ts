@@ -322,6 +322,53 @@ export interface UpdateFeedPage {
   cursor: UpdateFeedCursor | null;
 }
 
+// ---------------------------------------------------------------------------
+// Moderasyon (migration 0049)
+// ---------------------------------------------------------------------------
+
+// Kuyruktaki bir satır. İLETİŞİM BİLGİSİ MASKELİ gelir — tam değer sunucudan
+// ayrı bir çağrıyla, gerekçeyle ve denetim kaydıyla alınır (rules/03 §Contact
+// Information). Bu arayüzde `email`/`phone` alanı bilerek YOK: olmayan bir alan
+// yanlışlıkla ekrana basılamaz.
+export interface UpdateQueueRow {
+  id: string;
+  disasterId: string;
+  disasterName: string;
+  type: OperationUpdateType;
+  status: OperationUpdateStatus;
+  verified: boolean;
+  authorType: OperationUpdateAuthorType;
+  authorLabel: string;
+  body: string;
+  // Koordinatör daha önce düzenleyerek yayınladıysa gönderenin özgün metni.
+  originalBody: string;
+  approximateLocation: string;
+  piiFlagged: boolean;
+  relatedNeedName: string;
+  relatedLocationName: string;
+  contactMasked: string;
+  emailMasked: string;
+  phoneMasked: string;
+  hasContact: boolean;
+  // Dolu ise koordinatör ek bilgi istemiş ve kayıt hâlâ moderasyonda bekliyor.
+  infoRequestedAt: string | null;
+  infoRequestMessage: string;
+  photoPending: number;
+  photoApproved: number;
+  openReports: number;
+  createdAt: string;
+  publishedAt: string | null;
+}
+
+// Gerekçeli okumanın sonucu. Çekmece kapanınca bellekten düşer.
+export interface UpdateContact {
+  fullName: string;
+  email: string;
+  phone: string;
+}
+
+export type ModerationAction = 'publish' | 'reject' | 'hide' | 'archive';
+
 export interface OperationUpdateInput {
   disasterId: string;
   type: OperationUpdateType;

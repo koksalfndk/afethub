@@ -1,5 +1,6 @@
 import type {
   UpdateFeedFilter, UpdateFeedCursor, UpdateFeedPage, OperationUpdateInput,
+  UpdateQueueRow, UpdateContact, ModerationAction,
   ContactInput, ContactMessage, ContactStatus, ContactAttachment,
   LogEntry, Need, Submission, VerifyKind, RevisionKind, DeliveryInput, Organization, OrganizationInput,
   DisasterReport, DisasterReportInput, ReportConfirmInput, ReportConfirmResult, ReportQueueItem,
@@ -15,7 +16,7 @@ import type {
   Repo, Snapshot, CreateDeliveryResult, Overview, DisasterCard, TopNeed,
   CoordOverview, CoordDisasterRow, CoordQueueItem,
 } from './repo';
-import { PLEDGE_PAGE_SIZE, PLEDGE_TRANSITIONS, PUBLIC_UPDATE_TYPES, genCode, genNrq, remaining, isSameEvent, SLA_HOURS, urgencyScore, splitDistricts, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS, COMMUNITY_THRESHOLD, isPublicAuditAction, MAX_FEATURED_NEEDS, isLivePledge } from './repo';
+import { PLEDGE_PAGE_SIZE, PLEDGE_TRANSITIONS, PUBLIC_UPDATE_TYPES, UPDATE_PII_RE, genCode, genNrq, remaining, isSameEvent, SLA_HOURS, urgencyScore, splitDistricts, isLocalSlideImage, disasterSlug, orgEditableFrom, orgFieldText, ORG_EDITABLE_KEYS, COMMUNITY_THRESHOLD, isPublicAuditAction, MAX_FEATURED_NEEDS, isLivePledge } from './repo';
 import { disasterTypeLabel } from '../i18n/strings';
 import { agoMinutes } from '../util';
 import { PRI } from '../theme';
@@ -42,6 +43,39 @@ let orgEdits: OrgEditRequest[] = [];
 // they become module state like needs and orgs instead of being read straight from seed.
 let announcements: Announcement[] = seed.announcements.map((x) => ({ ...x }));
 const updates: OperationUpdate[] = seed.operationUpdates.map((x) => ({ ...x }));
+
+// Yerel moderasyon kuyruğu. Sayfa yenilenince sıfırlanır. Zaman damgaları burada
+// gerçek değerlerle doldurulur; tohum dosyasına sabit bir ISO yazmak birkaç gün
+// sonra ekranda "3 ay önce bekliyor" gösterirdi.
+const dakikaOnce = (n: number) => new Date(Date.now() - n * 60_000).toISOString();
+const updateQueue: UpdateQueueRow[] = seed.updateQueue.map((x, i) => ({
+  ...x,
+  createdAt: dakikaOnce([18, 96, 240][i] ?? 30 * (i + 1)),
+  infoRequestedAt: x.infoRequestMessage ? dakikaOnce(45) : null,
+}));
+
+// Yayımlanan kuyruk satırı herkese açık akışta da görünmeli — canlıda bunu
+// `operation_updates_public` görünümü yapıyor; yerelde iki liste elle senkron
+// tutuluyor. Yazar etiketi kuyruktakiyle aynı kalır (rol/kurum etiketi, kişi
+// adı değil).
+function pushQueueRowToFeed(q: UpdateQueueRow): void {
+  if (updates.some((u) => u.id === q.id)) return;
+  updates.unshift({
+    id: q.id, disasterId: q.disasterId, type: q.type,
+    authorType: q.authorType, authorLabel: q.authorLabel, organizationId: null,
+    body: q.body, verified: q.verified,
+    relatedNeedId: null, relatedNeedName: q.relatedNeedName,
+    relatedLocationId: null, relatedLocationName: q.relatedLocationName,
+    approximateLocation: q.approximateLocation, pinned: false,
+    correctsUpdateId: null, photoCount: q.photoApproved,
+    publishedAt: q.publishedAt ?? new Date().toISOString(), time: 'az önce',
+  });
+}
+
+function removeFromFeed(id: string): void {
+  const i = updates.findIndex((u) => u.id === id);
+  if (i >= 0) updates.splice(i, 1);
+}
 // Yerel teslim sözü deposu. Sayfa yenilenince sıfırlanır — kalıcı bir kayıt değil.
 type LocalPledge = {
   id: string;
@@ -1535,8 +1569,8 @@ export class LocalRepo implements Repo {
   }
 
   // Yerel modda gönderi MODERASYONA düşer ve akışta GÖRÜNMEZ — canlıdaki
-  // davranışın aynısı. Bir moderasyon kuyruğu olmadığı için kayıt burada
-  // bellekte tutulmuyor: onu akışa eklemek "yayımlandı" demek olurdu.
+  // davranışın aynısı. Kayıt akışa değil, moderasyon kuyruğuna eklenir; onu
+  // akışa eklemek "yayımlandı" demek olurdu.
   async submitOperationUpdate(input: OperationUpdateInput): Promise<string> {
     if (input.body.trim().length < 3 || input.body.trim().length > 1200) {
       throw new Error('Update text must be between 3 and 1200 characters');
@@ -1545,13 +1579,134 @@ export class LocalRepo implements Repo {
       throw new Error('This update type is not available to you');
     }
     if (!input.email.trim()) throw new Error('An e-mail address is required to send a field report');
-    return 'demo-' + Math.random().toString(36).slice(2, 10);
+    const id = 'demo-' + Math.random().toString(36).slice(2, 10);
+    const need = needs.find((n) => n.id === input.relatedNeedId);
+    const loc = locations.find((l) => l.id === input.relatedLocationId);
+    updateQueue.unshift({
+      id, disasterId: input.disasterId,
+      disasterName: seed.disasters.find((d) => d.id === input.disasterId)?.name ?? '',
+      type: input.type, status: 'moderation_pending', verified: false,
+      authorType: 'guest', authorLabel: 'Misafir',
+      body: input.body.trim(), originalBody: '',
+      approximateLocation: input.approximateLocation, piiFlagged: UPDATE_PII_RE.test(input.body),
+      relatedNeedName: need?.name ?? '', relatedLocationName: loc?.name ?? '',
+      // Maskeleme yerel modda da BURADA yapılıyor, ekranda değil: ekranın tam
+      // değeri hiç görmemesi kuralı iki modda da aynı olmalı.
+      contactMasked: maskPerson(input.name), emailMasked: maskEmail(input.email),
+      phoneMasked: maskPhone(input.phone), hasContact: true,
+      infoRequestedAt: null, infoRequestMessage: '',
+      photoPending: 0, photoApproved: 0, openReports: 0,
+      createdAt: new Date().toISOString(), publishedAt: null,
+    });
+    return id;
   }
 
-  async reportOperationUpdate(): Promise<void> {
-    // Yerel modda rapor kaydı tutulmuyor. Sessizce başarılı dönmek yerine hiçbir
-    // şey yapmadığını söyleyen bir yorum: ekran "bildiriminiz alındı" diyor ve
-    // yerel modda bu cümle yalnızca akışın denenebilmesi için var.
+  async reportOperationUpdate(updateId: string): Promise<void> {
+    // Yerel modda rapor kaydı tutulmuyor; yalnızca kuyruktaki açık rapor sayacı
+    // artıyor ki moderasyon ekranı rozetiyle birlikte denenebilsin.
+    const q = updateQueue.find((x) => x.id === updateId);
+    if (q) q.openReports += 1;
+  }
+
+  // ---- Faz 4-A: moderasyon — YEREL DEMO -------------------------------------
+  // Yetkilendirme burada YOK: gerçek kontrol `is_coordinator()` ile sunucuda.
+  // Bu kopya yalnızca ekranın Supabase olmadan çalışabilmesi için var.
+  async listUpdateQueue(disasterId: string): Promise<UpdateQueueRow[]> {
+    return updateQueue
+      .filter((q) => !disasterId || q.disasterId === disasterId)
+      .filter((q) => q.status === 'moderation_pending' || q.openReports > 0 || q.photoPending > 0)
+      .map((q) => ({ ...q }));
+  }
+
+  async updateContact(updateId: string, purpose: string): Promise<UpdateContact> {
+    if (purpose.trim().length < 3) throw new Error('Kullanım amacı gerekli');
+    const q = updateQueue.find((x) => x.id === updateId);
+    if (!q) throw new Error('Update not found');
+    // Demo veride tam değer YOK. Maskelinin arkasında saklanan gerçek bir
+    // e-posta olmadığını göstermek, uydurma bir adres göstermekten dürüst.
+    return { fullName: q.contactMasked, email: q.emailMasked, phone: q.phoneMasked };
+  }
+
+  async moderateOperationUpdate(
+    updateId: string, action: ModerationAction, reason: string, verified?: boolean,
+  ): Promise<void> {
+    if ((action === 'reject' || action === 'hide') && !reason.trim()) {
+      throw new Error('A reason is required');
+    }
+    const q = updateQueue.find((x) => x.id === updateId);
+    if (!q) throw new Error('Update not found');
+    q.status = action === 'publish' ? 'published'
+      : action === 'reject' ? 'rejected'
+      : action === 'hide' ? 'hidden' : 'archived';
+    q.infoRequestedAt = null;
+    if (action === 'publish') {
+      q.publishedAt = new Date().toISOString();
+      // Sunucudaki kuralın aynısı: yayınlamak tek başına doğrulamak değil.
+      q.verified = verified ?? (q.authorType === 'coordinator' || q.authorType === 'institution');
+      pushQueueRowToFeed(q);
+    } else {
+      removeFromFeed(q.id);
+    }
+  }
+
+  async publishUpdateEdited(updateId: string, body: string, reason: string): Promise<void> {
+    if (body.trim().length < 3 || body.trim().length > 1200) {
+      throw new Error('Update text must be between 3 and 1200 characters');
+    }
+    if (reason.trim().length < 3) throw new Error('A reason is required');
+    const q = updateQueue.find((x) => x.id === updateId);
+    if (!q) throw new Error('Update not found');
+    if (q.status !== 'moderation_pending') {
+      throw new Error('Only a pending update can be published with edits');
+    }
+    // İlk düzenlemede özgün metin saklanıyor, sonrakiler onu ezmiyor.
+    q.originalBody = q.originalBody || q.body;
+    q.body = body.trim();
+    q.piiFlagged = UPDATE_PII_RE.test(body);
+    q.status = 'published';
+    q.publishedAt = new Date().toISOString();
+    q.infoRequestedAt = null;
+    q.verified = q.authorType === 'coordinator' || q.authorType === 'institution';
+    pushQueueRowToFeed(q);
+  }
+
+  async correctOperationUpdate(updateId: string, body: string, reason: string): Promise<string> {
+    if (body.trim().length < 3) throw new Error('Update text must be between 3 and 1200 characters');
+    if (reason.trim().length < 3) throw new Error('A reason is required');
+    const eski = updates.find((u) => u.id === updateId);
+    if (!eski) throw new Error('Update not found');
+    // Sunucudaki davranış: düzeltme YENİ bir kayıt açar, eskisi akıştan düşer.
+    const yeni: OperationUpdate = {
+      ...eski,
+      id: 'demo-' + Math.random().toString(36).slice(2, 10),
+      body: body.trim(), correctsUpdateId: eski.id, pinned: false,
+      publishedAt: new Date().toISOString(), time: 'az önce',
+    };
+    updates.splice(updates.indexOf(eski), 1);
+    updates.unshift(yeni);
+    return yeni.id;
+  }
+
+  async requestUpdateInfo(updateId: string, message: string): Promise<void> {
+    if (message.trim().length < 3 || message.trim().length > 500) {
+      throw new Error('The information request must be between 3 and 500 characters');
+    }
+    const q = updateQueue.find((x) => x.id === updateId);
+    if (!q) throw new Error('Update not found');
+    if (q.status !== 'moderation_pending') {
+      throw new Error('Information can only be requested for a pending update');
+    }
+    q.infoRequestedAt = new Date().toISOString();
+    q.infoRequestMessage = message.trim();
+  }
+
+  async pinOperationUpdate(updateId: string, pinned: boolean): Promise<void> {
+    const u = updates.find((x) => x.id === updateId);
+    if (!u) throw new Error('Update not found');
+    if (pinned && updates.filter((x) => x.disasterId === u.disasterId && x.pinned).length >= 3 && !u.pinned) {
+      throw new Error('Bu operasyonda en fazla 3 güncelleme sabitlenebilir.');
+    }
+    u.pinned = pinned;
   }
 
   async pledgeSummary(disasterId?: string): Promise<PledgeSummary> {

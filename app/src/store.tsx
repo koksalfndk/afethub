@@ -37,7 +37,7 @@ import { uploadContactFiles, type PreparedContactFile } from './contactFiles';
 
 export type Route =
   | 'home' | 'disasters' | 'disaster' | 'report' | 'track' | 'needReq' | 'orgs' | 'reportDisaster' | 'about' | 'howItWorks' | 'account'
-  | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordPledges' | 'coordLog' | 'coordSlider' | 'coordDisasters' | 'coordDisaster'
+  | 'coordHome' | 'coordQueue' | 'coordNeeds' | 'coordPledges' | 'coordUpdates' | 'coordLog' | 'coordSlider' | 'coordDisasters' | 'coordDisaster'
   | 'coordOrgEdits' | 'coordOrgs' | 'coordStaff' | 'volunteer' | 'coordOps' | 'coordReports'
   | 'components' | 'system' | 'contact' | 'coordContact';
 export type Tab = 'overview' | 'needs' | 'locations' | 'updates' | 'announcements' | 'activity';
@@ -84,6 +84,7 @@ function toPath(route: Route, tab: Tab, slug: string): string {
     // görünüyordu, adres yanlıştı — yani bağlantı paylaşılamıyor ve yenileme
     // ana sayfaya düşüyordu.
     case 'coordPledges': return '/koordinasyon/teslim-sozleri';
+    case 'coordUpdates': return '/koordinasyon/saha-guncellemeleri';
     case 'coordNeeds': return '/koordinasyon/ihtiyaclar';
     case 'coordLog': return '/koordinasyon/kayit';
     case 'coordSlider': return '/koordinasyon/slider';
@@ -135,6 +136,7 @@ function fromPath(pathname: string): ParsedPath {
       if (s === 'afet' && parts[2]) return { route: 'coordDisaster', slug: parts[2], role: 'coordinator' };
       const r: Route = s === 'kuyruk' ? 'coordQueue'
         : s === 'teslim-sozleri' ? 'coordPledges'
+        : s === 'saha-guncellemeleri' ? 'coordUpdates'
         : s === 'ihtiyaclar' ? 'coordNeeds'
         : s === 'kayit' ? 'coordLog' : s === 'slider' ? 'coordSlider'
         : s === 'afetler' ? 'coordDisasters'
